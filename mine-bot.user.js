@@ -7184,16 +7184,11 @@
       }
     }
 
-    // 1. Живой объект движка игры S.myI — 100% первоисточник игры (mine.js)
-    if (G.__lgMineS && typeof G.__lgMineS.myI === 'number') {
-      if (G.__lgMineS.myI >= 0) {
-        const st = G.__lgMineS.st || G.__lgMineState;
-        if (!st || !st.dug || st.dug[G.__lgMineS.myI] !== '1') {
-          return true;
-        }
-      } else {
-        // myI === -1: движок игры считает, что персонаж НЕ копает
-        return false;
+    // 1. Живой объект движка игры S.myI — первоисточник игры (mine.js)
+    if (G.__lgMineS && typeof G.__lgMineS.myI === 'number' && G.__lgMineS.myI >= 0) {
+      const st = G.__lgMineS.st || G.__lgMineState;
+      if (!st || !st.dug || st.dug[G.__lgMineS.myI] !== '1') {
+        return true;
       }
     }
 
@@ -7215,7 +7210,7 @@
     }
 
     // 3. Кнопка остановки добычи (data-mn-stop или текст "Не копать" / "Перестать копать")
-    const stopBtn = document.querySelector('[data-mn-stop]') ||
+    const stopBtn = document.querySelector('[data-mn-stop], .mn [data-mn-stop]') ||
       Array.from(document.querySelectorAll('button, .btn')).find(b => {
         const t = (b.textContent || '').trim().toLowerCase();
         return t.includes('не копать') || t.includes('перестать копать') || t.includes('отложить кирку');
@@ -7233,7 +7228,7 @@
     }
 
     // 5. Проверяем собственную полоску над камнем (.mn-bar.me)
-    const myBar = document.querySelector('.mn-bar.me');
+    const myBar = document.querySelector('.mn-bar.me, .mn .mn-bar.me');
     if (myBar) return true;
 
     // 6. Проверяем карточку активной добычи в панели игры (.m2-now.on или блок [data-mn-pr])
@@ -7241,7 +7236,7 @@
     if (activeCard) return true;
 
     // 7. Проверяем спрайт героя: анимация махания киркой (.mn-heroes .mn-h.me.dig)
-    const digHero = document.querySelector('.mn-heroes .mn-h.me.dig');
+    const digHero = document.querySelector('.mn-heroes .mn-h.me.dig, .mn .mn-heroes .mn-h.me.dig');
     if (digHero) return true;
 
     // 8. Проверяем список копателей у камней в st.dg
@@ -7259,8 +7254,8 @@
       }
     }
 
-    // 9. Переменная активного камня (если недавно кликнули и ждем начала добычи)
-    if (activeMiningRockIndex >= 0) {
+    // 9. Если недавно кликнули по цели и персонаж еще в пути или ждет ответа сервера (< 5 сек)
+    if (activeMiningRockIndex >= 0 && Date.now() - targetAssignedTime < 5000) {
       const isTargetDug = st?.dug && st.dug[activeMiningRockIndex] === '1';
       if (!isTargetDug) return true;
     }
@@ -7665,7 +7660,7 @@
 
     const prefix = mode === 'ghost' ? '🏙️ ' : '';
     if (mining && !shouldSwitchToCrowd) {
-      lastTargetKey = null;
+      lastTargetKey = (activeMiningRockIndex >= 0) ? String(activeMiningRockIndex) : null;
       if (Date.now() - lastMineStatePoll > 8000) {
         refreshMineStateFromServer();
       }
@@ -7734,6 +7729,11 @@
         } else {
           lastTargetKey = targetKey;
           targetAssignedTime = Date.now();
+        }
+
+        // 100% защита от случайного повторного клика по камню, который мы уже копаем
+        if (best.isMe || (activeMiningRockIndex >= 0 && targetKey === String(activeMiningRockIndex))) {
+          shouldClick = false;
         }
 
         if (!shouldSwitchToCrowd) {
