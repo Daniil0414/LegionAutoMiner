@@ -272,7 +272,7 @@
   let mode = 'screen'; // По умолчанию 'screen', можно переключить на 'ghost' (из города)
   let isPaused = true; // При запуске скрипт находится на паузе (не начинает копать автоматически)
   let isDrillCollect = localStorage.getItem('lg_bot_drill_collect') !== 'false'; // По умолчанию true (пассивный сбор руды с буров)
-  let isDrillBuild = localStorage.getItem('lg_bot_drill_build') === 'true'; // По умолчанию false (отдельный тумблер авто-установки/взноса)
+  let isDrillBuild = localStorage.getItem('lg_bot_drill_build') !== 'false'; // По умолчанию false (отдельный тумблер авто-установки/взноса)
   const fundedDrills = new Set();
   let lastDrillCheckTime = 0;
   let oreFirst = localStorage.getItem('lg_bot_ore_first') !== '0'; // По умолчанию true (включено: сначала руда с макс. числом людей)
