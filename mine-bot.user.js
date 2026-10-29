@@ -1332,6 +1332,9 @@
           if (d.st) {
             G.__lgMineState = d.st;
             G.__lgMineError = null;
+            if (isDrillBuild && d.st.drills && !isRidingLift) {
+              processDrillAutoFund();
+            }
             if (typeof G.__mineHandleStateUpdate === 'function') {
               try { G.__mineHandleStateUpdate(d.st); } catch (e) {}
             }
@@ -1608,7 +1611,7 @@
             <span id="b-drill-info" style="font-size:10px;color:#a78bfa;font-weight:bold;">0 буров</span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);">
-            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#38bdf8;font-size:10.5px;font-weight:bold;user-select:none;" title="Отдельный тумблер: автоматически вносить минимальный взнос 100м на постройку/улучшение площадок буровых для бонуса строителя рудой">
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#38bdf8;font-size:10.5px;font-weight:bold;user-select:none;" title="Автоматически каждую 1 секунду и по событиям сети вносить минимальный взнос 100м на постройку/улучшение площадок буровых для бонуса строителя рудой">
               <input type="checkbox" id="b-drill-build" ${isDrillBuild ? 'checked' : ''} style="accent-color:#38bdf8;cursor:pointer;width:14px;height:14px;">
               <span>🏗️ Авто-установка буров (взнос 100м)</span>
             </label>
@@ -2112,7 +2115,18 @@
     }
   }
 
+  let isFundingDrill = false;
   async function processDrillAutoFund() {
+    if (!isDrillBuild || isFundingDrill) return;
+    isFundingDrill = true;
+    try {
+      await processDrillAutoFundInner();
+    } finally {
+      isFundingDrill = false;
+    }
+  }
+
+  async function processDrillAutoFundInner() {
     if (!isDrillBuild) return;
     const drills = getDrillsList();
     if (!drills || drills.length === 0) return;
@@ -6201,6 +6215,9 @@
       if (activeTab === 'quest') {
         refreshQuestUI();
       }
+      if (isDrillBuild && !isRidingLift) {
+        processDrillAutoFund();
+      }
     }, 1000);
   }
   let isMinimized = localStorage.getItem('lg_bot_min') === '1';
@@ -8235,7 +8252,7 @@
           stepScreen();
         }
         updateStatsUI();
-        if (Date.now() - lastDrillCheckTime > 15000) {
+        if (Date.now() - lastDrillCheckTime > 1000) {
           lastDrillCheckTime = Date.now();
           if (isDrillBuild) processDrillAutoFund();
         }
