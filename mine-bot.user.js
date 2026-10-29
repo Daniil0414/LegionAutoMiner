@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      8.3
-// @description  Auto-mining bot, Stealth Anti-Detection (vh: 0), Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
+// @version      8.4
+// @description  Auto-mining bot, Stealth Anti-Detection (tl sanitized, Mine 3.0 support, Friendcoin), Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=play.multidonate.ru
@@ -26,12 +26,18 @@
 
   // =========================================================================
   // 🛡️ КРИТИЧЕСКИЙ АНТИ-ДЕТЕКТ И СТЕЛС-РЕЖИМ (ФОНОВАЯ ВКЛАДКА / BACKGROUND STEALTH)
-  // В обновлении игры от 26.10 разработчики добавили телеметрию bwOf(pt):
-  // { k: 1, vh: document.hidden ? 1 : 0, pt: [x, y] }.
-  // Если вкладка скрыта/свернута, игра отправляет vh: 1 («Боты в шахте для стримера»).
-  // Кроме того, при document.hidden игра через 60с гасит SSE и выходит из комнат.
-  // 1. Принудительно спуфим hidden = false, visibilityState = 'visible', hasFocus = true.
-  // 2. Блокируем события visibilitychange со статусом скрытия.
+  // В обновлении игры от 29.10 разработчики добавили телеметрию bwOf(pt):
+  // { pt: [x, y], tl: { ti, ut, rv, hp, gm } }.
+  // Игра проверяет:
+  // - ti: число реальных кликов человека (e.isTrusted);
+  // - ut: 1 при программных кликах (isTrusted === false);
+  // - rv: 1 при замерзании rAF в фоновой вкладке;
+  // - hp: 1 при детекции переопределения свойств hidden/visibilityState/hasFocus (функция tlHp);
+  // - gm: 1 при сокрытии шахты в Ghost-режиме (функция ghostM).
+  // 1. Мы гарантируем чистоту объекта document от собственных свойств, чтобы tlHp() возвращал 0.
+  // 2. Блокируем всплытие событий visibilitychange со статусом скрытия, чтобы игра не тушила комнаты и SSE.
+  // 3. Главная защита: в перехвате fetch для /api/mineDig мы полностью вычищаем объект телеметрии tl,
+  //    удаляя флаги ut, rv, hp, gm и выставляя натуральный счетчик ti человека (1-2 клика).
   let origHiddenGetter = null;
   let origVisibilityGetter = null;
   let isWindowFocused = true;
@@ -39,37 +45,20 @@
   try {
     const docProto = (G.Document && G.Document.prototype) || Document.prototype;
     try {
-      const descH = Object.getOwnPropertyDescriptor(docProto, 'hidden') || Object.getOwnPropertyDescriptor(document, 'hidden');
+      const descH = Object.getOwnPropertyDescriptor(docProto, 'hidden');
       if (descH && typeof descH.get === 'function') origHiddenGetter = descH.get;
-      const descV = Object.getOwnPropertyDescriptor(docProto, 'visibilityState') || Object.getOwnPropertyDescriptor(document, 'visibilityState');
+      const descV = Object.getOwnPropertyDescriptor(docProto, 'visibilityState');
       if (descV && typeof descV.get === 'function') origVisibilityGetter = descV.get;
     } catch (e) {}
 
-    const defineVis = (target) => {
-      try {
-        Object.defineProperty(target, 'hidden', {
-          get: () => false,
-          set: () => {},
-          configurable: true
-        });
-        Object.defineProperty(target, 'visibilityState', {
-          get: () => 'visible',
-          set: () => {},
-          configurable: true
-        });
-      } catch (err) {}
-    };
-    defineVis(docProto);
-    defineVis(document);
-    if (G.document && G.document !== document) defineVis(G.document);
-
+    // Гарантируем чистоту document от собственных свойств (чтобы tlHp() возвращал 0)
     try {
-      if (typeof docProto.hasFocus === 'function') docProto.hasFocus = () => true;
-      if (typeof document.hasFocus === 'function') document.hasFocus = () => true;
-      if (G.document && typeof G.document.hasFocus === 'function') G.document.hasFocus = () => true;
-    } catch (err) {}
+      if (Object.prototype.hasOwnProperty.call(document, 'hidden')) delete document.hidden;
+      if (Object.prototype.hasOwnProperty.call(document, 'visibilityState')) delete document.visibilityState;
+      if (Object.prototype.hasOwnProperty.call(document, 'hasFocus')) delete document.hasFocus;
+    } catch (e) {}
 
-    // Блокируем всплытие событий скрытия вкладки в capture-фазе
+    // Блокируем всплытие событий скрытия вкладки в capture-фазе (игра не гасит SSE и таймеры комнат)
     const suppressHiddenEvent = (e) => {
       if (e && (e.type === 'visibilitychange' || e.type === 'webkitvisibilitychange')) {
         e.stopImmediatePropagation();
@@ -491,13 +480,17 @@
     return 1; // Прочая ценная руда/жилы
   }
 
-  // Детерминированное вычисление точного индекса клетки (0..83) по координатам полоски прогресса
+  // Детерминированное вычисление точного индекса клетки (для Шахты 2.0 и Шахты 3.0) по координатам полоски прогресса
   function getCellIndexFromBarPosition(bx, by) {
-    const getXY = (G.LGCraftWorld && G.LGCraftWorld.cellXY) || 
-                  (G.LGWorldLib && G.LGWorldLib.mine && G.LGWorldLib.mine.cellXY);
+    const isV3 = !!(G.__lgMineS?.F?.v3 || G.__lgMineState?.fl?.v3);
+    const m3info = G.__lgMineS?.F || G.__lgMineState?.fl;
+    const getXY = (isV3 && G.LGWorldLib?.mine3 && m3info) ? G.LGWorldLib.mine3(m3info).cellXY :
+                  ((G.LGCraftWorld && G.LGCraftWorld.cellXY) || 
+                  (G.LGWorldLib && G.LGWorldLib.mine && G.LGWorldLib.mine.cellXY));
+    const maxCells = (isV3 && m3info && m3info.w && m3info.h) ? (m3info.w * m3info.h) : 84;
     if (getXY) {
       let bestI = -1, bestDist = Infinity;
-      for (let i = 0; i < 84; i++) {
+      for (let i = 0; i < maxCells; i++) {
         const c = getXY(i);
         if (!c) continue;
         const expectedLeft = c.x - 44;
@@ -898,7 +891,7 @@
     G.__mineFetchHooked = true;
     const origFetch = G.fetch;
     G.fetch = async function (...args) {
-      // 🛡️ Стелс-защита: перехват и принудительное выставление vh: 0 в запросах mineDig
+      // 🛡️ Стелс-защита: перехват и полная очистка телеметрии tl в запросах mineDig (Шахта 29.10)
       try {
         const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
         if (url.includes('/api/mineDig') && args[1] && args[1].body) {
@@ -906,14 +899,25 @@
             try {
               const bodyObj = JSON.parse(args[1].body);
               let modified = false;
-              if (bodyObj.vh !== 0) {
-                bodyObj.vh = 0;
+              // Полная очистка анти-бот флагов телеметрии Шахты (tl: { ut, rv, hp, gm })
+              if (bodyObj.tl) {
+                if (bodyObj.tl.ut !== undefined) { delete bodyObj.tl.ut; modified = true; }
+                if (bodyObj.tl.rv !== undefined) { delete bodyObj.tl.rv; modified = true; }
+                if (bodyObj.tl.hp !== undefined) { delete bodyObj.tl.hp; modified = true; }
+                if (bodyObj.tl.gm !== undefined) { delete bodyObj.tl.gm; modified = true; }
+                // Гарантируем 1-2 естественных клика живого человека
+                const humanTi = Math.floor(Math.random() * 2) + 1;
+                if (!bodyObj.tl.ti || bodyObj.tl.ti < 1) {
+                  bodyObj.tl.ti = humanTi;
+                  modified = true;
+                }
+              } else {
+                bodyObj.tl = { ti: Math.floor(Math.random() * 2) + 1 };
                 modified = true;
               }
-              if (bodyObj.k !== 1) {
-                bodyObj.k = 1;
-                modified = true;
-              }
+              // Очищаем устаревшие поля 26.10, если они присутствуют
+              if (bodyObj.vh !== undefined) { delete bodyObj.vh; modified = true; }
+              if (bodyObj.k !== undefined) { delete bodyObj.k; modified = true; }
               if (modified) {
                 args[1] = { ...args[1], body: JSON.stringify(bodyObj) };
               }
@@ -1258,8 +1262,17 @@
     };
   }
 
-  // Координаты клетки для валидации сервером
+  // Координаты клетки для валидации сервером (поддержка Шахты 2.0 и Шахты 3.0)
   function getRockCoords(rockIndex) {
+    const isV3 = !!(G.__lgMineS?.F?.v3 || G.__lgMineState?.fl?.v3);
+    const m3info = G.__lgMineS?.F || G.__lgMineState?.fl;
+    if (isV3 && G.LGWorldLib?.mine3 && m3info) {
+      try {
+        const mw = G.LGWorldLib.mine3(m3info);
+        const p = mw.cellXY ? mw.cellXY(rockIndex) : null;
+        if (p) return { x: Math.round(p.x), y: Math.round(p.y) };
+      } catch (e) {}
+    }
     if (G.LGCraftWorld && G.LGCraftWorld.cellXY) {
       try {
         const p = G.LGCraftWorld.cellXY(rockIndex);
@@ -1502,7 +1515,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">⛏️ Майнер v8.3</span>
+        <span style="flex-shrink:0;">⛏️ Майнер v8.4</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -6831,8 +6844,10 @@
   }
 
   function getMineLabel(id) {
+    if (!id || id === 'home') return 'Домашняя ★';
+    if (id.startsWith('home.')) return `Домашняя (Этаж ${id.split('.')[1]}) ★`;
     const m = availableMines.find(item => item.id === id);
-    if (!m) return id === 'home' ? 'Домашняя' : id;
+    if (!m) return id;
     const stars = '★'.repeat(Math.max(1, Math.min(5, m.danger || 1)));
     return `${m.name} ${stars}`;
   }
@@ -6924,6 +6939,14 @@
     // 1. Имена городов из /api/city/towns для справочника названий
     const townNames = new Map();
     try {
+      if (G.__lgMineCurrent && G.__lgMineCurrent.includes('.')) {
+        addOrUpdate({
+          id: G.__lgMineCurrent,
+          name: `Домашняя (Этаж ${G.__lgMineCurrent.split('.')[1]})`,
+          danger: 1,
+          busy: false
+        });
+      }
       const tRes = await gameApi('/api/city/towns');
       if (tRes && Array.isArray(tRes.list)) {
         for (const t of tRes.list) {
@@ -7277,7 +7300,7 @@
     }
     let group = candidate.group;
     if (!group && idx >= 0) {
-      group = document.querySelector(`svg.mn-bg g[data-i="${idx}"]`);
+      group = document.querySelector(`.mn-world g[data-i="${idx}"], svg.mn-bg g[data-i="${idx}"], g[data-i="${idx}"]`);
     }
     const bar = candidate.bar;
 
@@ -7287,10 +7310,13 @@
       const r = target.getBoundingClientRect();
       let cx = r.left + r.width / 2;
       let cy = r.top + r.height / 2;
-      // Если в фоне или Ghost-режиме getBoundingClientRect вернул нули, рассчитываем точные координаты по сетке
+      // Если в фоне или Ghost-режиме getBoundingClientRect вернул нули, рассчитываем точные координаты по сетке (Шахта 2.0 и 3.0)
       if ((!cx && !cy) && idx >= 0) {
-        const getXY = (G.LGCraftWorld && G.LGCraftWorld.cellXY) || 
-                      (G.LGWorldLib && G.LGWorldLib.mine && G.LGWorldLib.mine.cellXY);
+        const isV3 = !!(G.__lgMineS?.F?.v3 || G.__lgMineState?.fl?.v3);
+        const m3info = G.__lgMineS?.F || G.__lgMineState?.fl;
+        const getXY = (isV3 && G.LGWorldLib?.mine3 && m3info) ? G.LGWorldLib.mine3(m3info).cellXY :
+                      ((G.LGCraftWorld && G.LGCraftWorld.cellXY) || 
+                      (G.LGWorldLib && G.LGWorldLib.mine && G.LGWorldLib.mine.cellXY));
         if (getXY) {
           const pt = getXY(idx);
           if (pt) {
@@ -7325,7 +7351,7 @@
     }
     const bars = Array.from(document.querySelectorAll('.mn-bar'));
     const candidates = [];
-    const allGroups = Array.from(document.querySelectorAll('svg.mn-bg g[data-i]'));
+    const allGroups = Array.from(document.querySelectorAll('.mn-world g[data-i], svg.mn-bg g[data-i], g[data-i]'));
     const digCats = Array.from(document.querySelectorAll('.mn-heroes .mn-h.dig'));
     const candidateIndices = new Set();
 
@@ -7346,8 +7372,8 @@
         candidateIndices.add(iNum);
       }
 
-      // Поиск SVG группы по точному data-i
-      let matchedG = (iNum >= 0) ? document.querySelector(`svg.mn-bg g[data-i="${iNum}"]`) : null;
+      // Поиск SVG группы по точному data-i (Шахта 2.0 и Шахта 3.0)
+      let matchedG = (iNum >= 0) ? document.querySelector(`.mn-world g[data-i="${iNum}"], svg.mn-bg g[data-i="${iNum}"], g[data-i="${iNum}"]`) : null;
       if (!matchedG) {
         matchedG = allGroups.find(g => g.dataset.i === String(iNum)) || null;
       }
@@ -7803,6 +7829,32 @@
     }
   }, true);
 
+  // =========================================================================
+  // 🎁 АВТО-ОТПРАВКА «МОНЕТЫ ДНЯ» ДРУЗЬЯМ (Friendcoin 29.10)
+  // =========================================================================
+  async function autoSendFriendCoins() {
+    try {
+      const today = new Date().toDateString();
+      const lastSent = localStorage.getItem('lg_last_friendcoin_date');
+      if (lastSent === today) return;
+      if (!G.ME || !G.ME.user) return;
+
+      const rid = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      const res = await gameApi('/api/friends/coin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ all: 1, rid })
+      });
+      if (res && res.ok) {
+        localStorage.setItem('lg_last_friendcoin_date', today);
+        const count = res.n || (res.to ? res.to.length : 0);
+        if (count > 0) {
+          console.log(`[Friendcoin] 🎁 Монета дня автоматически отправлена ${count} друзьям!`);
+        }
+      }
+    } catch (e) {}
+  }
+
   // Запуск
   applyActiveTab();
   scanMines();
@@ -7811,6 +7863,8 @@
   updateStatsUI();
   initBackgroundAudioKeepAlive();
   initBackgroundWorker();
+  setTimeout(autoSendFriendCoins, 4000);
+  setInterval(autoSendFriendCoins, 3600000);
   if (!isPaused) step();
   if (typeof scanPlayers === 'function') scanPlayers(true);
   if (typeof initQuestModule === 'function') initQuestModule();
