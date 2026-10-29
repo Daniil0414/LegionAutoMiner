@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      8.4
-// @description  Auto-mining bot, Stealth Anti-Detection (tl sanitized, Mine 3.0 support, Friendcoin), Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
+// @version      8.5
+// @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=play.multidonate.ru
@@ -271,6 +271,10 @@
 
   let mode = 'screen'; // По умолчанию 'screen', можно переключить на 'ghost' (из города)
   let isPaused = true; // При запуске скрипт находится на паузе (не начинает копать автоматически)
+  let isDrillCollect = localStorage.getItem('lg_bot_drill_collect') !== 'false'; // По умолчанию true (пассивный сбор руды с буров)
+  let isDrillBuild = localStorage.getItem('lg_bot_drill_build') === 'true'; // По умолчанию false (отдельный тумблер авто-установки/взноса)
+  const fundedDrills = new Set();
+  let lastDrillCheckTime = 0;
   let oreFirst = localStorage.getItem('lg_bot_ore_first') !== '0'; // По умолчанию true (включено: сначала руда с макс. числом людей)
   let coalIronFirst = localStorage.getItem('lg_bot_coal_iron_first') !== '0'; // По умолчанию true (включено: приоритет сперва уголь, затем железо)
   let timer = null;
@@ -1515,7 +1519,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">⛏️ Майнер v8.4</span>
+        <span style="flex-shrink:0;">⛏️ Майнер v8.5</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -1585,6 +1589,22 @@
             <input type="checkbox" id="b-coal-iron-first" ${coalIronFirst ? 'checked' : ''} style="accent-color:#ffd700;cursor:pointer;width:14px;height:14px;">
             <span>⛏️ Сперва уголь и железо</span>
           </label>
+        </div>
+        <!-- Шахта 3.0: Автобуры (Сбор 30% руды и Установка как отдельный тумблер) -->
+        <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:8px;background:#151226;padding:6px 8px;border-radius:6px;border:1px solid #7c3aed;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#c084fc;font-size:11px;font-weight:bold;user-select:none;" title="Пассивный сбор 30% руды со всех работающих буровых шахты и авто-сбор наград">
+              <input type="checkbox" id="b-drill-collect" ${isDrillCollect ? 'checked' : ''} style="accent-color:#c084fc;cursor:pointer;width:14px;height:14px;">
+              <span>🚜 Автобур: сбор руды</span>
+            </label>
+            <span id="b-drill-info" style="font-size:10px;color:#a78bfa;font-weight:bold;">0 буров</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);">
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#38bdf8;font-size:10.5px;font-weight:bold;user-select:none;" title="Отдельный тумблер: автоматически вносить минимальный взнос 100м на постройку/улучшение площадок буровых для бонуса строителя рудой">
+              <input type="checkbox" id="b-drill-build" ${isDrillBuild ? 'checked' : ''} style="accent-color:#38bdf8;cursor:pointer;width:14px;height:14px;">
+              <span>🏗️ Авто-установка буров (взнос 100м)</span>
+            </label>
+          </div>
         </div>
         <div id="b-st" style="margin-bottom:8px;color:#ffc107;font-size:12px;font-weight:bold;min-height:16px;line-height:1.35;word-break:break-word;">На паузе</div>
         <!-- Прогресс-бар добычи текущего камня (здоровье камня / сколько осталось, как в игре) -->
@@ -1971,6 +1991,8 @@
   const checkOreFirst = w.querySelector('#b-ore-first');
   const checkCoalIronFirst = w.querySelector('#b-coal-iron-first');
   const coalIronLabel = w.querySelector('#b-coal-iron-label');
+  const checkDrillCollect = w.querySelector('#b-drill-collect');
+  const checkDrillBuild = w.querySelector('#b-drill-build');
 
   if (checkOreFirst) {
     checkOreFirst.onchange = () => {
@@ -1986,6 +2008,124 @@
       coalIronFirst = checkCoalIronFirst.checked;
       localStorage.setItem('lg_bot_coal_iron_first', coalIronFirst ? '1' : '0');
     };
+  }
+  if (checkDrillCollect) {
+    checkDrillCollect.onchange = () => {
+      isDrillCollect = checkDrillCollect.checked;
+      localStorage.setItem('lg_bot_drill_collect', isDrillCollect ? 'true' : 'false');
+      showToast(isDrillCollect ? '🚜 Автобур: сбор руды включён' : 'Автобур: сбор руды выключен');
+      updateDrillsUI();
+    };
+  }
+  if (checkDrillBuild) {
+    checkDrillBuild.onchange = () => {
+      isDrillBuild = checkDrillBuild.checked;
+      localStorage.setItem('lg_bot_drill_build', isDrillBuild ? 'true' : 'false');
+      showToast(isDrillBuild ? '🏗️ Авто-установка буров ВКЛ (взнос 100м)' : 'Авто-установка буров выключена');
+      if (isDrillBuild) processDrillAutoFund();
+    };
+  }
+
+  // ---------- ЛОГИКА АВТОБУРОВ (ШАХТА 3.0) ----------
+  function getDrillsList() {
+    const S = G.__lgMineS;
+    if (S && S.st && Array.isArray(S.st.drills)) return S.st.drills;
+    if (G.__lgMineState && Array.isArray(G.__lgMineState.drills)) return G.__lgMineState.drills;
+    return [];
+  }
+
+  function updateDrillsUI() {
+    const drills = getDrillsList();
+    const infoEl = w.querySelector('#b-drill-info');
+    if (!infoEl) return;
+    if (!drills || drills.length === 0) {
+      infoEl.textContent = '0 буров';
+      infoEl.style.color = '#a78bfa';
+      return;
+    }
+    let active = 0;
+    let totalRate = 0;
+    for (const d of drills) {
+      const stg = d[3];
+      const lv = +d[4] || 0;
+      const rate = +d[10] || 0;
+      if (stg === 'work' || (stg === 'build' && lv > 0)) {
+        active++;
+        totalRate += rate;
+      }
+    }
+    if (active > 0) {
+      infoEl.textContent = `${active} актив. (${totalRate > 0 ? `~${totalRate}/ч` : 'добыча'})`;
+      infoEl.style.color = '#38bdf8';
+    } else {
+      infoEl.textContent = `${drills.length} буров`;
+      infoEl.style.color = '#a78bfa';
+    }
+
+    // Если включен авто-сбор, проверяем награды скупщика (/api/mineClaim)
+    if (isDrillCollect) {
+      const claimBtn = w.querySelector('#b-mine-claim-btn');
+      if (claimBtn && claimBtn.style.display !== 'none' && !claimBtn.disabled && !claimBtn.textContent.includes('Забир')) {
+        claimBtn.click();
+      }
+    }
+  }
+
+  async function processDrillAutoFund() {
+    if (!isDrillBuild) return;
+    const drills = getDrillsList();
+    if (!drills || drills.length === 0) return;
+
+    let myCoins = getMyCoins();
+    if (myCoins < 100) return;
+
+    const myHero = (G.ME && G.ME.hero) || (G.LGSiteUi && G.LGSiteUi.hero && G.LGSiteUi.hero()) || G.__lgHero;
+    const myNick = (myHero && (myHero.n || myHero.name)) || '';
+
+    for (const d of drills) {
+      const [k, , , stg, lv, c, need, , , , , res, by] = d;
+      if (!k) continue;
+      // site (площадка под установку) или work с неполным сбором на следующий уровень (lv < 3)
+      if ((stg === 'site' || stg === 'work') && (+lv || 0) < 3) {
+        const left = Math.max(0, (+need || 0) - (+c || 0));
+        if (left <= 0) continue;
+
+        const drillKey = String(k);
+        if (fundedDrills.has(drillKey)) continue;
+
+        const alreadyFunded = myNick && Array.isArray(by) && by.some(item => Array.isArray(item) && item[0] && String(item[0]).toLowerCase() === myNick.toLowerCase());
+        if (alreadyFunded) {
+          fundedDrills.add(drillKey);
+          continue;
+        }
+
+        const fundAmount = Math.min(100, left);
+        if (myCoins >= fundAmount) {
+          fundedDrills.add(drillKey);
+          const channelToken = String(currentMineId || 'home').split('.')[0];
+          try {
+            const resDrill = await gameApi('/api/mineDrill', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                c: channelToken,
+                k: drillKey,
+                coins: fundAmount
+              })
+            });
+            if (resDrill && resDrill.ok) {
+              showToast(`🏗️ Авто-установка: внесён взнос ${fundAmount}м в буровую (${res || 'руда'})! Бонус строителя зафиксирован.`);
+              refreshMyCoinsFromApi(true);
+              myCoins -= fundAmount;
+            } else {
+              fundedDrills.delete(drillKey);
+            }
+          } catch (e) {
+            fundedDrills.delete(drillKey);
+          }
+        }
+      }
+    }
   }
   const bMin = w.querySelector('#b-min'), bBody = w.querySelector('#b-body');
   const bMiniSummary = w.querySelector('#b-mini-summary');
@@ -2843,7 +2983,7 @@
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;font-size:9px;color:#8899aa;border-top:1px dashed rgba(255,255,255,0.08);padding-top:4px;margin-top:2px;gap:4px;">
               <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sourceHtml}</span>
-              <button data-buy-idx="${idx}" style="padding:3px 9px;background:#007bff;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:10px;font-weight:bold;transition:background 0.2s;flex-shrink:0;">Купить</button>
+              <button data-buy-idx="${idx}" style="padding:3px 9px;background:${(lot.ru && lot.ru > Date.now()) ? '#7c3aed' : '#007bff'};color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:10px;font-weight:bold;transition:background 0.2s;flex-shrink:0;">${(lot.ru && lot.ru > Date.now()) ? '🎲 Хочу' : 'Купить'}</button>
             </div>
           </div>
         </div>
@@ -2858,6 +2998,8 @@
         if (!item || !item.lot) return;
         const lotId = item.lot.id;
         const price = +item.lot.p;
+        const isRaffle = !!(item.lot.ru && item.lot.ru > Date.now());
+        const oldText = btnEl.textContent;
         btnEl.disabled = true;
         btnEl.textContent = '⏳...';
         btnEl.style.background = '#666';
@@ -2870,18 +3012,37 @@
           });
 
           if (buyRes && buyRes.ok) {
-            btnEl.textContent = '✔ Куплено';
-            btnEl.style.background = '#28a745';
-            if (buyRes.hero && G.ME) G.ME.hero = buyRes.hero;
-            showToast('Предмет куплен с аукциона!');
+            if (isRaffle) {
+              btnEl.textContent = '🎲 В игре';
+              btnEl.style.background = '#7c3aed';
+              showToast('Заявка на розыгрыш «Хочу» принята!');
+            } else {
+              btnEl.textContent = '✔ Куплено';
+              btnEl.style.background = '#28a745';
+              if (buyRes.hero && G.ME) G.ME.hero = buyRes.hero;
+              showToast('Предмет куплен с аукциона!');
+            }
             setTimeout(() => {
               fetchAuctionData(true);
             }, 1000);
           } else {
             const err = String((buyRes && (buyRes.error || buyRes.err)) || 'Не вышло');
+            const status = buyRes && buyRes.status;
+            const isConflict = status === 409 || err.includes('409') || err.includes('уже нет') || err.includes('сняли') || err.includes('купили') || err.includes('not found');
+            const isRateLimit = status === 429 || err.includes('429') || err.includes('слишком часто') || err.includes('rate');
             let shortErr = err;
-            if (err.includes('уже нет') || err.includes('сняли') || err.includes('купили') || err.includes('not found')) shortErr = 'Лота нет';
-            else if (err.includes('монет') || err.includes('денег') || err.includes('lack') || err.includes('золот')) shortErr = 'Нет монет';
+
+            if (isConflict) {
+              shortErr = 'Лота нет (409)';
+              btnEl.textContent = 'Лота нет';
+              btnEl.disabled = true;
+              btnEl.style.background = '#555';
+              showToast('Лот уже выкуплен другим игроком (409)', true);
+              return;
+            } else if (isRateLimit) {
+              shortErr = 'Лимит (429)';
+              showToast('Аукцион: слишком частые запросы (429), подождите 2с', true);
+            } else if (err.includes('монет') || err.includes('денег') || err.includes('lack') || err.includes('золот')) shortErr = 'Нет монет';
             else if (err.includes('места') || err.includes('сумк') || err.includes('инвентар')) shortErr = 'Сумка полна';
             else if (err.includes('Призрак') || err.includes('призрак')) shortErr = 'Призрак';
             else if (err.includes('бой') || err.includes('Бой')) shortErr = 'Идёт бой';
@@ -2896,8 +3057,8 @@
             setTimeout(() => {
               if (btnEl && btnEl.isConnected) {
                 btnEl.disabled = false;
-                btnEl.textContent = 'Купить';
-                btnEl.style.background = '#007bff';
+                btnEl.textContent = isRaffle ? '🎲 Хочу' : (oldText || 'Купить');
+                btnEl.style.background = isRaffle ? '#7c3aed' : '#007bff';
                 btnEl.title = '';
               }
             }, 2500);
@@ -2910,8 +3071,8 @@
           setTimeout(() => {
             if (btnEl && btnEl.isConnected) {
               btnEl.disabled = false;
-              btnEl.textContent = 'Купить';
-              btnEl.style.background = '#007bff';
+              btnEl.textContent = isRaffle ? '🎲 Хочу' : (oldText || 'Купить');
+              btnEl.style.background = isRaffle ? '#7c3aed' : '#007bff';
               btnEl.title = '';
             }
           }, 2500);
@@ -2956,7 +3117,8 @@
         }
 
         attemptedAutoBuyLots.add(lotKey);
-        showToast(`⚡ Скупка: "${ev.name}" за ${formatCoins(price)}...`);
+        const isRaffle = !!(lot.ru && lot.ru > Date.now());
+        showToast(isRaffle ? `🎲 Заявка: "${ev.name}" (розыгрыш)...` : `⚡ Скупка: "${ev.name}" за ${formatCoins(price)}...`);
 
         try {
           const buyRes = await gameApi('/api/aucBuy', {
@@ -2967,28 +3129,47 @@
 
           if (buyRes && buyRes.ok) {
             boughtAny = true;
-            if (buyRes.hero) {
-              if (G) {
-                G.ME = G.ME || {};
-                G.ME.hero = buyRes.hero;
-                G.__lgHero = buyRes.hero;
-              }
-              if (typeof buyRes.hero.money === 'number') {
-                cachedHeroCoins = buyRes.hero.money;
-                myCoins = buyRes.hero.money;
+            if (isRaffle) {
+              showToast(`🎲 Розыгрыш: заявка «Хочу» на "${ev.name}" принята!`);
+              // В режиме розыгрыша оставляем lotKey в attemptedAutoBuyLots навсегда, чтобы не спамить
+            } else {
+              if (buyRes.hero) {
+                if (G) {
+                  G.ME = G.ME || {};
+                  G.ME.hero = buyRes.hero;
+                  G.__lgHero = buyRes.hero;
+                }
+                if (typeof buyRes.hero.money === 'number') {
+                  cachedHeroCoins = buyRes.hero.money;
+                  myCoins = buyRes.hero.money;
+                } else if (myCoins >= price) {
+                  myCoins -= price;
+                  cachedHeroCoins = myCoins;
+                }
               } else if (myCoins >= price) {
                 myCoins -= price;
                 cachedHeroCoins = myCoins;
               }
-            } else if (myCoins >= price) {
-              myCoins -= price;
-              cachedHeroCoins = myCoins;
+              showToast(`✔ Автоскупка: куплен "${ev.name}" за ${formatCoins(price)}!`);
             }
-            showToast(`✔ Автоскупка: куплен "${ev.name}" за ${formatCoins(price)}!`);
-            // МАКСИМАЛЬНАЯ СКОРОСТЬ (0 мс задержки) — мгновенный выкуп следующего лота!
           } else {
             const err = String((buyRes && (buyRes.error || buyRes.err)) || 'Не вышло');
-            if (err.includes('места') || err.includes('сумк') || err.includes('инвентар')) {
+            const status = buyRes && buyRes.status;
+            const isConflict = status === 409 || err.includes('409') || err.includes('уже нет') || err.includes('сняли') || err.includes('купили') || err.includes('not found');
+            const isRateLimit = status === 429 || err.includes('429') || err.includes('слишком часто') || err.includes('rate');
+
+            if (isConflict) {
+              // Лот уже выкуплен другим игроком или снят (409)! НАВСЕГДА оставляем в attemptedAutoBuyLots
+              attemptedAutoBuyLots.add(lotKey);
+              if (lastAuctionData && Array.isArray(lastAuctionData.lots)) {
+                lastAuctionData.lots = lastAuctionData.lots.filter(l => String(l.id) !== lotKey);
+              }
+            } else if (isRateLimit) {
+              // Лимит запросов 429: бэкофф на 2.5 сек
+              showToast('⚠️ Аукцион: лимит запросов сервера (429), пауза 2.5с...', true);
+              attemptedAutoBuyLots.delete(lotKey);
+              await new Promise(r => setTimeout(r, 2500));
+            } else if (err.includes('места') || err.includes('сумк') || err.includes('инвентар')) {
               isAutoBuy = false;
               if (bAucAutoBuy) bAucAutoBuy.checked = false;
               startAuctionPolling();
@@ -2999,10 +3180,8 @@
               attemptedAutoBuyLots.delete(lotKey);
               await refreshMyCoinsFromApi(true);
               myCoins = getMyCoins();
-            } else if (err.includes('уже нет') || err.includes('сняли') || err.includes('купили') || err.includes('not found')) {
-              // Лот уже не на аукционе, оставляем в attemptedAutoBuyLots
             } else {
-              // Временный сбой - разрешаем повторить на следующем цикле
+              // Временный сбой сети - разрешаем повторить на следующем цикле
               attemptedAutoBuyLots.delete(lotKey);
             }
           }
@@ -3011,7 +3190,7 @@
         }
       }
 
-      // После мгновенной скупки найденных лотов сразу обновляем витрину
+      // После скупки найденных лотов сразу обновляем витрину
       if (boughtAny) {
         fetchAuctionData(true);
       }
@@ -3076,7 +3255,7 @@
         attemptedAutoBuyLots.clear();
         await refreshMyCoinsFromApi(true);
         startAuctionPolling();
-        showToast('⚡ Снайпер-Автоскупка ВКЛЮЧЕНА (турбо-опрос 300 мс, выкуп без задержек 0 мс)!');
+        showToast('⚡ Снайпер-Автоскупка ВКЛЮЧЕНА (безопасный турбо-опрос 800 мс, без спама 409/429)!');
         if (lastAuctionData) {
           renderMarketLots();
         } else {
@@ -3118,9 +3297,22 @@
         }, 300);
       } else {
         const err = String((buyRes && (buyRes.error || buyRes.err)) || 'Не вышло');
+        const status = buyRes && buyRes.status;
+        const isConflict = status === 409 || err.includes('409') || err.includes('уже нет') || err.includes('сняли') || err.includes('купили') || err.includes('not found');
+        const isRateLimit = status === 429 || err.includes('429') || err.includes('слишком часто') || err.includes('rate');
         let shortErr = err;
-        if (err.includes('уже нет') || err.includes('сняли') || err.includes('купили') || err.includes('not found')) shortErr = 'Лота нет';
-        else if (err.includes('монет') || err.includes('денег') || err.includes('lack') || err.includes('золот')) shortErr = 'Нет монет';
+
+        if (isConflict) {
+          shortErr = 'Лота нет (409)';
+          btnEl.textContent = 'Лота нет';
+          btnEl.disabled = true;
+          btnEl.style.background = '#555';
+          showToast('Лот уже выкуплен другим игроком (409)', true);
+          return;
+        } else if (isRateLimit) {
+          shortErr = 'Лимит (429)';
+          showToast('Аукцион: слишком частые запросы (429), подождите 2с', true);
+        } else if (err.includes('монет') || err.includes('денег') || err.includes('lack') || err.includes('золот')) shortErr = 'Нет монет';
         else if (err.includes('места') || err.includes('сумк') || err.includes('инвентар')) shortErr = 'Сумка полна';
         else if (err.includes('Призрак') || err.includes('призрак')) shortErr = 'Призрак';
         else if (err.includes('бой') || err.includes('Бой')) shortErr = 'Идёт бой';
@@ -3237,7 +3429,7 @@
     setSuperDealTitle(0);
     // При включенной автоскупке: минимальная задержка 300 мс для ловли лотов быстрее всех
     // Без автоскупки: 15 секунд, чтобы не нагружать сервер
-    const interval = isAutoBuy ? 300 : 15000;
+    const interval = isAutoBuy ? 800 : 15000;
     aucPollTimer = setInterval(() => {
       if (!window.__mineBotRunning) return;
       if (isAutoBuy || document.visibilityState === 'visible') {
@@ -6504,6 +6696,7 @@
 
   function updateStatsUI() {
     let timeStr = '—', skillStr = '—', coinsStr = '0';
+    try { updateDrillsUI(); } catch (e) {}
 
     // 1. Из перехваченных данных сервера (/api/mine/state)
     const me = window.__lgMineMe;
@@ -7808,6 +8001,10 @@
           stepScreen();
         }
         updateStatsUI();
+        if (Date.now() - lastDrillCheckTime > 15000) {
+          lastDrillCheckTime = Date.now();
+          if (isDrillBuild) processDrillAutoFund();
+        }
       }
     } catch (err) {
     } finally {
