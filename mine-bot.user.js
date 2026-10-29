@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      8.6
-// @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
+// @version      8.7
+// @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=play.multidonate.ru
@@ -276,6 +276,11 @@
   let autoClaimQuests = localStorage.getItem('lg_bot_auto_claim_quests') !== 'false'; // По умолчанию true (автосбор поручений)
   let isClaimingQuests = false;
   let lastQuestClaimTime = 0;
+  let autoLiftBestFloor = localStorage.getItem('lg_bot_auto_lift') !== 'false'; // По умолчанию true (раз в 2 мин, переход при +30% людей)
+  let lastLiftCheckTime = 0;
+  let isCheckingLiftFloors = false;
+  let isRidingLift = false;
+  let pendingLiftRide = null;
   const fundedDrills = new Set();
   let lastDrillCheckTime = 0;
   let oreFirst = localStorage.getItem('lg_bot_ore_first') !== '0'; // По умолчанию true (включено: сначала руда с макс. числом людей)
@@ -1522,7 +1527,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">⛏️ Майнер v8.6</span>
+        <span style="flex-shrink:0;">⛏️ Майнер v8.7</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -1612,6 +1617,12 @@
             <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#ffd700;font-size:10.5px;font-weight:bold;user-select:none;" title="Автоматически забирать награды за выполненные ежедневные и еженедельные поручения скупщика шахты">
               <input type="checkbox" id="b-auto-claim-quests" ${autoClaimQuests ? 'checked' : ''} style="accent-color:#ffd700;cursor:pointer;width:14px;height:14px;">
               <span>🎁 Автосбор поручений скупщика</span>
+            </label>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);">
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#a78bfa;font-size:10.5px;font-weight:bold;user-select:none;" title="Каждые 2 минуты проверять онлайн этажей шахты и автоматически переезжать на лифте, если на другом этаже на 30% больше людей/копателей">
+              <input type="checkbox" id="b-auto-lift" ${autoLiftBestFloor ? 'checked' : ''} style="accent-color:#a78bfa;cursor:pointer;width:14px;height:14px;">
+              <span>🛗 Авто-лифт на людный этаж (+30%)</span>
             </label>
           </div>
         </div>
@@ -2003,6 +2014,7 @@
   const checkDrillCollect = w.querySelector('#b-drill-collect');
   const checkDrillBuild = w.querySelector('#b-drill-build');
   const checkAutoClaimQuests = w.querySelector('#b-auto-claim-quests');
+  const checkAutoLift = w.querySelector('#b-auto-lift');
 
   if (checkOreFirst) {
     checkOreFirst.onchange = () => {
@@ -2041,6 +2053,17 @@
       localStorage.setItem('lg_bot_auto_claim_quests', autoClaimQuests ? 'true' : 'false');
       showToast(autoClaimQuests ? '🎁 Автосбор поручений ВКЛЮЧЁН' : 'Автосбор поручений выключен');
       if (autoClaimQuests) tryAutoClaimMineQuests();
+    };
+  }
+  if (checkAutoLift) {
+    checkAutoLift.onchange = () => {
+      autoLiftBestFloor = checkAutoLift.checked;
+      localStorage.setItem('lg_bot_auto_lift', autoLiftBestFloor ? 'true' : 'false');
+      showToast(autoLiftBestFloor ? '🛗 Авто-лифт ВКЛ (раз в 2 мин, порог +30% людей)' : 'Авто-лифт выключен');
+      if (autoLiftBestFloor) {
+        lastLiftCheckTime = 0;
+        checkAndSelectBestFloor();
+      }
     };
   }
 
@@ -8029,8 +8052,161 @@
     }
   }
 
+
+  // ==========================================
+  // 🛗 Шахта 3.0: Авто-лифт на самый людный этаж (+30%)
+  // ==========================================
+  async function checkAndSelectBestFloor() {
+    if (!autoLiftBestFloor || isCheckingLiftFloors || isRidingLift) return;
+    const S = G.__lgMineS;
+    if (!S || !S.st) return;
+
+    const currentFloor = S.st.n || 1;
+    const deep = S.st.deep || currentFloor;
+    if (deep <= 1) return; // Только 1 этаж открыт, переезжать некуда
+
+    isCheckingLiftFloors = true;
+    lastLiftCheckTime = Date.now();
+
+    try {
+      const baseId = (currentMineId || 'home').split('.')[0];
+      const floorStats = [];
+
+      for (let f = 1; f <= deep; f++) {
+        const roomKey = f >= deep ? baseId : `${baseId}.${f}`;
+        if (f === currentFloor) {
+          const working = S.hw != null ? S.hw : (S.st.working || 0);
+          const total = S.here != null ? Math.max(S.here, working) : (working + (S.nOthers || 0));
+          floorStats.push({ floor: f, working, total, count: Math.max(total, working), key: roomKey });
+        } else {
+          try {
+            const res = await gameApi(`/api/mine/state?c=${encodeURIComponent(roomKey)}`);
+            if (res && res.ok) {
+              const st = res.st || {};
+              const working = res.hw != null ? +res.hw : (st.working || 0);
+              const total = res.here != null ? Math.max(+res.here, working) : (working + (res.n || 0));
+              floorStats.push({ floor: f, working, total, count: Math.max(total, working), key: roomKey });
+            }
+          } catch (e) {
+            // Игнорируем сетевую ошибку отдельного этажа
+          }
+          await new Promise(r => setTimeout(r, 200));
+        }
+      }
+
+      if (!floorStats.length) return;
+
+      const curStat = floorStats.find(x => x.floor === currentFloor);
+      const curCount = curStat ? curStat.count : 0;
+
+      // Сортируем: наибольшее число людей -> активных копателей -> глубина
+      floorStats.sort((a, b) => (b.count - a.count) || (b.working - a.working) || (b.floor - a.floor));
+      const best = floorStats[0];
+
+      if (!best || best.floor === currentFloor) return;
+
+      let shouldSwitch = false;
+      let percentDiff = 0;
+
+      if (curCount === 0) {
+        if (best.count > 0) {
+          shouldSwitch = true;
+          percentDiff = 100;
+        }
+      } else {
+        percentDiff = Math.round(((best.count - curCount) / curCount) * 100);
+        if (percentDiff >= 30) {
+          shouldSwitch = true;
+        }
+      }
+
+      if (shouldSwitch) {
+        if (isMining()) {
+          pendingLiftRide = { floor: best.floor, count: best.count, percent: percentDiff };
+          showToast(`🛗 На этаже ${best.floor} на ${percentDiff}% больше людей (${best.count} против ${curCount}). Переедем после камня!`);
+        } else {
+          await executeLiftRide(best.floor, best.count, percentDiff);
+        }
+      }
+    } catch (err) {
+      console.warn('[Шахта] Ошибка авто-проверки этажей лифта:', err);
+    } finally {
+      isCheckingLiftFloors = false;
+    }
+  }
+
+  async function executeLiftRide(targetFloor, peopleCount, percentDiff) {
+    if (isRidingLift) return;
+    isRidingLift = true;
+
+    try {
+      const S = G.__lgMineS;
+      const baseId = (currentMineId || 'home').split('.')[0];
+      const deep = (S && S.st && (S.st.deep || S.st.n)) || 1;
+
+      showToast(`🛗 Лифт: спускаемся на этаж ${targetFloor} (+${percentDiff}%, ${peopleCount} чел.)…`);
+
+      // 1. Попытка открыть лифт в нативном интерфейсе игры
+      let rideSuccess = false;
+      const liftObj = document.querySelector('[data-obj="lift"]');
+      if (liftObj) {
+        try {
+          liftObj.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+          await new Promise(r => setTimeout(r, 120));
+          const rideBtn = document.querySelector(`[data-mn-ride="${targetFloor}"]`);
+          if (rideBtn) {
+            rideBtn.click();
+            rideSuccess = true;
+          }
+        } catch (e) {}
+      }
+
+      // 2. Если нативная кнопка не сработала — прямой API-запрос к серверу
+      if (!rideSuccess) {
+        const res = await gameApi('/api/mineRide', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ c: baseId, n: targetFloor })
+        });
+        if (res && res.ok) {
+          rideSuccess = true;
+        }
+      }
+
+      if (rideSuccess) {
+        const targetKey = targetFloor >= deep ? baseId : `${baseId}.${targetFloor}`;
+        const delay = targetFloor >= deep ? 600 : 2600;
+        setTimeout(() => {
+          currentMineId = targetKey;
+          tryOpenMineOnScreen(targetKey);
+          isRidingLift = false;
+        }, delay);
+      } else {
+        isRidingLift = false;
+      }
+    } catch (e) {
+      isRidingLift = false;
+    }
+  }
+
+  function checkAutoLiftStep() {
+    if (!autoLiftBestFloor || isRidingLift) return;
+
+    if (pendingLiftRide && !isMining()) {
+      const { floor, count, percent } = pendingLiftRide;
+      pendingLiftRide = null;
+      executeLiftRide(floor, count, percent);
+      return;
+    }
+
+    if (Date.now() - lastLiftCheckTime > 120000) {
+      checkAndSelectBestFloor();
+    }
+  }
+
   async function step() {
     if (!G.__mineBotRunning) return;
+    if (isRidingLift) return;
     lastStepExecutionTime = Date.now();
     try {
       if (!isPaused) {
@@ -8065,6 +8241,9 @@
         }
         if (autoClaimQuests) {
           tryAutoClaimMineQuests();
+        }
+        if (autoLiftBestFloor) {
+          checkAutoLiftStep();
         }
       }
     } catch (err) {
