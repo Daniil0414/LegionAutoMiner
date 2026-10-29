@@ -222,18 +222,27 @@
   }
 
   // =========================================================================
-  // ⚡ МГНОВЕННОЕ ЗАВЕРШЕНИЕ ХОДЬБЫ В ФОНЕ (INSTANT WALK-FORWARD)
-  // При смене камня в фоне сервер уже получил /api/mine/go.
-  // Чтобы не ждать замерзших кадров анимации, мы мгновенно завершаем путь
-  // и вызываем S.then() (отправку /api/mineDig) за 0.05 секунды!
+  // 🚶 БЕЗОПАСНЫЙ WATCHDOG ПЕРЕДВИЖЕНИЯ В ФОНЕ (В СООТВЕТСТВИИ С ФИЗИКОЙ ИГРЫ)
+  // В игре скорость героя SPEED = 260 px/сек, а сервер проверяет MINE_REACH (200px).
+  // Бот позволяет персонажу честно дойти до цели через safeRAF,
+  // а принудительно завершает шаг ТОЛЬКО если персонаж реально завис дольше положенного времени.
+  // Это исключает ошибки сервера "Не подойти" и гарантирует, что руда никогда не уйдет в ложный бан!
   // =========================================================================
   function resolveBackgroundWalking(force = false) {
     const S = G.__lgMineS;
     if (!S) return false;
     if (S.path && S.path.length > 0 && typeof S.then === 'function') {
-      const isBg = isPageActuallyHidden() || (mode === 'ghost');
       const elapsed = Date.now() - targetAssignedTime;
-      if (force || isBg || elapsed > 1500) {
+      let requiredTime = 2500;
+      try {
+        const lastPt = S.path[S.path.length - 1];
+        if (lastPt && S.pos) {
+          const dist = Math.hypot(lastPt.x - S.pos.x, lastPt.y - S.pos.y);
+          requiredTime = Math.max(1000, (dist / 260) * 1000 + 800);
+        }
+      } catch (e) {}
+
+      if (force || elapsed > requiredTime) {
         const lastPt = S.path[S.path.length - 1];
         if (lastPt) {
           S.pos = { x: lastPt.x, y: lastPt.y };
@@ -859,8 +868,20 @@
 
           // Обновление руды через 0.5 сек (полсекунды) после выкопки руды
           scheduleOreRefreshAfterDig(500);
+
+          // Мгновенный переход к следующей цели без ожидания 1.8с таймера (исключает отставание в фоне)!
+          if (G.__mineBotRunning && !isPaused) {
+            clearTimeout(timer);
+            timer = setTimeout(step, 40);
+          }
         }
       }
+    } else if (!isSameFloor && G.__mineBotRunning && !isPaused) {
+      // Смена этажа: моментально начинаем поиск первой цели на новом этаже
+      activeMiningRockIndex = -1;
+      lastTargetKey = null;
+      clearTimeout(timer);
+      timer = setTimeout(step, 80);
     }
 
     lastDugString = st.dug || '';
@@ -7267,8 +7288,20 @@
     if (group) {
       const target = group.querySelector('path') || group;
       const r = target.getBoundingClientRect();
-      const cx = r.left + r.width / 2;
-      const cy = r.top + r.height / 2;
+      let cx = r.left + r.width / 2;
+      let cy = r.top + r.height / 2;
+      // Если в фоне или Ghost-режиме getBoundingClientRect вернул нули, рассчитываем точные координаты по сетке
+      if ((!cx && !cy) && idx >= 0) {
+        const getXY = (G.LGCraftWorld && G.LGCraftWorld.cellXY) || 
+                      (G.LGWorldLib && G.LGWorldLib.mine && G.LGWorldLib.mine.cellXY);
+        if (getXY) {
+          const pt = getXY(idx);
+          if (pt) {
+            cx = pt.x;
+            cy = pt.y;
+          }
+        }
+      }
       const opts = { bubbles: true, cancelable: true, view: G, clientX: cx, clientY: cy, pointerId: 1 };
       target.dispatchEvent(new PointerEvent('pointerdown', opts));
       target.dispatchEvent(new PointerEvent('pointerup', opts));
@@ -7356,16 +7389,36 @@
       candidates.push({ bar, group: matchedG, rockId, count, isFar, isMe, inBlacklist: blacklist.has(rockId) });
     }
 
-    // 2. Добавляем доступные камни первой линии (front / open), у которых ещё нет полосок прогресса:
-    // Если включен «Сперва руда», ВСЕГДА добавляем свободную руду на первой линии (даже если кто-то уже копает камень),
-    // чтобы бот шёл копать руду, а не вставал на обычный булыжник!
-    // А если на этаже вообще никто не копает (bars.length === 0), добавляем все доступные камни первой линии.
-    const frontSet = new Set(
-      (G.__lgMineState && G.__lgMineState.front) ||
-      (G.__lgMineS && G.__lgMineS.st && G.__lgMineS.st.front) ||
-      []
-    );
+    // 2. Добавляем доступные камни первой линии напрямую из серверной памяти (st.front / S.st.front):
+    // Это исключает любую зависимость от задержек отрисовки SVG в фоне или Ghost-режиме!
+    const frontArray = (G.__lgMineState && G.__lgMineState.front) ||
+                       (G.__lgMineS && G.__lgMineS.st && G.__lgMineS.st.front) ||
+                       [];
+    const frontSet = new Set(frontArray);
 
+    // Сначала проходим по фронту из памяти (100% гарантия обнаружения руды даже при задержках SVG в фоне):
+    for (const iNum of frontSet) {
+      if (isNaN(iNum) || candidateIndices.has(iNum)) continue;
+      const rockId = String(iNum);
+      if (blacklist.has(rockId)) continue;
+
+      let matchedG = document.querySelector(`svg.mn-bg g[data-i="${iNum}"]`) || allGroups.find(g => g.dataset.i === rockId) || null;
+      const isOre = isValuableRock(iNum, matchedG);
+      if ((oreFirst && isOre) || candidates.length === 0) {
+        candidateIndices.add(iNum);
+        candidates.push({
+          bar: null,
+          group: matchedG,
+          rockId,
+          count: 0,
+          isFar: false,
+          isMe: false,
+          inBlacklist: false
+        });
+      }
+    }
+
+    // Резервная проверка SVG групп на случай, если память st.front еще не заполнилась
     if (allGroups.length > 0) {
       for (const g of allGroups) {
         const iNum = +g.dataset.i;
@@ -7437,13 +7490,9 @@
 
     closeNewsModal();
 
-    // Проверка зависшего пути ходьбы в фоне (Fast-Forward Walk)
+    // Проверка зависшего пути ходьбы в фоне (Watchdog)
     if (G.__lgMineS && G.__lgMineS.path && G.__lgMineS.path.length && G.__lgMineS.then) {
-      const isBg = isPageActuallyHidden() || (mode === 'ghost');
-      const walkTime = Date.now() - targetAssignedTime;
-      if (isBg || walkTime > 1200) {
-        resolveBackgroundWalking();
-      }
+      resolveBackgroundWalking();
     }
 
     const mining = isMining();
@@ -7693,11 +7742,6 @@
         }
         if (shouldClick) {
           clickTarget(best);
-          // В фоне или ghost-режиме: сразу завершаем визуальный шаг, чтобы запрос /api/mineDig ушёл без ожидания кадров анимации!
-          const isBg = isPageActuallyHidden() || (mode === 'ghost');
-          if (isBg) {
-            setTimeout(() => resolveBackgroundWalking(true), 60);
-          }
         }
       } else {
         st.textContent = `${prefix}Ищем свободный камень...`;
