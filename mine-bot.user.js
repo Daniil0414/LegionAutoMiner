@@ -6,10 +6,6 @@
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=play.multidonate.ru
-// @updateURL    https://raw.githubusercontent.com/Daniil0414/LegionAutoMiner/main/mine-bot.user.js
-// @downloadURL  https://raw.githubusercontent.com/Daniil0414/LegionAutoMiner/main/mine-bot.user.js
-// @supportURL   https://github.com/Daniil0414/LegionAutoMiner/issues
-// @homepageURL  https://github.com/Daniil0414/LegionAutoMiner
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==
