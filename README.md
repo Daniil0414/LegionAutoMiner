@@ -1,4 +1,4 @@
-﻿# ⛏️ Legion Auto-Miner
+# ⛏️ Legion Auto-Miner
 
 Полнофункциональный скрипт-помощник для игры «Легион» (ZakvielChannel / Multidonate).
 
