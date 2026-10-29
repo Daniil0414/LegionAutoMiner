@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      8.5
-// @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
+// @version      8.6
+// @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=play.multidonate.ru
@@ -272,7 +272,10 @@
   let mode = 'screen'; // По умолчанию 'screen', можно переключить на 'ghost' (из города)
   let isPaused = true; // При запуске скрипт находится на паузе (не начинает копать автоматически)
   let isDrillCollect = localStorage.getItem('lg_bot_drill_collect') !== 'false'; // По умолчанию true (пассивный сбор руды с буров)
-  let isDrillBuild = localStorage.getItem('lg_bot_drill_build') !== 'false'; // По умолчанию false (отдельный тумблер авто-установки/взноса)
+  let isDrillBuild = localStorage.getItem('lg_bot_drill_build') !== 'false'; // По умолчанию true (отдельный тумблер авто-установки/взноса)
+  let autoClaimQuests = localStorage.getItem('lg_bot_auto_claim_quests') !== 'false'; // По умолчанию true (автосбор поручений)
+  let isClaimingQuests = false;
+  let lastQuestClaimTime = 0;
   const fundedDrills = new Set();
   let lastDrillCheckTime = 0;
   let oreFirst = localStorage.getItem('lg_bot_ore_first') !== '0'; // По умолчанию true (включено: сначала руда с макс. числом людей)
@@ -1519,7 +1522,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">⛏️ Майнер v8.5</span>
+        <span style="flex-shrink:0;">⛏️ Майнер v8.6</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -1603,6 +1606,12 @@
             <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#38bdf8;font-size:10.5px;font-weight:bold;user-select:none;" title="Отдельный тумблер: автоматически вносить минимальный взнос 100м на постройку/улучшение площадок буровых для бонуса строителя рудой">
               <input type="checkbox" id="b-drill-build" ${isDrillBuild ? 'checked' : ''} style="accent-color:#38bdf8;cursor:pointer;width:14px;height:14px;">
               <span>🏗️ Авто-установка буров (взнос 100м)</span>
+            </label>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);">
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#ffd700;font-size:10.5px;font-weight:bold;user-select:none;" title="Автоматически забирать награды за выполненные ежедневные и еженедельные поручения скупщика шахты">
+              <input type="checkbox" id="b-auto-claim-quests" ${autoClaimQuests ? 'checked' : ''} style="accent-color:#ffd700;cursor:pointer;width:14px;height:14px;">
+              <span>🎁 Автосбор поручений скупщика</span>
             </label>
           </div>
         </div>
@@ -1993,6 +2002,7 @@
   const coalIronLabel = w.querySelector('#b-coal-iron-label');
   const checkDrillCollect = w.querySelector('#b-drill-collect');
   const checkDrillBuild = w.querySelector('#b-drill-build');
+  const checkAutoClaimQuests = w.querySelector('#b-auto-claim-quests');
 
   if (checkOreFirst) {
     checkOreFirst.onchange = () => {
@@ -2023,6 +2033,14 @@
       localStorage.setItem('lg_bot_drill_build', isDrillBuild ? 'true' : 'false');
       showToast(isDrillBuild ? '🏗️ Авто-установка буров ВКЛ (взнос 100м)' : 'Авто-установка буров выключена');
       if (isDrillBuild) processDrillAutoFund();
+    };
+  }
+  if (checkAutoClaimQuests) {
+    checkAutoClaimQuests.onchange = () => {
+      autoClaimQuests = checkAutoClaimQuests.checked;
+      localStorage.setItem('lg_bot_auto_claim_quests', autoClaimQuests ? 'true' : 'false');
+      showToast(autoClaimQuests ? '🎁 Автосбор поручений ВКЛЮЧЁН' : 'Автосбор поручений выключен');
+      if (autoClaimQuests) tryAutoClaimMineQuests();
     };
   }
 
@@ -3387,41 +3405,78 @@
     };
   }
 
-  if (mineClaimBtn) {
-    mineClaimBtn.onclick = async () => {
+  async function claimMineQuests(isAuto = false) {
+    if (isClaimingQuests) return;
+    if (Date.now() - lastQuestClaimTime < 4000) return;
+    isClaimingQuests = true;
+    lastQuestClaimTime = Date.now();
+
+    if (mineClaimBtn) {
       mineClaimBtn.disabled = true;
       mineClaimBtn.textContent = 'Забираем...';
-      try {
-        const c = currentMineId || 'home';
-        const res = await gameApi('/api/mineClaim', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ c })
-        });
-        if (res && res.ok) {
-          showToast('🎉 Награда за поручения шахты получена!');
-          const me = window.__lgMineMe || (G.__lgMineS && G.__lgMineS.me);
-          if (me && me.q) {
-            for (const x of [...(me.q.d || []), ...(me.q.w || [])]) if (x.done) x.cl = 1;
-            if (me.q.c && me.q.c.done && me.q.c.ok) me.q.c.cl = 1;
-          }
+    }
+
+    try {
+      const c = currentMineId || 'home';
+      const res = await gameApi('/api/mineClaim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ c })
+      });
+      if (res && res.ok) {
+        showToast('🎉 Награда за поручения шахты получена!');
+        const me = window.__lgMineMe || (G.__lgMineS && G.__lgMineS.me);
+        if (me && me.q) {
+          for (const x of [...(me.q.d || []), ...(me.q.w || [])]) if (x.done) x.cl = 1;
+          if (me.q.c && me.q.c.done && me.q.c.ok) me.q.c.cl = 1;
+        }
+        refreshMyCoinsFromApi(true);
+        if (mineClaimBtn) {
           mineClaimBtn.textContent = '✔ Получено';
           setTimeout(() => {
-            mineClaimBtn.disabled = false;
-            mineClaimBtn.style.display = 'none';
+            if (mineClaimBtn) {
+              mineClaimBtn.disabled = false;
+              mineClaimBtn.style.display = 'none';
+            }
             updateStatsUI();
           }, 2000);
-        } else {
-          showToast((res && res.error) || 'Не удалось забрать награду', true);
+        }
+      } else {
+        if (!isAuto) showToast((res && res.error) || 'Не удалось забрать награду', true);
+        if (mineClaimBtn) {
           mineClaimBtn.disabled = false;
           mineClaimBtn.textContent = 'Ошибка';
         }
-      } catch (e) {
-        showToast('Сбой сети при получении награды', true);
+      }
+    } catch (e) {
+      if (!isAuto) showToast('Сбой сети при получении награды', true);
+      if (mineClaimBtn) {
         mineClaimBtn.disabled = false;
         mineClaimBtn.textContent = 'Сбой';
       }
-    };
+    } finally {
+      isClaimingQuests = false;
+    }
+  }
+
+  function tryAutoClaimMineQuests() {
+    if (!autoClaimQuests) return;
+    const me = window.__lgMineMe || (G.__lgMineS && G.__lgMineS.me);
+    const qData = me && me.q;
+    if (qData) {
+      const qc = qData.c;
+      const qcReady = !!(qc && qc.done && qc.ok && !qc.cl);
+      const readyList = [...(qData.d || []), ...(qData.w || [])].filter(x => x.done && !x.cl);
+      if (readyList.length > 0 || qcReady) {
+        claimMineQuests(true);
+      }
+    }
+    const nativeClaim = document.querySelector('[data-mn-claim]:not([disabled])');
+    if (nativeClaim) nativeClaim.click();
+  }
+
+  if (mineClaimBtn) {
+    mineClaimBtn.onclick = () => claimMineQuests(false);
   }
 
   function startAuctionPolling() {
@@ -6760,6 +6815,9 @@
           const totalReward = readyList.reduce((acc, x) => acc + (+x.c || 0), 0) + (qcReady ? (+qc.c || 0) : 0);
           mineClaimBtn.style.display = 'inline-block';
           mineClaimBtn.textContent = `🎁 Награда (+${totalReward || readyList.length + (qcReady ? 1 : 0)})`;
+          if (autoClaimQuests && !isClaimingQuests && Date.now() - lastQuestClaimTime > 4000) {
+            claimMineQuests(true);
+          }
         } else if (mineClaimBtn.textContent.indexOf('Забираем') === -1) {
           mineClaimBtn.style.display = 'none';
         }
@@ -8004,6 +8062,9 @@
         if (Date.now() - lastDrillCheckTime > 15000) {
           lastDrillCheckTime = Date.now();
           if (isDrillBuild) processDrillAutoFund();
+        }
+        if (autoClaimQuests) {
+          tryAutoClaimMineQuests();
         }
       }
     } catch (err) {
