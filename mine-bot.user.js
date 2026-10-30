@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      8.9.13
+// @version      8.9.15
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -274,7 +274,8 @@
   let mode = 'screen'; // По умолчанию 'screen', можно переключить на 'ghost' (из города)
   let isPaused = true; // При запуске скрипт находится на паузе (не начинает копать автоматически)
   let isDrillCollect = localStorage.getItem('lg_bot_drill_collect') !== 'false'; // По умолчанию true (пассивный сбор руды с буров)
-  let isDrillBuild = localStorage.getItem('lg_bot_drill_build') !== 'false'; // По умолчанию true (отдельный тумблер авто-установки/взноса)
+  let isDrillBuild = localStorage.getItem('lg_bot_drill_build') !== 'false'; // По умолчанию true (отдельный тумблер авто-установки/взноса на текущем этаже)
+  let isDrillBuildAllFloors = localStorage.getItem('lg_bot_drill_build_all_floors') === 'true'; // По умолчанию false (взнос в буры на ВСЕХ этажах 1..N через API)
   let autoClaimQuests = localStorage.getItem('lg_bot_auto_claim_quests') !== 'false'; // По умолчанию true (автосбор поручений)
   let isClaimingQuests = false;
   let lastQuestClaimTime = 0;
@@ -1203,13 +1204,19 @@
               }
               G.__lgMineState = data.st;
               G.__lgMineError = null;
-              // 🛡️ Защита от follow3: если этаж продвинулся, выравниваем snapshot me.at,
-              // чтобы движок игры не откатывал открытую шахту назад на старый этаж
-              if (data.st.n && data.me && typeof data.me.at === 'number' && data.me.at < data.st.n) {
+              // 🛡️ Защита от follow3: безусловно выравниваем snapshot me.at к текущему этажу data.st.n,
+              // а также обновляем S.rideAt, чтобы движок игры не откатывал шахту на старый этаж
+              if (data.st.n && data.me) {
                 data.me.at = data.st.n;
               }
-              if (G.__lgMineS && data.st.n && G.__lgMineS.me && typeof G.__lgMineS.me.at === 'number' && G.__lgMineS.me.at < data.st.n) {
-                G.__lgMineS.me.at = data.st.n;
+              if (G.__lgMineS) {
+                if (data.st.n && G.__lgMineS.me) {
+                  G.__lgMineS.me.at = data.st.n;
+                }
+                G.__lgMineS.rideAt = Date.now();
+                if (G.__mineBotRunning && !isPaused) {
+                  G.__lgMineS.newsShown = true;
+                }
               }
             }
             if (data && data.me) {
@@ -1597,6 +1604,44 @@
       G.LGMine.open = function (x, c) {
         if (x && !x.__isBotFallback) {
           G.__lgMineContext = x;
+          if (typeof x.api === 'function' && !x.__botApiWrapped) {
+            x.__botApiWrapped = true;
+            const origCtxApi = x.api;
+            x.api = async function (endpoint, params) {
+              const res = await origCtxApi.apply(this, arguments);
+              try {
+                if (res && typeof endpoint === 'string') {
+                  const S = G.__lgMineS;
+                  // Перехват входа в шахту и опроса состояния:
+                  if (endpoint.includes('/api/mine/enter') || endpoint.includes('/api/mine/state') || endpoint.includes('/api/mine/poll')) {
+                    const curFloor = res.st?.n || (res.st && (res.st.deep || res.st.n)) || S?.st?.n;
+                    if (curFloor) {
+                      if (res.me) res.me.at = curFloor;
+                      if (S?.me) S.me.at = curFloor;
+                      if (G.__lgMineMe) G.__lgMineMe.at = curFloor;
+                    }
+                    if (S) {
+                      S.rideAt = Date.now();
+                      if (G.__mineBotRunning && !isPaused) {
+                        S.newsShown = true;
+                      }
+                    }
+                  }
+                  // Перехват успешной поездки лифта
+                  if (endpoint.includes('/api/mineRide') && res.ok) {
+                    if (S) {
+                      S.rideAt = Date.now();
+                      if (params && params.n) {
+                        if (S.me) S.me.at = params.n;
+                        if (G.__lgMineMe) G.__lgMineMe.at = params.n;
+                      }
+                    }
+                  }
+                }
+              } catch (e) {}
+              return res;
+            };
+          }
         }
         const openMineId = c || 'home';
         G.__lgMineCurrent = openMineId;
@@ -1607,6 +1652,10 @@
           updateMineSelectorUI();
         }
         const res = origOpen.apply(this, arguments);
+        if (G.__lgMineS) {
+          G.__lgMineS.rideAt = Date.now();
+          if (G.__mineBotRunning && !isPaused) G.__lgMineS.newsShown = true;
+        }
         if (mode === 'ghost') {
           setGhostVisuals(true);
           ensureCityVisible(false);
@@ -1630,12 +1679,17 @@
             }
           }
           if (d.me) G.__lgMineMe = d.me;
-          // 🛡️ Защита от follow3: выравниваем me.at
+          // 🛡️ Защита от follow3: безусловно выравниваем me.at к curN
           const S = G.__lgMineS;
           const curN = d.st?.n || S?.st?.n;
           if (curN) {
-            if (S?.me && typeof S.me.at === 'number' && S.me.at < curN) S.me.at = curN;
-            if (d.me && typeof d.me.at === 'number' && d.me.at < curN) d.me.at = curN;
+            if (S?.me) S.me.at = curN;
+            if (d.me) d.me.at = curN;
+            if (G.__lgMineMe) G.__lgMineMe.at = curN;
+          }
+          if (S) {
+            S.rideAt = Date.now();
+            if (G.__mineBotRunning && !isPaused) S.newsShown = true;
           }
         }
         return origOnEvent.apply(this, arguments);
@@ -1648,6 +1702,9 @@
         G.LGMine3.scene = function (S) {
           if (S) {
             G.__lgMineS = S;
+            S.rideAt = Date.now();
+            if (G.__mineBotRunning && !isPaused) S.newsShown = true;
+            if (S.st && S.st.n && S.me) S.me.at = S.st.n;
             protectMineState(S);
             if (S.st) {
               G.__lgMineState = S.st;
@@ -1863,7 +1920,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">⛏️ Майнер v8.9.13</span>
+        <span style="flex-shrink:0;">⛏️ Майнер v8.9.15</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -1950,6 +2007,12 @@
               <span>🏗️ Авто-установка буров (взнос 100м)</span>
             </label>
             <span id="b-my-drills-info" style="font-size:10px;color:#38bdf8;font-weight:bold;cursor:pointer;padding:1px 5px;background:rgba(56,189,248,0.12);border-radius:4px;border:1px solid rgba(56,189,248,0.25);" title="Число буров, в которые вы внесли от 100м (опрос сервера раз в 5 минут). Нажмите для обновления.">Наших: 0 шт.</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);">
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#06b6d4;font-size:10.5px;font-weight:bold;user-select:none;" title="Автоматически при сканировании этажей шахты вносить по 100м во все строящиеся буровые на ВСЕХ этажах (1..N) через API без необходимости переезжать на лифте">
+              <input type="checkbox" id="b-drill-all-floors" ${isDrillBuildAllFloors ? 'checked' : ''} style="accent-color:#06b6d4;cursor:pointer;width:14px;height:14px;">
+              <span>🌐 Взнос в буры на ВСЕХ этажах (1..N)</span>
+            </label>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);">
             <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#ffd700;font-size:10.5px;font-weight:bold;user-select:none;" title="Автоматически забирать награды за выполненные ежедневные и еженедельные поручения скупщика шахты">
@@ -2375,6 +2438,7 @@
   const coalIronLabel = w.querySelector('#b-coal-iron-label');
   const checkDrillCollect = w.querySelector('#b-drill-collect');
   const checkDrillBuild = w.querySelector('#b-drill-build');
+  const checkDrillBuildAllFloors = w.querySelector('#b-drill-all-floors');
   const checkAutoClaimQuests = w.querySelector('#b-auto-claim-quests');
   const checkAutoLift = w.querySelector('#b-auto-lift');
   const checkHideGamePanel = w.querySelector('#b-hide-game-panel');
@@ -2408,6 +2472,19 @@
       localStorage.setItem('lg_bot_drill_build', isDrillBuild ? 'true' : 'false');
       showToast(isDrillBuild ? '🏗️ Авто-установка буров ВКЛ (взнос 100м)' : 'Авто-установка буров выключена');
       if (isDrillBuild) processDrillAutoFund();
+    };
+  }
+  if (checkDrillBuildAllFloors) {
+    checkDrillBuildAllFloors.onchange = () => {
+      isDrillBuildAllFloors = checkDrillBuildAllFloors.checked;
+      localStorage.setItem('lg_bot_drill_build_all_floors', isDrillBuildAllFloors ? 'true' : 'false');
+      showToast(isDrillBuildAllFloors 
+        ? '🌐 Взнос в буры на ВСЕХ этажах ВКЛ (по 100м через API)' 
+        : 'Взнос в буры на всех этажах выключен');
+      if (isDrillBuildAllFloors) {
+        lastDrillsScanTime = 0;
+        scanMyDrillsServerWide();
+      }
     };
   }
   const myDrillsEl = w.querySelector('#b-my-drills-info');
@@ -2581,6 +2658,7 @@
               showToast(`🏗️ Авто-установка: внесён взнос ${fundAmount}м в буровую (${res || 'руда'})! Бонус строителя зафиксирован.`);
               myFundedDrillsCount++;
               myFundedDrillsTotalCoins += fundAmount;
+              saveFundedDrillsState();
               updateDrillsUI();
               refreshMyCoinsFromApi(true);
               myCoins -= fundAmount;
@@ -7762,7 +7840,7 @@
     await stopMiningInGame(oldMineId);
 
     // ВСЕГДА открываем новую выбранную шахту: и на экране, и в фоне города (ghost)
-    tryOpenMineOnScreen(currentMineId);
+    tryOpenMineOnScreen(currentMineId, true);
 
     if (mode === 'ghost') {
       setGhostVisuals(true);
@@ -7961,7 +8039,6 @@
   }
 
   // Проверка: действительно ли открыта именно требуемая шахта targetId
-  // Проверка: действительно ли открыта именно требуемая шахта targetId
   function isTargetMineOpen(targetId) {
     const target = targetId || currentMineId || 'home';
     const world = document.querySelector('.mn-world');
@@ -7970,15 +8047,15 @@
     // Во время активной поездки на лифте не дергаем open повторно
     if (isRidingLift) return true;
 
-    // Первые 3.5 сек после спуска/перехода сцена еще инициализируется
-    if (Date.now() - lastFloorTransitionTime < 3500) {
+    // Первые 8 сек после спуска/перехода сцена еще инициализируется
+    if (Date.now() - lastFloorTransitionTime < 8000) {
       return true;
     }
 
     const targetBase = String(target).split('.')[0];
 
     // 1. По текущему состоянию st.id и st.n движка игры
-    const st = G.__lgMineState || (G.__lgMineS && G.__lgMineS.st);
+    const st = (G.__lgMineS && G.__lgMineS.st) || G.__lgMineState;
     if (st && st.id) {
       const stBase = String(st.id).split('.')[0];
       if (stBase !== targetBase) return false;
@@ -7999,12 +8076,19 @@
     return true;
   }
 
-  function tryOpenMineOnScreen(mineId) {
+  function tryOpenMineOnScreen(mineId, force = false) {
     let targetMine = mineId || currentMineId || 'home';
     // Если передан псевдоним 'ryabinen', сопоставляем с реальным ID шахты из списка
     const mObj = availableMines.find(m => m.id === targetMine || (m.name && m.name.toLowerCase().includes(targetMine.toLowerCase())));
     if (mObj && mObj.id && mObj.id !== 'ryabinen') {
       targetMine = mObj.id;
+    }
+
+    const world = document.querySelector('.mn-world');
+    // 🛡️ Защита от мигания экрана: если сцена шахты уже в DOM и мы находимся на этом ключе шахты
+    // или еще длится переход между этажами, не разрушаем DOM повторными вызовами open (если не force)
+    if (!force && world && (G.__lgMineCurrent === targetMine || isRidingLift || Date.now() - lastFloorTransitionTime < 6000)) {
+      return true;
     }
 
     const ctx = G.__lgMineContext || getMineContext();
@@ -8170,6 +8254,9 @@
         const C = (G.__lgMineS && G.__lgMineS.st && G.__lgMineS.st.id) || currentMineId || 'home';
         window.X?.api?.('/api/mineSeen', { c: C });
       } catch (e) {}
+    }
+    if (G.__lgMineS) {
+      G.__lgMineS.newsShown = true;
     }
   }
 
@@ -8967,6 +9054,48 @@
             myCount++;
             myCoins += myInfo.coins;
             fundedDrills.add(String(myInfo.key));
+          } else if (isDrillBuildAllFloors && !myInfo && Array.isArray(d)) {
+            // Взнос в буровые на других этажах через API (Вариант 1)
+            const [k, , , stg, lv, c, need, , , , , res] = d;
+            const drillKey = String(k);
+            if ((stg === 'site' || stg === 'work') && (+lv || 0) < 3 && !fundedDrills.has(drillKey)) {
+              const left = Math.max(0, (+need || 0) - (+c || 0));
+              if (left > 0) {
+                let currentWalletCoins = getMyCoins();
+                const fundAmount = Math.min(100, left);
+                // Оставляем обязательный защитный резерв 200 монет в кошельке игрока
+                if (currentWalletCoins - fundAmount >= 200) {
+                  try {
+                    const resDrill = await gameApi('/api/mineDrill', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        c: baseId,
+                        k: drillKey,
+                        coins: fundAmount
+                      })
+                    });
+                    if (resDrill && resDrill.ok) {
+                      fundedDrills.add(drillKey);
+                      drillKeysFound.add(drillKey);
+                      myCount++;
+                      myCoins += fundAmount;
+                      myFundedDrillsCount++;
+                      myFundedDrillsTotalCoins += fundAmount;
+                      saveFundedDrillsState();
+                      showToast(`🌐 Автобур: этаж ${f} — взнос ${fundAmount}м в буровую (${res || 'руда'})!`);
+                      updateDrillsUI();
+                      refreshMyCoinsFromApi(true);
+                      await new Promise(r => setTimeout(r, 1200)); // Пауза для естественности
+                    } else {
+                      console.warn(`[Буры] Взнос на этаже ${f} отклонен:`, resDrill && resDrill.error);
+                    }
+                  } catch (e) {
+                    console.warn(`[Буры] Ошибка отправки взноса на этаже ${f}:`, e);
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -9119,6 +9248,14 @@
       }
 
       if (rideSuccess) {
+        // 🛡️ Защита от follow3: лифт успешно отправлен на targetFloor
+        if (G.__lgMineS) {
+          G.__lgMineS.rideAt = Date.now();
+          if (G.__lgMineS.me) G.__lgMineS.me.at = targetFloor;
+        }
+        if (G.__lgMineMe) G.__lgMineMe.at = targetFloor;
+        if (G.__lgMineState) G.__lgMineState.n = targetFloor;
+
         const targetKey = targetFloor >= deep ? baseId : `${baseId}.${targetFloor}`;
         // В коде игры (mine.js): f >= deep ? 300 : 2500 мс на анимацию движения лифта
         const delay = targetFloor >= deep ? 400 : 2600;
@@ -9130,17 +9267,23 @@
         lastFloorTransitionTime = Date.now();
         lastMineOpenAttempt = Date.now();
 
-        // Открываем сцену нового этажа на экране
-        tryOpenMineOnScreen(targetKey);
+        // Открываем сцену нового этажа на экране (force = true)
+        tryOpenMineOnScreen(targetKey, true);
         try { updateMineSelectorUI(); } catch (e) {}
+
+        if (G.__lgMineS) {
+          G.__lgMineS.rideAt = Date.now();
+          if (G.__lgMineS.me) G.__lgMineS.me.at = targetFloor;
+          G.__lgMineS.newsShown = true;
+        }
 
         // Даем браузеру 1.5с на отрисовку нового этажа
         await new Promise(r => setTimeout(r, 1500));
         isRidingLift = false;
 
         closeNewsModal();
-        setTimeout(closeNewsModal, 500);
-        setTimeout(closeNewsModal, 1500);
+        setTimeout(closeNewsModal, 300);
+        setTimeout(closeNewsModal, 1000);
 
         if (G.__mineBotRunning && !isPaused) {
           clearTimeout(timer);
@@ -9223,7 +9366,8 @@
         if (autoLiftBestFloor) {
           checkAutoLiftStep();
         }
-        if (Date.now() - lastDrillsScanTime > 300000) {
+        const drillScanInterval = isDrillBuildAllFloors ? 120000 : 300000;
+        if (Date.now() - lastDrillsScanTime > drillScanInterval) {
           scanMyDrillsServerWide();
         }
       }
