@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      8.8
-// @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
+// @version      8.9
+// @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=play.multidonate.ru
@@ -283,6 +283,112 @@
   let pendingLiftRide = null;
   const fundedDrills = new Set();
   let lastDrillCheckTime = 0;
+
+  // =========================================================================
+  // 🎯 НАСТРАИВАЕМЫЕ ПРИОРИТЕТЫ ДОБЫЧИ РУД И СУНДУКОВ (DRAG & DROP)
+  // По умолчанию: Железо ВЫШЕ Угля!
+  // =========================================================================
+  const DEFAULT_ORE_PRIORITIES = [
+    { id: 'chest', name: '🎁 Сундук (Клад)', color: '#ffd700', enabled: true },
+    { id: 'rare', name: '💎 Редкие самоцветы', color: '#c084fc', enabled: true },
+    { id: 'iron', name: '⚪ Железо', color: '#cbd5e1', enabled: true },
+    { id: 'coal', name: '⚫ Уголь', color: '#94a3b8', enabled: true },
+    { id: 'gold', name: '🟡 Золото', color: '#facc15', enabled: true },
+    { id: 'silver', name: '🪙 Серебро', color: '#e2e8f0', enabled: true },
+    { id: 'crystal', name: '🔷 Кристаллы / Сера', color: '#67e8f9', enabled: true },
+    { id: 'obsidian', name: '🟣 Обсидиан / Мифрил', color: '#a855f7', enabled: true },
+    { id: 'other_ore', name: '⛏️ Прочая руда', color: '#fb923c', enabled: true },
+    { id: 'rock', name: '🪨 Обычный камень', color: '#9ca3af', enabled: true }
+  ];
+
+  function saveCustomPriorities(list) {
+    try {
+      localStorage.setItem('lg_bot_custom_priorities', JSON.stringify(list));
+    } catch (e) {}
+  }
+
+  function loadCustomPriorities() {
+    try {
+      const raw = localStorage.getItem('lg_bot_custom_priorities');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const loadedIds = new Set(parsed.map(x => x.id));
+          const result = parsed.map(item => {
+            const def = DEFAULT_ORE_PRIORITIES.find(d => d.id === item.id);
+            return {
+              id: item.id,
+              name: def ? def.name : item.name,
+              color: def ? def.color : item.color,
+              enabled: item.enabled !== false
+            };
+          });
+          for (const def of DEFAULT_ORE_PRIORITIES) {
+            if (!loadedIds.has(def.id)) {
+              result.push({ ...def });
+            }
+          }
+          return result;
+        }
+      }
+    } catch (e) {}
+    return DEFAULT_ORE_PRIORITIES.map(x => ({ ...x }));
+  }
+
+  let customPriorities = loadCustomPriorities();
+
+  function getRockCategory(rockId, group) {
+    if (rockId == null) return 'rock';
+    const idx = typeof rockId === 'number' ? rockId : parseInt(rockId, 10);
+    if (!isNaN(idx) && idx >= 0) {
+      const cell = getFloorCell(idx);
+      if (cell && Array.isArray(cell)) {
+        const [t, lv, r] = cell;
+        if (t === 'chest') return 'chest';
+        const res = r ? String(r).toLowerCase() : '';
+        if (res === 'iron') return 'iron';
+        if (res === 'coal') return 'coal';
+        if (res === 'gold') return 'gold';
+        if (res === 'silver') return 'silver';
+        if (['crystal', 'sulfur'].includes(res)) return 'crystal';
+        if (['obsidian', 'mythril', 'adamantite'].includes(res)) return 'obsidian';
+        if (t === 'rare' || ['ruby', 'emerald', 'sapphire', 'amber', 'topaz', 'garnet', 'amethyst', 'malachite', 'morion', 'aquamarine', 'runestone'].includes(res)) return 'rare';
+        if (t === 'ore' || res) return 'other_ore';
+        if (t === 'rock' || ['stone', 'basalt'].includes(res)) return 'rock';
+      }
+    }
+
+    const name = formatRockName(rockId);
+    if (name) {
+      const l = name.toLowerCase();
+      if (l.includes('сундук') || l.includes('клад')) return 'chest';
+      if (l.includes('железо') || l.includes('железа') || l.includes('iron')) return 'iron';
+      if (l.includes('уголь') || l.includes('угля') || l.includes('coal')) return 'coal';
+      if (l.includes('золото') || l.includes('золота') || l.includes('gold')) return 'gold';
+      if (l.includes('серебр') || l.includes('серебра') || l.includes('silver')) return 'silver';
+      if (l.includes('кристалл') || l.includes('сера') || l.includes('серы') || l.includes('sulfur')) return 'crystal';
+      if (l.includes('обсидиан') || l.includes('мифрил') || l.includes('адамантит')) return 'obsidian';
+      if (l.includes('редк') || l.includes('самоцвет') || l.includes('рубин') || l.includes('изумруд') || l.includes('сапфир') || l.includes('топаз') || l.includes('янтарь')) return 'rare';
+      if (l.includes('руд') || l.includes('жил')) return 'other_ore';
+      if (l.includes('камен') || l.includes('базальт') || l.includes('пород')) return 'rock';
+    }
+
+    if (group) {
+      const title = ((group.getAttribute && (group.getAttribute('title') || group.getAttribute('data-t'))) || '').toLowerCase();
+      if (title.includes('сундук') || title.includes('клад')) return 'chest';
+      if (title.includes('железо') || title.includes('железа') || title.includes('iron')) return 'iron';
+      if (title.includes('уголь') || title.includes('угля') || title.includes('coal')) return 'coal';
+      if (title.includes('золото') || title.includes('золота') || title.includes('gold')) return 'gold';
+      if (title.includes('серебр') || title.includes('silver')) return 'silver';
+      if (title.includes('кристалл') || title.includes('сера')) return 'crystal';
+      if (title.includes('обсидиан') || title.includes('мифрил') || title.includes('адамантит')) return 'obsidian';
+      if (title.includes('редк') || title.includes('самоцвет')) return 'rare';
+      if (title.includes('руд') || title.includes('жил')) return 'other_ore';
+    }
+
+    return 'rock';
+  }
+
   let oreFirst = localStorage.getItem('lg_bot_ore_first') !== '0'; // По умолчанию true (включено: сначала руда с макс. числом людей)
   let coalIronFirst = localStorage.getItem('lg_bot_coal_iron_first') !== '0'; // По умолчанию true (включено: приоритет сперва уголь, затем железо)
   let timer = null;
@@ -483,13 +589,12 @@
   // Приоритеты: 3 = Уголь, 2 = Железо, 1 = Прочая руда/сундуки, 0 = Обычный камень
   function getRockPriorityTier(rockId, group) {
     if (!oreFirst) return 0;
-    const isValuable = isValuableRock(rockId, group);
-    if (!isValuable) return 0;
-    if (!coalIronFirst) return 1;
-    const kind = getRockOreKind(rockId, group);
-    if (kind === 'coal') return 3; // Уголь — первый приоритет
-    if (kind === 'iron') return 2; // Железо — второй приоритет
-    return 1; // Прочая ценная руда/жилы
+    const cat = getRockCategory(rockId, group);
+    const idx = customPriorities.findIndex(p => p.id === cat);
+    if (idx < 0) return 0;
+    const item = customPriorities[idx];
+    if (!item.enabled) return -1; // Отключен пользователем
+    return customPriorities.length - idx; // Чем выше в списке, тем выше число
   }
 
   // Детерминированное вычисление точного индекса клетки (для Шахты 2.0 и Шахты 3.0) по координатам полоски прогресса
@@ -1530,7 +1635,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">⛏️ Майнер v8.8</span>
+        <span style="flex-shrink:0;">⛏️ Майнер v8.9</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -1561,6 +1666,9 @@
         <button id="b-tab-btn-quest" style="flex:1;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Поход / Данж: Авто-блок босса, радар тайников, авто-бой, стрим без задержки">
           <span>⚔️ Поход</span>
           <span id="b-quest-badge" style="display:none;background:#e11d48;color:#fff;border-radius:8px;padding:0 3px;font-size:8px;font-weight:bold;line-height:12px;">!</span>
+        </button>
+        <button id="b-tab-btn-priority" style="flex:1;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Приоритеты добычи руды, самоцветов и сундуков (Drag & Drop перетаскивание)">
+          <span>🎯 Руда</span>
         </button>
       </div>
 
@@ -1596,10 +1704,9 @@
             <input type="checkbox" id="b-ore-first" ${oreFirst ? 'checked' : ''} style="accent-color:#00ff66;cursor:pointer;width:14px;height:14px;">
             <span>💎 Сперва руда</span>
           </label>
-          <label id="b-coal-iron-label" style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#ffd700;font-size:11px;font-weight:bold;user-select:none;opacity:${oreFirst ? '1' : '0.5'};" title="Приоритет при поиске руды: сперва Уголь, затем Железо, затем остальная руда">
-            <input type="checkbox" id="b-coal-iron-first" ${coalIronFirst ? 'checked' : ''} style="accent-color:#ffd700;cursor:pointer;width:14px;height:14px;">
-            <span>⛏️ Сперва уголь и железо</span>
-          </label>
+          <button id="b-open-prio-tab" style="background:#262238;border:1px solid #eab308;color:#eab308;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:10px;font-weight:bold;display:flex;align-items:center;gap:3px;transition:all 0.2s;" onmouseenter="this.style.background='#3d3759'" onmouseleave="this.style.background='#262238'" title="Открыть вкладку детальной настройки приоритетов руд и сундуков (Drag & Drop)">
+            <span>🎯 Очередь руды</span>
+          </button>
         </div>
         <!-- Шахта 3.0: Автобуры (Сбор 30% руды и Установка как отдельный тумблер) -->
         <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:8px;background:#151226;padding:6px 8px;border-radius:6px;border:1px solid #7c3aed;">
@@ -1997,6 +2104,24 @@
         </div>
       </div>
 
+      <!-- Контейнер вкладки: Приоритеты добычи (Руда / Сундуки) -->
+      <div id="b-tab-priority" style="display:none;width:100%;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid #3d3759;">
+          <b style="color:#eab308;font-size:11.5px;">🎯 Приоритеты добычи</b>
+          <button id="b-prio-reset" style="background:#262238;border:1px solid #3d3759;color:#94a3b8;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:9.5px;font-weight:bold;transition:all 0.2s;" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='#94a3b8'" title="Сбросить к стандарту (Железо выше Угля)">🔄 По умолч.</button>
+        </div>
+        <div style="font-size:10px;color:#94a3b8;line-height:1.4;margin-bottom:8px;background:rgba(234,179,8,0.06);border:1px solid rgba(234,179,8,0.18);border-radius:5px;padding:5px 7px;">
+          💡 Перетаскивайте карточки мышкой (<b>Drag & Drop</b>) или кнопками <b>▲ ▼</b> для настройки очереди копки. Снимите галочку <b>[ ]</b>, чтобы бот не бил этот ресурс.
+        </div>
+        <div id="b-priority-list" style="display:flex;flex-direction:column;gap:4px;max-height:260px;overflow-y:auto;padding-right:2px;">
+          <!-- Карточки генерируются скриптом -->
+        </div>
+        <div style="margin-top:6px;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:9.5px;color:#64748b;">Железо по умолч. выше Угля</span>
+          <span style="font-size:9.5px;color:#4ade80;">💾 Сохранено</span>
+        </div>
+      </div>
+
       <!-- Контакты / Подвал -->
       <div id="b-footer" style="margin-top:8px;padding-top:6px;border-top:1px solid #3d3759;display:flex;justify-content:center;align-items:center;gap:5px;font-size:10px;color:#8899aa;user-select:text;">
         <span>Связь:</span>
@@ -2386,9 +2511,9 @@
   // Элементы вкладок
   const tabBtnMine = w.querySelector('#b-tab-btn-mine'), tabBtnMarket = w.querySelector('#b-tab-btn-market');
   const mineClaimBtn = w.querySelector('#b-mine-claim-btn');
-  const tabBtnPlayers = w.querySelector('#b-tab-btn-players'), tabBtnBroadcast = w.querySelector('#b-tab-btn-broadcast'), tabBtnCity = w.querySelector('#b-tab-btn-city'), tabBtnQuest = w.querySelector('#b-tab-btn-quest');
+  const tabBtnPlayers = w.querySelector('#b-tab-btn-players'), tabBtnBroadcast = w.querySelector('#b-tab-btn-broadcast'), tabBtnCity = w.querySelector('#b-tab-btn-city'), tabBtnQuest = w.querySelector('#b-tab-btn-quest'), tabBtnPriority = w.querySelector('#b-tab-btn-priority');
   const tabMine = w.querySelector('#b-tab-mine'), tabMarket = w.querySelector('#b-tab-market');
-  const tabPlayers = w.querySelector('#b-tab-players'), tabBroadcast = w.querySelector('#b-tab-broadcast'), tabCity = w.querySelector('#b-tab-city'), tabQuest = w.querySelector('#b-tab-quest');
+  const tabPlayers = w.querySelector('#b-tab-players'), tabBroadcast = w.querySelector('#b-tab-broadcast'), tabCity = w.querySelector('#b-tab-city'), tabQuest = w.querySelector('#b-tab-quest'), tabPriority = w.querySelector('#b-tab-priority');
   const aucBadge = w.querySelector('#b-auc-badge'), aucList = w.querySelector('#b-auc-list');
   const questBadge = w.querySelector('#b-quest-badge');
   const aucRefresh = w.querySelector('#b-auc-refresh'), aucFilter = w.querySelector('#b-auc-filter');
@@ -2432,14 +2557,14 @@
   let activeTab = localStorage.getItem('lg_bot_tab') || 'mine';
 
   function applyActiveTab() {
-    [tabBtnMine, tabBtnMarket, tabBtnPlayers, tabBtnBroadcast, tabBtnCity, tabBtnQuest].forEach(btn => {
+    [tabBtnMine, tabBtnMarket, tabBtnPlayers, tabBtnBroadcast, tabBtnCity, tabBtnQuest, tabBtnPriority].forEach(btn => {
       if (btn) {
         btn.style.background = '#262238';
         btn.style.color = '#aaa';
         btn.style.border = '1px solid #3d3759';
       }
     });
-    [tabMine, tabMarket, tabPlayers, tabBroadcast, tabCity, tabQuest].forEach(t => {
+    [tabMine, tabMarket, tabPlayers, tabBroadcast, tabCity, tabQuest, tabPriority].forEach(t => {
       if (t) t.style.display = 'none';
     });
     if (!isMinimized && !isSquare) {
@@ -2485,6 +2610,15 @@
       tabQuest.style.display = 'block';
       if (!isMinimized && !isSquare) w.style.minWidth = '340px';
       if (typeof refreshQuestUI === 'function') refreshQuestUI();
+    } else if (activeTab === 'priority') {
+      if (tabBtnPriority) {
+        tabBtnPriority.style.background = '#eab308';
+        tabBtnPriority.style.color = '#fff';
+        tabBtnPriority.style.border = 'none';
+      }
+      if (tabPriority) tabPriority.style.display = 'block';
+      if (!isMinimized && !isSquare) w.style.minWidth = '340px';
+      renderPriorityListUI();
     } else {
       activeTab = 'mine';
       tabBtnMine.style.background = '#28a745';
@@ -2502,6 +2636,155 @@
   tabBtnBroadcast.onclick = () => { activeTab = 'broadcast'; applyActiveTab(); };
   tabBtnCity.onclick = () => { activeTab = 'city'; applyActiveTab(); };
   tabBtnQuest.onclick = () => { activeTab = 'quest'; applyActiveTab(); };
+
+  if (tabBtnPriority) {
+    tabBtnPriority.onclick = () => {
+      activeTab = 'priority';
+      localStorage.setItem('lg_bot_active_tab', 'priority');
+      applyActiveTab();
+    };
+  }
+
+  const openPrioTabBtn = w.querySelector('#b-open-prio-tab');
+  if (openPrioTabBtn) {
+    openPrioTabBtn.onclick = () => {
+      activeTab = 'priority';
+      localStorage.setItem('lg_bot_active_tab', 'priority');
+      applyActiveTab();
+    };
+  }
+
+  const prioResetBtn = w.querySelector('#b-prio-reset');
+  if (prioResetBtn) {
+    prioResetBtn.onclick = () => {
+      customPriorities = DEFAULT_ORE_PRIORITIES.map(x => ({ ...x }));
+      saveCustomPriorities(customPriorities);
+      renderPriorityListUI();
+      showToast('🔄 Приоритеты сброшены по умолчанию (Железо выше Угля)');
+    };
+  }
+
+  function renderPriorityListUI() {
+    const listEl = w.querySelector('#b-priority-list');
+    if (!listEl) return;
+    listEl.innerHTML = '';
+
+    customPriorities.forEach((item, idx) => {
+      const card = document.createElement('div');
+      card.className = 'b-prio-item';
+      card.dataset.id = item.id;
+      card.setAttribute('draggable', 'true');
+      card.style.cssText = 'display:flex;align-items:center;justify-content:space-between;background:#1e1b2e;border:1px solid #3d3759;border-radius:6px;padding:5px 8px;cursor:grab;user-select:none;transition:all 0.15s ease;';
+
+      card.innerHTML = `
+        <div style="display:flex;align-items:center;gap:7px;">
+          <span style="color:#64748b;font-size:12px;cursor:grab;" title="Потяните для изменения порядка">☰</span>
+          <span style="display:inline-block;min-width:18px;height:18px;line-height:18px;text-align:center;background:rgba(255,255,255,0.08);border-radius:9px;font-size:10px;font-weight:bold;color:#cbd5e1;">#${idx + 1}</span>
+          <input type="checkbox" class="b-prio-check" data-id="${item.id}" ${item.enabled ? 'checked' : ''} style="cursor:pointer;accent-color:#eab308;width:14px;height:14px;" title="Включить / исключить из добычи">
+          <span style="font-size:11.5px;font-weight:bold;color:${item.color};opacity:${item.enabled ? '1' : '0.45'};">${item.name}</span>
+        </div>
+        <div style="display:flex;gap:3px;">
+          <button class="b-prio-up" data-id="${item.id}" ${idx === 0 ? 'disabled' : ''} style="background:#262238;border:1px solid #3d3759;color:#e2e8f0;border-radius:4px;padding:2px 6px;cursor:${idx === 0 ? 'default' : 'pointer'};font-size:10px;opacity:${idx === 0 ? '0.3' : '1'};" title="Поднять выше">▲</button>
+          <button class="b-prio-down" data-id="${item.id}" ${idx === customPriorities.length - 1 ? 'disabled' : ''} style="background:#262238;border:1px solid #3d3759;color:#e2e8f0;border-radius:4px;padding:2px 6px;cursor:${idx === customPriorities.length - 1 ? 'default' : 'pointer'};font-size:10px;opacity:${idx === customPriorities.length - 1 ? '0.3' : '1'};" title="Опустить ниже">▼</button>
+        </div>
+      `;
+
+      listEl.appendChild(card);
+    });
+
+    setupPriorityDragAndDrop(listEl);
+
+    listEl.querySelectorAll('.b-prio-up').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        const idx = customPriorities.findIndex(x => x.id === id);
+        if (idx > 0) {
+          const [moved] = customPriorities.splice(idx, 1);
+          customPriorities.splice(idx - 1, 0, moved);
+          saveCustomPriorities(customPriorities);
+          renderPriorityListUI();
+        }
+      };
+    });
+
+    listEl.querySelectorAll('.b-prio-down').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        const idx = customPriorities.findIndex(x => x.id === id);
+        if (idx >= 0 && idx < customPriorities.length - 1) {
+          const [moved] = customPriorities.splice(idx, 1);
+          customPriorities.splice(idx + 1, 0, moved);
+          saveCustomPriorities(customPriorities);
+          renderPriorityListUI();
+        }
+      };
+    });
+
+    listEl.querySelectorAll('.b-prio-check').forEach(chk => {
+      chk.onchange = (e) => {
+        e.stopPropagation();
+        const id = chk.dataset.id;
+        const item = customPriorities.find(x => x.id === id);
+        if (item) {
+          item.enabled = chk.checked;
+          saveCustomPriorities(customPriorities);
+          renderPriorityListUI();
+          showToast(item.enabled ? `✅ ${item.name}: включен в добычу` : `❌ ${item.name}: отключен (пропускаем)`);
+        }
+      };
+    });
+  }
+
+  let draggedPrioCard = null;
+  function setupPriorityDragAndDrop(container) {
+    const cards = container.querySelectorAll('.b-prio-item');
+    cards.forEach(card => {
+      card.addEventListener('dragstart', (e) => {
+        draggedPrioCard = card;
+        card.style.opacity = '0.4';
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', card.dataset.id);
+      });
+
+      card.addEventListener('dragend', () => {
+        draggedPrioCard = null;
+        card.style.opacity = '1';
+        cards.forEach(c => c.style.borderTop = '1px solid #3d3759');
+      });
+
+      card.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        card.style.borderTop = '2px solid #eab308';
+      });
+
+      card.addEventListener('dragleave', () => {
+        card.style.borderTop = '1px solid #3d3759';
+      });
+
+      card.addEventListener('drop', (e) => {
+        e.preventDefault();
+        card.style.borderTop = '1px solid #3d3759';
+        if (!draggedPrioCard || draggedPrioCard === card) return;
+
+        const fromId = draggedPrioCard.dataset.id;
+        const toId = card.dataset.id;
+        const fromIdx = customPriorities.findIndex(x => x.id === fromId);
+        const toIdx = customPriorities.findIndex(x => x.id === toId);
+
+        if (fromIdx >= 0 && toIdx >= 0) {
+          const [moved] = customPriorities.splice(fromIdx, 1);
+          customPriorities.splice(toIdx, 0, moved);
+          saveCustomPriorities(customPriorities);
+          renderPriorityListUI();
+          showToast(`🎯 Приоритет: ${moved.name} перемещён на позицию #${toIdx + 1}`);
+        }
+      });
+    });
+  }
+
 
 
 
@@ -7925,55 +8208,38 @@
 
     let best = null;
     if (oreFirst) {
-      if (coalIronFirst) {
-        // Четырёхуровневый приоритет: Уголь -> Железо -> Прочая руда -> Обычный камень
-        const coalCandidates = [];
-        const ironCandidates = [];
-        const otherOreCandidates = [];
-        const regularCandidates = [];
+      // 1. Исключаем кандидатов, чьи категории выключены пользователем
+      const activeCandidates = valid.filter(c => {
+        const cat = getRockCategory(c.rockId, c.group);
+        const item = customPriorities.find(p => p.id === cat);
+        return !item || item.enabled;
+      });
 
-        for (const c of valid) {
-          const isValuable = isValuableRock(c.rockId, c.group);
-          if (!isValuable) {
-            regularCandidates.push(c);
-          } else {
-            const kind = getRockOreKind(c.rockId, c.group);
-            if (kind === 'coal') coalCandidates.push(c);
-            else if (kind === 'iron') ironCandidates.push(c);
-            else otherOreCandidates.push(c);
-          }
-        }
+      // 2. Раскладываем кандидатов по корзинам приоритетов
+      const buckets = new Map();
+      for (const p of customPriorities) {
+        if (p.enabled) buckets.set(p.id, []);
+      }
 
-        if (coalCandidates.length > 0) {
-          sortCandidates(coalCandidates);
-          best = coalCandidates[0];
-        } else if (ironCandidates.length > 0) {
-          sortCandidates(ironCandidates);
-          best = ironCandidates[0];
-        } else if (otherOreCandidates.length > 0) {
-          sortCandidates(otherOreCandidates);
-          best = otherOreCandidates[0];
-        } else if (regularCandidates.length > 0) {
-          sortCandidates(regularCandidates);
-          best = regularCandidates[0];
+      for (const c of activeCandidates) {
+        const cat = getRockCategory(c.rockId, c.group);
+        if (buckets.has(cat)) {
+          buckets.get(cat).push(c);
+        } else if (buckets.has('other_ore')) {
+          buckets.get('other_ore').push(c);
+        } else if (buckets.has('rock')) {
+          buckets.get('rock').push(c);
         }
-      } else {
-        const oreCandidates = [];
-        const regularCandidates = [];
-        for (const c of valid) {
-          if (isValuableRock(c.rockId, c.group)) {
-            oreCandidates.push(c);
-          } else {
-            regularCandidates.push(c);
-          }
-        }
+      }
 
-        if (oreCandidates.length > 0) {
-          sortCandidates(oreCandidates);
-          best = oreCandidates[0];
-        } else if (regularCandidates.length > 0) {
-          sortCandidates(regularCandidates);
-          best = regularCandidates[0];
+      // 3. Выбираем лучшего кандидата по строгому порядку списка приоритетов (сверху вниз)
+      for (const p of customPriorities) {
+        if (!p.enabled) continue;
+        const groupList = buckets.get(p.id);
+        if (groupList && groupList.length > 0) {
+          sortCandidates(groupList);
+          best = groupList[0];
+          break;
         }
       }
     } else {
