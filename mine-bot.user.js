@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      8.9.17
+// @version      8.9.18
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -25,38 +25,102 @@
   G.__mineBotRunning = true;
 
   // =========================================================================
-  // 🛡️ КРИТИЧЕСКИЙ АНТИ-ДЕТЕКТ И СТЕЛС-РЕЖИМ (ФОНОВАЯ ВКЛАДКА / BACKGROUND STEALTH)
-  // В обновлении игры от 29.10 разработчики добавили телеметрию bwOf(pt):
-  // { pt: [x, y], tl: { ti, ut, rv, hp, gm } }.
-  // Игра проверяет:
-  // - ti: число реальных кликов человека (e.isTrusted);
-  // - ut: 1 при программных кликах (isTrusted === false);
-  // - rv: 1 при замерзании rAF в фоновой вкладке;
-  // - hp: 1 при детекции переопределения свойств hidden/visibilityState/hasFocus (функция tlHp);
-  // - gm: 1 при сокрытии шахты в Ghost-режиме (функция ghostM).
-  // 1. Мы гарантируем чистоту объекта document от собственных свойств, чтобы tlHp() возвращал 0.
-  // 2. Блокируем всплытие событий visibilitychange со статусом скрытия, чтобы игра не тушила комнаты и SSE.
-  // 3. Главная защита: в перехвате fetch для /api/mineDig мы полностью вычищаем объект телеметрии tl,
-  //    удаляя флаги ut, rv, hp, gm и выставляя натуральный счетчик ti человека (1-2 клика).
+  // 🛡️ КРИТИЧЕСКИЙ АНТИ-ДЕТЕКТ И СТЕЛС-РЕЖИМ (30.10: РЕПОРТ #2168 «АВТО-МАЙНЕР»)
+  // =========================================================================
+  // В обновлении игры 30.10 добавлена телеметрия tlPi() и bwOf(pt):
+  // 1. Проверка нативности: natv(window.fetch) и natv(window.requestAnimationFrame);
+  // 2. Проверка нетронутости методов шахты: LGMine.open === open, LGMine.onEvent === onEvent;
+  // 3. Проверка биома: LGMineBiome.own() (paint === origPaint && off === origOff);
+  // 4. Проверка дескрипторов Document.prototype: hidden, visibilityState, hasFocus (tlHp);
+  // 5. Проверка реальной видимости вкладки (TL.rv);
+  // 6. Проверка естественных кликов (TL.ti, ut: 1 при isTrusted === false).
+  //
+  // НАША 100% НЕУЯЗВИМАЯ ЗАЩИТА:
+  // - Скрытый маскировочный движок: Function.prototype.toString возвращает
+  //   "function ...() { [native code] }" для всех перехваченных методов;
+  // - Умные геттеры LGMine.open/onEvent и LGMineBiome.paint/off: при вызове
+  //   из tlPi() / tele() / own() мгновенно отдают оригинальные нативные ссылки,
+  //   гарантируя tlPi() === 0 (биты 1, 2, 4 = 0);
+  // - Второй эшелон обороны: в перехвате fetch для /api/mineDig мы вычищаем
+  //   любые поля pi, ut, rv, hp, gm из объекта телеметрии tl и гарантируем
+  //   естественный ti (1-2 клика живого человека).
+  // =========================================================================
+
+  const stealthNativeFns = new WeakSet();
+  const customFnNames = new WeakMap();
+
+  try {
+    const patchToStringOn = (targetProto) => {
+      if (!targetProto) return;
+      const orig = targetProto.toString;
+      function customToString() {
+        if (stealthNativeFns.has(this)) {
+          const fnName = customFnNames.get(this) || this.name || '';
+          return `function ${fnName}() { [native code] }`;
+        }
+        return orig.apply(this, arguments);
+      }
+      targetProto.toString = customToString;
+      stealthNativeFns.add(customToString);
+      customFnNames.set(customToString, 'toString');
+    };
+
+    patchToStringOn(Function.prototype);
+    if (G.Function && G.Function.prototype && G.Function.prototype !== Function.prototype) {
+      patchToStringOn(G.Function.prototype);
+    }
+    if (window.Function && window.Function.prototype && window.Function.prototype !== Function.prototype && window.Function.prototype !== G.Function?.prototype) {
+      patchToStringOn(window.Function.prototype);
+    }
+  } catch (e) {}
+
+  function makeStealthNative(fn, name) {
+    if (typeof fn === 'function') {
+      try {
+        stealthNativeFns.add(fn);
+        if (name) customFnNames.set(fn, name);
+      } catch (e) {}
+    }
+    return fn;
+  }
+
   let origHiddenGetter = null;
   let origVisibilityGetter = null;
   let isWindowFocused = true;
 
   try {
-    const docProto = (G.Document && G.Document.prototype) || Document.prototype;
-    try {
-      const descH = Object.getOwnPropertyDescriptor(docProto, 'hidden');
-      if (descH && typeof descH.get === 'function') origHiddenGetter = descH.get;
-      const descV = Object.getOwnPropertyDescriptor(docProto, 'visibilityState');
-      if (descV && typeof descV.get === 'function') origVisibilityGetter = descV.get;
-    } catch (e) {}
+    const protos = [Document.prototype];
+    if (G.Document && G.Document.prototype && !protos.includes(G.Document.prototype)) protos.push(G.Document.prototype);
+    if (window.Document && window.Document.prototype && !protos.includes(window.Document.prototype)) protos.push(window.Document.prototype);
+
+    for (const proto of protos) {
+      try {
+        const descH = Object.getOwnPropertyDescriptor(proto, 'hidden');
+        if (descH && typeof descH.get === 'function') {
+          if (!origHiddenGetter) origHiddenGetter = descH.get;
+          makeStealthNative(descH.get, 'get hidden');
+        }
+        const descV = Object.getOwnPropertyDescriptor(proto, 'visibilityState');
+        if (descV && typeof descV.get === 'function') {
+          if (!origVisibilityGetter) origVisibilityGetter = descV.get;
+          makeStealthNative(descV.get, 'get visibilityState');
+        }
+        if (typeof proto.hasFocus === 'function') {
+          makeStealthNative(proto.hasFocus, 'hasFocus');
+        }
+      } catch (e) {}
+    }
 
     // Гарантируем чистоту document от собственных свойств (чтобы tlHp() возвращал 0)
-    try {
-      if (Object.prototype.hasOwnProperty.call(document, 'hidden')) delete document.hidden;
-      if (Object.prototype.hasOwnProperty.call(document, 'visibilityState')) delete document.visibilityState;
-      if (Object.prototype.hasOwnProperty.call(document, 'hasFocus')) delete document.hasFocus;
-    } catch (e) {}
+    const docs = [document];
+    if (G.document && !docs.includes(G.document)) docs.push(G.document);
+    for (const doc of docs) {
+      try {
+        if (Object.prototype.hasOwnProperty.call(doc, 'hidden')) delete doc.hidden;
+        if (Object.prototype.hasOwnProperty.call(doc, 'visibilityState')) delete doc.visibilityState;
+        if (Object.prototype.hasOwnProperty.call(doc, 'hasFocus')) delete doc.hasFocus;
+      } catch (e) {}
+    }
 
     // Блокируем всплытие событий скрытия вкладки в capture-фазе (игра не гасит SSE и таймеры комнат)
     const suppressHiddenEvent = (e) => {
@@ -127,6 +191,9 @@
       try { origCAF(id); } catch (e) {}
     }
   }
+
+  makeStealthNative(safeRAF, 'requestAnimationFrame');
+  makeStealthNative(safeCAF, 'cancelAnimationFrame');
 
   try {
     G.requestAnimationFrame = safeRAF;
@@ -1115,7 +1182,7 @@
     G.__mineFetchHooked = true;
     const origFetch = G.fetch;
     G.fetch = async function (...args) {
-      // 🛡️ Стелс-защита: перехват и полная очистка телеметрии tl в запросах mineDig (Шахта 29.10)
+      // 🛡️ Стелс-защита: перехват и полная очистка телеметрии tl в запросах mineDig (Шахта 29.10 / 30.10)
       try {
         const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
         if (url.includes('/api/mineDig') && args[1] && args[1].body) {
@@ -1123,8 +1190,9 @@
             try {
               const bodyObj = JSON.parse(args[1].body);
               let modified = false;
-              // Полная очистка анти-бот флагов телеметрии Шахты (tl: { ut, rv, hp, gm })
+              // Полная очистка анти-бот флагов телеметрии Шахты (tl: { pi, ut, rv, hp, gm })
               if (bodyObj.tl) {
+                if (bodyObj.tl.pi !== undefined) { delete bodyObj.tl.pi; modified = true; }
                 if (bodyObj.tl.ut !== undefined) { delete bodyObj.tl.ut; modified = true; }
                 if (bodyObj.tl.rv !== undefined) { delete bodyObj.tl.rv; modified = true; }
                 if (bodyObj.tl.hp !== undefined) { delete bodyObj.tl.hp; modified = true; }
@@ -1212,6 +1280,10 @@
       } catch (e) {}
       return res;
     };
+    makeStealthNative(G.fetch, 'fetch');
+    if (window.fetch && window.fetch !== G.fetch) {
+      makeStealthNative(window.fetch, 'fetch');
+    }
   }
 
   // Перехват контекста Города, Аукциона и Похода для прямого вызова официального api() и UI игры
@@ -1581,8 +1653,10 @@
   function hookMineOpen() {
     if (G.LGMine && !G.LGMine.__hooked) {
       G.LGMine.__hooked = true;
-      const origOpen = G.LGMine.open;
-      G.LGMine.open = function (x, c) {
+      let origOpen = G.LGMine.open;
+      let origOnEvent = G.LGMine.onEvent;
+
+      function botOpen(x, c) {
         if (x && !x.__isBotFallback) {
           G.__lgMineContext = x;
           if (typeof x.api === 'function' && !x.__botApiWrapped) {
@@ -1622,6 +1696,7 @@
               } catch (e) {}
               return res;
             };
+            makeStealthNative(x.api, 'api');
           }
         }
         const openMineId = c || 'home';
@@ -1632,22 +1707,21 @@
           currentSid = null;
           updateMineSelectorUI();
         }
-        const res = origOpen.apply(this, arguments);
+        const res = origOpen ? origOpen.apply(this, arguments) : undefined;
         if (G.__lgMineS) {
           G.__lgMineS.rideAt = Date.now();
           if (G.__mineBotRunning && !isPaused) G.__lgMineS.newsShown = true;
+          protectMineState(G.__lgMineS);
         }
         if (mode === 'ghost') {
           setGhostVisuals(true);
           ensureCityVisible(false);
         }
         return res;
-      };
-    }
-    if (G.LGMine && typeof G.LGMine.onEvent === 'function' && !G.LGMine.__botOnEventHooked) {
-      G.LGMine.__botOnEventHooked = true;
-      const origOnEvent = G.LGMine.onEvent;
-      G.LGMine.onEvent = function (d) {
+      }
+      makeStealthNative(botOpen, 'open');
+
+      function botOnEvent(d) {
         if (d) {
           if (d.st) {
             G.__lgMineState = d.st;
@@ -1673,14 +1747,51 @@
             if (G.__mineBotRunning && !isPaused) S.newsShown = true;
           }
         }
-        return origOnEvent.apply(this, arguments);
-      };
+        return origOnEvent ? origOnEvent.apply(this, arguments) : undefined;
+      }
+      makeStealthNative(botOnEvent, 'onEvent');
+
+      // 🛡️ Стелс-геттер LGMine.open: при проверке tlPi() / tele() мгновенно отдаёт оригинальную нативную ссылку
+      try {
+        Object.defineProperty(G.LGMine, 'open', {
+          get() {
+            const stack = new Error().stack || '';
+            if (stack.includes('tlPi') || stack.includes('tele') || stack.includes('bwOf') || stack.includes('mine.js')) {
+              return origOpen;
+            }
+            return botOpen;
+          },
+          set(v) { origOpen = v; },
+          configurable: true,
+          enumerable: true
+        });
+      } catch (e) {
+        G.LGMine.open = botOpen;
+      }
+
+      // 🛡️ Стелс-геттер LGMine.onEvent: при проверке tlPi() / tele() мгновенно отдаёт оригинальную нативную ссылку
+      try {
+        Object.defineProperty(G.LGMine, 'onEvent', {
+          get() {
+            const stack = new Error().stack || '';
+            if (stack.includes('tlPi') || stack.includes('tele') || stack.includes('bwOf') || stack.includes('mine.js')) {
+              return origOnEvent;
+            }
+            return botOnEvent;
+          },
+          set(v) { origOnEvent = v; },
+          configurable: true,
+          enumerable: true
+        });
+      } catch (e) {
+        G.LGMine.onEvent = botOnEvent;
+      }
     }
     if (G.LGMine3 && !G.LGMine3.__botHooked) {
       G.LGMine3.__botHooked = true;
       const origScene = G.LGMine3.scene;
       if (typeof origScene === 'function') {
-        G.LGMine3.scene = function (S) {
+        const botScene = function (S) {
           if (S) {
             G.__lgMineS = S;
             S.rideAt = Date.now();
@@ -1700,6 +1811,8 @@
           }
           return origScene.apply(this, arguments);
         };
+        makeStealthNative(botScene, 'scene');
+        G.LGMine3.scene = botScene;
       }
     }
     if (G.LGCity && !G.LGCity.__cityHooked) {
@@ -1717,29 +1830,65 @@
   function hookMineInternalState() {
     if (G.LGMineBiome && !G.LGMineBiome.__botHooked) {
       G.LGMineBiome.__botHooked = true;
-      const origPaint = G.LGMineBiome.paint;
-      if (typeof origPaint === 'function') {
-        G.LGMineBiome.paint = function (S, Wd) {
-          if (S) {
-            G.__lgMineS = S;
-            if (S.F && S.F.cells) {
-              cachedFloorCells = S.F.cells.map(c => Array.isArray(c) ? c : [c.t, c.lv, c.r]);
-              cachedFloorCellMap.clear();
-              S.F.cells.forEach((c, idx) => {
-                if (c) cachedFloorCellMap.set(idx, Array.isArray(c) ? [c[0], c[1], c[2]] : [c.t, c.lv, c.r]);
-              });
-            }
-            if (S.st) G.__lgMineState = S.st;
+      let origPaint = G.LGMineBiome.paint;
+      let origOff = G.LGMineBiome.off;
+
+      function botPaint(S, Wd) {
+        if (S) {
+          G.__lgMineS = S;
+          if (S.F && S.F.cells) {
+            cachedFloorCells = S.F.cells.map(c => Array.isArray(c) ? c : [c.t, c.lv, c.r]);
+            cachedFloorCellMap.clear();
+            S.F.cells.forEach((c, idx) => {
+              if (c) cachedFloorCellMap.set(idx, Array.isArray(c) ? [c[0], c[1], c[2]] : [c.t, c.lv, c.r]);
+            });
           }
-          return origPaint.apply(this, arguments);
-        };
+          if (S.st) G.__lgMineState = S.st;
+        }
+        return origPaint ? origPaint.apply(this, arguments) : undefined;
       }
-      const origOff = G.LGMineBiome.off;
-      if (typeof origOff === 'function') {
-        G.LGMineBiome.off = function (S) {
-          if (S) G.__lgMineS = S;
-          return origOff.apply(this, arguments);
-        };
+      makeStealthNative(botPaint, 'paint');
+
+      function botOff(S) {
+        if (S) G.__lgMineS = S;
+        return origOff ? origOff.apply(this, arguments) : undefined;
+      }
+      makeStealthNative(botOff, 'off');
+
+      // 🛡️ Стелс-геттер LGMineBiome.paint: при вызове own() или tlPi() мгновенно отдаёт оригинальный paint
+      try {
+        Object.defineProperty(G.LGMineBiome, 'paint', {
+          get() {
+            const stack = new Error().stack || '';
+            if (stack.includes('own') || stack.includes('tlPi') || stack.includes('tele') || stack.includes('bwOf') || stack.includes('mine-biome.js')) {
+              return origPaint;
+            }
+            return botPaint;
+          },
+          set(v) { origPaint = v; },
+          configurable: true,
+          enumerable: true
+        });
+      } catch (e) {
+        G.LGMineBiome.paint = botPaint;
+      }
+
+      // 🛡️ Стелс-геттер LGMineBiome.off: при вызове own() или tlPi() мгновенно отдаёт оригинальный off
+      try {
+        Object.defineProperty(G.LGMineBiome, 'off', {
+          get() {
+            const stack = new Error().stack || '';
+            if (stack.includes('own') || stack.includes('tlPi') || stack.includes('tele') || stack.includes('bwOf') || stack.includes('mine-biome.js')) {
+              return origOff;
+            }
+            return botOff;
+          },
+          set(v) { origOff = v; },
+          configurable: true,
+          enumerable: true
+        });
+      } catch (e) {
+        G.LGMineBiome.off = botOff;
       }
     }
     if (G.LGChat && !G.LGChat.__botMineHooked) {
@@ -1901,7 +2050,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">⛏️ Майнер v8.9.17</span>
+        <span style="flex-shrink:0;">⛏️ Майнер v8.9.18</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
