@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      8.7
-// @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
+// @version      8.8
+// @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=play.multidonate.ru
@@ -1530,7 +1530,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">⛏️ Майнер v8.7</span>
+        <span style="flex-shrink:0;">⛏️ Майнер v8.8</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -1615,6 +1615,7 @@
               <input type="checkbox" id="b-drill-build" ${isDrillBuild ? 'checked' : ''} style="accent-color:#38bdf8;cursor:pointer;width:14px;height:14px;">
               <span>🏗️ Авто-установка буров (взнос 100м)</span>
             </label>
+            <span id="b-my-drills-info" style="font-size:10px;color:#38bdf8;font-weight:bold;cursor:pointer;padding:1px 5px;background:rgba(56,189,248,0.12);border-radius:4px;border:1px solid rgba(56,189,248,0.25);" title="Число буров, в которые вы внесли от 100м (опрос сервера раз в 5 минут). Нажмите для обновления.">Наших: 0 шт.</span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);">
             <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#ffd700;font-size:10.5px;font-weight:bold;user-select:none;" title="Автоматически забирать награды за выполненные ежедневные и еженедельные поручения скупщика шахты">
@@ -2050,6 +2051,13 @@
       if (isDrillBuild) processDrillAutoFund();
     };
   }
+  const myDrillsEl = w.querySelector('#b-my-drills-info');
+  if (myDrillsEl) {
+    myDrillsEl.onclick = () => {
+      showToast('🔄 Сканирование буров на всех этажах шахты…');
+      scanMyDrillsServerWide();
+    };
+  }
   if (checkAutoClaimQuests) {
     checkAutoClaimQuests.onchange = () => {
       autoClaimQuests = checkAutoClaimQuests.checked;
@@ -2106,6 +2114,35 @@
       infoEl.style.color = '#a78bfa';
     }
 
+    const myDrillsEl = w.querySelector('#b-my-drills-info');
+    if (myDrillsEl) {
+      if (myFundedDrillsCount > 0) {
+        myDrillsEl.textContent = `Наших: ${myFundedDrillsCount} шт.`;
+        myDrillsEl.style.color = '#38bdf8';
+        myDrillsEl.title = `Вы внесли взнос в ${myFundedDrillsCount} буровых вышек шахты (${myFundedDrillsTotalCoins} монет). Бонус строителя рудой активен! Опрос сервера каждые 5 мин. Нажмите для обновления.`;
+      } else {
+        const logins = getMyLoginsSet();
+        let curFloorMy = 0;
+        let curFloorCoins = 0;
+        for (const d of drills) {
+          const myInfo = isMyFundedDrill(d, logins);
+          if (myInfo) {
+            curFloorMy++;
+            curFloorCoins += myInfo.coins;
+          }
+        }
+        if (curFloorMy > 0) {
+          myDrillsEl.textContent = `Наших: ${curFloorMy} шт.`;
+          myDrillsEl.style.color = '#38bdf8';
+          myDrillsEl.title = `На текущем этаже внесён взнос в ${curFloorMy} буровых (${curFloorCoins}м). Опрос всей шахты каждые 5 мин. Нажмите для обновления.`;
+        } else {
+          myDrillsEl.textContent = 'Наших: 0 шт.';
+          myDrillsEl.style.color = 'rgba(255,255,255,0.4)';
+          myDrillsEl.title = 'Пока нет буровых с вашим взносом. Бот автоматически внесет 100м при появлении новой площадки. Нажмите для обновления.';
+        }
+      }
+    }
+
     // Если включен авто-сбор, проверяем награды скупщика (/api/mineClaim)
     if (isDrillCollect) {
       const claimBtn = w.querySelector('#b-mine-claim-btn');
@@ -2114,6 +2151,11 @@
       }
     }
   }
+
+  let myFundedDrillsCount = 0;
+  let myFundedDrillsTotalCoins = 0;
+  let lastDrillsScanTime = 0;
+  let isScanningDrills = false;
 
   let isFundingDrill = false;
   async function processDrillAutoFund() {
@@ -2170,6 +2212,9 @@
             });
             if (resDrill && resDrill.ok) {
               showToast(`🏗️ Авто-установка: внесён взнос ${fundAmount}м в буровую (${res || 'руда'})! Бонус строителя зафиксирован.`);
+              myFundedDrillsCount++;
+              myFundedDrillsTotalCoins += fundAmount;
+              updateDrillsUI();
               refreshMyCoinsFromApi(true);
               myCoins -= fundAmount;
             } else {
@@ -8070,6 +8115,97 @@
   }
 
 
+
+  function getMyLoginsSet() {
+    const set = new Set();
+    const raw = [
+      G.ME?.user?.login,
+      G.ME?.user?.name,
+      G.ME?.hero?.n,
+      G.ME?.hero?.name,
+      G.__lgMineMe?.n,
+      G.__lgMineMe?.name,
+      G.__lgMineMe?.user?.name,
+      typeof getMyNick === 'function' ? getMyNick() : ''
+    ];
+    for (const x of raw) {
+      if (x && typeof x === 'string') {
+        const trimmed = x.trim().toLowerCase();
+        if (trimmed) set.add(trimmed);
+      }
+    }
+    return set;
+  }
+
+  function isMyFundedDrill(d, loginsSet) {
+    if (!d || !Array.isArray(d)) return null;
+    const byList = Array.isArray(d[12]) ? d[12] : [];
+    for (const entry of byList) {
+      if (Array.isArray(entry) && entry[0]) {
+        const l = String(entry[0]).trim().toLowerCase();
+        if (loginsSet.has(l)) {
+          return { coins: +entry[1] || 100, key: d[0], res: d[11], lv: d[4], stg: d[3] };
+        }
+      }
+    }
+    return null;
+  }
+
+  async function scanMyDrillsServerWide() {
+    if (isScanningDrills) return;
+    const S = G.__lgMineS;
+    if (!S || !S.st) return;
+
+    const currentFloor = S.st.n || 1;
+    const deep = S.st.deep || currentFloor;
+    const baseId = (currentMineId || 'home').split('.')[0];
+    const logins = getMyLoginsSet();
+    if (logins.size === 0) return;
+
+    isScanningDrills = true;
+    lastDrillsScanTime = Date.now();
+
+    try {
+      let myCount = 0;
+      let myCoins = 0;
+      const drillKeysFound = new Set();
+
+      for (let f = 1; f <= deep; f++) {
+        let drillsForFloor = [];
+        if (f === currentFloor) {
+          drillsForFloor = (S.st && Array.isArray(S.st.drills)) ? S.st.drills : [];
+        } else {
+          const roomKey = f >= deep ? baseId : `${baseId}.${f}`;
+          try {
+            const res = await gameApi(`/api/mine/state?c=${encodeURIComponent(roomKey)}`);
+            if (res && res.ok && res.st && Array.isArray(res.st.drills)) {
+              drillsForFloor = res.st.drills;
+            }
+          } catch (e) {}
+          await new Promise(r => setTimeout(r, 200));
+        }
+
+        for (const d of drillsForFloor) {
+          const myInfo = isMyFundedDrill(d, logins);
+          if (myInfo && !drillKeysFound.has(myInfo.key)) {
+            drillKeysFound.add(myInfo.key);
+            myCount++;
+            myCoins += myInfo.coins;
+            fundedDrills.add(String(myInfo.key));
+          }
+        }
+      }
+
+      myFundedDrillsCount = myCount;
+      myFundedDrillsTotalCoins = myCoins;
+      updateDrillsUI();
+    } catch (err) {
+      console.warn('[Шахта] Ошибка сканирования буров:', err);
+    } finally {
+      isScanningDrills = false;
+    }
+  }
+
   // ==========================================
   // 🛗 Шахта 3.0: Авто-лифт на самый людный этаж (+30%)
   // ==========================================
@@ -8261,6 +8397,9 @@
         }
         if (autoLiftBestFloor) {
           checkAutoLiftStep();
+        }
+        if (Date.now() - lastDrillsScanTime > 300000) {
+          scanMyDrillsServerWide();
         }
       }
     } catch (err) {
