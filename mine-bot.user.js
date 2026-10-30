@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      8.9.23
+// @version      8.9.24
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -496,9 +496,9 @@
     return 'rock';
   }
 
-  let oreFirst = localStorage.getItem('lg_bot_ore_first') !== '0'; // По умолчанию true (включено: сначала руда с макс. числом людей)
+  let isRatingMode = localStorage.getItem('lg_bot_rating_mode') === '1'; // Режим «Рейтинг» (толпа + добивание камней + железная фиксация)
+  let oreFirst = !isRatingMode && localStorage.getItem('lg_bot_ore_first') !== '0'; // По умолчанию true (выключено, если включен Режим «Рейтинг»)
   let coalIronFirst = localStorage.getItem('lg_bot_coal_iron_first') !== '0'; // По умолчанию true (включено: приоритет сперва уголь, затем железо)
-  let isRatingMode = localStorage.getItem('lg_bot_rating_mode') === '1'; // Режим «Рейтинг» (Гонка топа: толпа + добивание камней + железная фиксация)
   // Очистка стиля скрытия боковой панели игры, если был установлен ранее
   try {
     document.getElementById('lg-style-hide-game-panel')?.remove();
@@ -2131,7 +2131,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">⛏️ Майнер v8.9.23</span>
+        <span style="flex-shrink:0;">⛏️ Майнер v8.9.24</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -2194,13 +2194,12 @@
             <option value="ryabinen">Рябиненень ★</option>
           </select>
         </div>
-        <!-- Режим «Рейтинг» (Гонка топа: толпа + добивание камней + железная фиксация цели) -->
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;background:linear-gradient(135deg, rgba(38,28,12,0.85) 0%, rgba(26,23,46,0.95) 100%);padding:6px 8px;border-radius:6px;border:1px solid #eab308;">
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#ffd700;font-size:11px;font-weight:bold;user-select:none;" title="Режим гонки рейтинга (максимум камней в час): приоритет толпы (2-4+ чел) для моментального добивания, выбор камней с меньшим HP (от 30%), железная фиксация цели до 100% разрушения без бросания на полпути">
+        <!-- Режим «Рейтинг» (толпа + добивание камней + железная фиксация цели) -->
+        <div style="display:flex;align-items:center;justify-content:flex-start;margin-bottom:8px;background:linear-gradient(135deg, rgba(38,28,12,0.85) 0%, rgba(26,23,46,0.95) 100%);padding:6px 8px;border-radius:6px;border:1px solid #eab308;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#ffd700;font-size:11px;font-weight:bold;user-select:none;" title="Режим «Рейтинг» (максимум камней в час): приоритет толпы (2-4+ чел) для моментального добивания, выбор камней с меньшим HP (от 30%), железная фиксация цели до 100% разрушения без бросания на полпути">
             <input type="checkbox" id="b-rating-mode" ${isRatingMode ? 'checked' : ''} style="accent-color:#ffd700;cursor:pointer;width:14px;height:14px;">
-            <span>🏆 Режим «Рейтинг» (Гонка топа)</span>
+            <span>🏆 Режим «Рейтинг»</span>
           </label>
-          <span id="b-rating-badge" style="font-size:9.5px;color:#ffd700;background:rgba(255,215,0,0.15);padding:1px 6px;border-radius:4px;border:1px solid rgba(255,215,0,0.4);font-weight:bold;${isRatingMode ? '' : 'display:none;'}">ТОП-СКОРОСТЬ</span>
         </div>
         <!-- Переключатели приоритета: Сперва руда / Сперва уголь и железо -->
         <div style="display:flex;align-items:center;justify-content:flex-start;gap:12px;margin-bottom:8px;background:#1a172e;padding:6px 8px;border-radius:6px;border:1px solid #3d3759;flex-wrap:wrap;">
@@ -2648,7 +2647,6 @@
   const checkScreen = w.querySelector('#b-check-screen'), checkGhost = w.querySelector('#b-check-ghost');
   const mineSelect = w.querySelector('#b-mine-select'), btnRefreshMines = w.querySelector('#b-refresh-mines');
   const checkRatingMode = w.querySelector('#b-rating-mode');
-  const ratingBadge = w.querySelector('#b-rating-badge');
   const checkOreFirst = w.querySelector('#b-ore-first');
   const checkCoalIronFirst = w.querySelector('#b-coal-iron-first');
   const coalIronLabel = w.querySelector('#b-coal-iron-label');
@@ -2662,8 +2660,18 @@
     checkRatingMode.onchange = () => {
       isRatingMode = checkRatingMode.checked;
       localStorage.setItem('lg_bot_rating_mode', isRatingMode ? '1' : '0');
-      if (ratingBadge) ratingBadge.style.display = isRatingMode ? 'inline-block' : 'none';
-      showToast(isRatingMode ? '🏆 Режим «Рейтинг» (Гонка топа): активен' : '💎 Стандартный режим «Фарм руды»: активен');
+      if (isRatingMode) {
+        // При включении Режима «Рейтинг» автоматически отключаем «Сперва руда»
+        if (checkOreFirst) {
+          checkOreFirst.checked = false;
+          oreFirst = false;
+          localStorage.setItem('lg_bot_ore_first', '0');
+          if (coalIronLabel) {
+            coalIronLabel.style.opacity = '0.5';
+          }
+        }
+      }
+      showToast(isRatingMode ? '🏆 Режим «Рейтинг»: включен' : 'Режим «Рейтинг»: выключен');
     };
   }
 
@@ -2674,6 +2682,15 @@
       if (coalIronLabel) {
         coalIronLabel.style.opacity = oreFirst ? '1' : '0.5';
       }
+      if (oreFirst) {
+        // При включении «Сперва руда» автоматически отключаем Режим «Рейтинг»
+        if (checkRatingMode) {
+          checkRatingMode.checked = false;
+          isRatingMode = false;
+          localStorage.setItem('lg_bot_rating_mode', '0');
+        }
+      }
+      showToast(oreFirst ? '💎 Режим «Сперва руда»: включен' : 'Режим «Сперва руда»: выключен');
     };
   }
   if (checkCoalIronFirst) {
@@ -8686,6 +8703,13 @@
   G.__mineSetRatingMode = (val) => {
     isRatingMode = !!val;
     localStorage.setItem('lg_bot_rating_mode', isRatingMode ? '1' : '0');
+    if (isRatingMode) {
+      oreFirst = false;
+      localStorage.setItem('lg_bot_ore_first', '0');
+      if (typeof checkOreFirst !== 'undefined' && checkOreFirst) {
+        checkOreFirst.checked = false;
+      }
+    }
   };
   G.__mineGetCandidateHpProgress = getCandidateHpProgress;
 
