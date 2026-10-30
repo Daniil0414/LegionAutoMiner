@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      8.9.18
+// @version      8.9.19
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -562,6 +562,7 @@
   let activeMiningRockIndex = -1;
   let lastMiningConfirmedTime = 0;
   let lastKnownMiningProgress = null;
+  let idleHeroDetectedTime = 0;
   const recentDugNotifications = new Set();
 
   function getFloorCell(i) {
@@ -2050,7 +2051,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">⛏️ Майнер v8.9.18</span>
+        <span style="flex-shrink:0;">⛏️ Майнер v8.9.19</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -2827,62 +2828,47 @@
     try {
       const st = G.__lgMineState || (G.__lgMineS && G.__lgMineS.st);
       // 1. Из живого объекта движка игры S.myI
-    if (G.__lgMineS && typeof G.__lgMineS.myI === 'number' && G.__lgMineS.myI >= 0) {
-      return G.__lgMineS.myI;
-    }
-    // 2. Из снимка героя S.me.i или G.__lgMineMe.i
-    const myMe = G.__lgMineMe || (G.__lgMineS && G.__lgMineS.me);
-    if (myMe && typeof myMe.i === 'number' && myMe.i >= 0) {
-      const meFloor = myMe.f || myMe.at;
-      const isOldFloorSnap = (st && st.n != null && meFloor != null && meFloor < st.n);
-      if (!isOldFloorSnap) {
-        return myMe.i;
+      if (G.__lgMineS && typeof G.__lgMineS.myI === 'number' && G.__lgMineS.myI >= 0) {
+        if (!st || !st.dug || st.dug[G.__lgMineS.myI] !== '1') {
+          return G.__lgMineS.myI;
+        }
       }
-    }
-    // 3. Из G.ME.hero.mn[cId].i
-    const cId = currentMineId || 'home';
-    const heroMn = G.ME?.hero?.mn;
-    if (heroMn && heroMn[cId] && typeof heroMn[cId].i === 'number' && heroMn[cId].i >= 0) {
-      const mnSnap = heroMn[cId];
-      const mnFloor = mnSnap.f || mnSnap.at;
-      const isOldFloorSnap = (st && st.n != null && mnFloor != null && mnFloor < st.n);
-      if (!isOldFloorSnap) {
-        return heroMn[cId].i;
+      // 2. Из полоски .mn-bar.me
+      const myBar = document.querySelector('.mn-bar.me, .mn .mn-bar.me');
+      if (myBar) {
+        const bx = parseFloat(myBar.style.left) || 0;
+        const by = parseFloat(myBar.style.top) || 0;
+        const bIdx = getCellIndexFromBarPosition(bx, by);
+        if (bIdx >= 0 && (!st || !st.dug || st.dug[bIdx] !== '1')) return bIdx;
       }
-    }
-    if (heroMn && heroMn.home && typeof heroMn.home.i === 'number' && heroMn.home.i >= 0) {
-      const mnSnap = heroMn.home;
-      const mnFloor = mnSnap.f || mnSnap.at;
-      const isOldFloorSnap = (st && st.n != null && mnFloor != null && mnFloor < st.n);
-      if (!isOldFloorSnap) {
-        return heroMn.home.i;
-      }
-    }
-    // 4. Из активной переменной activeMiningRockIndex
-    if (activeMiningRockIndex >= 0) {
-      return activeMiningRockIndex;
-    }
-    // 5. Из полоски .mn-bar.me
-    const myBar = document.querySelector('.mn-bar.me');
-    if (myBar) {
-      const bx = parseFloat(myBar.style.left) || 0;
-      const by = parseFloat(myBar.style.top) || 0;
-      const bIdx = getCellIndexFromBarPosition(bx, by);
-      if (bIdx >= 0) return bIdx;
-    }
-    // 6. Из состояния st.dg по нашему нику
-    if (st && st.dg) {
-      const myLogin = (G.ME?.user?.login || G.__lgMineMe?.name || getMyNick() || '').toLowerCase();
-      if (myLogin) {
-        for (const [k, list] of Object.entries(st.dg)) {
-          if (Array.isArray(list) && list.some(l => String(l).toLowerCase() === myLogin)) {
-            return parseInt(k, 10);
+      // 3. Из состояния st.dg по нашему нику
+      if (st && st.dg) {
+        const myLogin = (G.ME?.user?.login || G.__lgMineMe?.name || getMyNick() || '').toLowerCase();
+        if (myLogin) {
+          for (const [k, list] of Object.entries(st.dg)) {
+            if (Array.isArray(list) && list.some(l => String(l).toLowerCase() === myLogin)) {
+              const idx = parseInt(k, 10);
+              if (!st.dug || st.dug[idx] !== '1') return idx;
+            }
           }
         }
       }
-    }
+      // 4. Только если мы в режиме Ghost (нет экрана шахты), используем снимок героя
+      const isScreen = Boolean(document.querySelector('.mn') || G.__lgMineS);
+      if (!isScreen) {
+        const cId = currentMineId || 'home';
+        const heroMn = G.ME?.hero?.mn;
+        if (heroMn && heroMn[cId] && typeof heroMn[cId].i === 'number' && heroMn[cId].i >= 0) {
+          const mnSnap = heroMn[cId];
+          const mnFloor = mnSnap.f || mnSnap.at;
+          const isOldFloorSnap = (st && st.n != null && mnFloor != null && mnFloor < st.n);
+          if (!isOldFloorSnap && (!st || !st.dug || st.dug[heroMn[cId].i] !== '1')) {
+            return heroMn[cId].i;
+          }
+        }
+      }
     } catch (e) {}
-    return activeMiningRockIndex >= 0 ? activeMiningRockIndex : -1;
+    return -1;
   }
 
   // Ежесекундный плавный таймер обновления прогресса и обратного отсчёта
@@ -8396,6 +8382,7 @@
   function isMining() {
     try {
       const st = G.__lgMineState || (G.__lgMineS && G.__lgMineS.st);
+      const isScreen = Boolean(document.querySelector('.mn') || G.__lgMineS);
 
       // 0. Если герой явно анимирован маханием киркой (.mn-heroes .mn-h.me.dig) — мы 100% копаем!
       const digHero = document.querySelector('.mn-heroes .mn-h.me.dig, .mn .mn-heroes .mn-h.me.dig');
@@ -8404,90 +8391,26 @@
         return true;
       }
 
-      // Очевидный признак простоя: игра явно пишет "Выбери камень" (только если герой не машет киркой)
-      const statusEl = document.querySelector('[data-mn="status"]');
-      if (statusEl && statusEl.textContent) {
-        const stText = statusEl.textContent.toLowerCase();
-        if (stText.includes('выбери камень') || stText.includes('шахта не открылась')) {
-          lastMiningConfirmedTime = 0;
-          return false;
-        }
-      }
-
-      // 1. Живой объект движка игры S.myI — первоисточник игры (mine.js)
-      if (G.__lgMineS && typeof G.__lgMineS.myI === 'number' && G.__lgMineS.myI >= 0) {
-        if (!st || !st.dug || st.dug[G.__lgMineS.myI] !== '1') {
-          lastMiningConfirmedTime = Date.now();
-          return true;
-        }
-      }
-
-      // 2. Снимок героя S.me.i или G.__lgMineMe.i или G.ME.hero.mn
-      const myMe = G.__lgMineMe || (G.__lgMineS && G.__lgMineS.me);
-      if (myMe && typeof myMe.i === 'number' && myMe.i >= 0) {
-        const meFloor = myMe.f || myMe.at;
-        const isOldFloorSnap = (st && st.n != null && meFloor != null && meFloor < st.n);
-        if (!isOldFloorSnap && (!st || !st.dug || st.dug[myMe.i] !== '1')) {
-          lastMiningConfirmedTime = Date.now();
-          return true;
-        }
-      }
-      const cId = currentMineId || 'home';
-      const heroMn = G.ME?.hero?.mn;
-      if (heroMn && heroMn[cId] && typeof heroMn[cId].i === 'number' && heroMn[cId].i >= 0) {
-        const mnSnap = heroMn[cId];
-        const mnFloor = mnSnap.f || mnSnap.at;
-        const isOldFloorSnap = (st && st.n != null && mnFloor != null && mnFloor < st.n);
-        if (!isOldFloorSnap && (!st || !st.dug || st.dug[heroMn[cId].i] !== '1')) {
-          lastMiningConfirmedTime = Date.now();
-          return true;
-        }
-      }
-      if (heroMn && heroMn.home && typeof heroMn.home.i === 'number' && heroMn.home.i >= 0) {
-        const mnSnap = heroMn.home;
-        const mnFloor = mnSnap.f || mnSnap.at;
-        const isOldFloorSnap = (st && st.n != null && mnFloor != null && mnFloor < st.n);
-        if (!isOldFloorSnap && (!st || !st.dug || st.dug[heroMn.home.i] !== '1')) {
-          lastMiningConfirmedTime = Date.now();
-          return true;
-        }
-      }
-
-      // 3. Кнопка остановки добычи (data-mn-stop или текст "Не копать" / "Перестать копать")
-      const stopBtn = document.querySelector('[data-mn-stop], .mn [data-mn-stop]') ||
-        Array.from(document.querySelectorAll('button, .btn')).find(b => {
-          const t = (b.textContent || '').trim().toLowerCase();
-          return t.includes('не копать') || t.includes('перестать копать') || t.includes('отложить кирку');
-        });
-      if (stopBtn) {
-        lastMiningConfirmedTime = Date.now();
-        return true;
-      }
-
-      // 4. Статус в DOM игры ("[data-mn='status']"): "Копаешь: ..." или "Добыча: ..."
-      if (statusEl && statusEl.textContent) {
-        const stText = statusEl.textContent.toLowerCase();
-        if (stText.includes('копаешь') || stText.includes('копает') || stText.includes('добыча:')) {
-          lastMiningConfirmedTime = Date.now();
-          return true;
-        }
-      }
-
-      // 5. Проверяем собственную полоску над камнем (.mn-bar.me)
+      // 1. Проверяем собственную полоску над камнем (.mn-bar.me)
       const myBar = document.querySelector('.mn-bar.me, .mn .mn-bar.me');
       if (myBar) {
         lastMiningConfirmedTime = Date.now();
         return true;
       }
 
-      // 6. Проверяем карточку активной добычи в панели игры (.m2-now.on или блок [data-mn-pr])
-      const activeCard = document.querySelector('.m2-card.m2-now.on, .m2-now.on, [data-mn-pr]');
+      // 2. Проверяем карточку активной добычи / плашку внизу (.mn-nowl или .m2-card.m2-now.on)
+      const nowlEl = document.querySelector('.mn-nowl');
+      if (nowlEl && !nowlEl.hidden) {
+        lastMiningConfirmedTime = Date.now();
+        return true;
+      }
+      const activeCard = document.querySelector('.m2-card.m2-now.on, .m2-now.on');
       if (activeCard) {
         lastMiningConfirmedTime = Date.now();
         return true;
       }
 
-      // 7. Проверяем список копателей у камней в st.dg
+      // 3. Проверяем список копателей у камней в st.dg
       if (st && st.dg) {
         const myLogin = (G.ME?.user?.login || G.__lgMineMe?.name || getMyNick() || '').toLowerCase();
         if (myLogin) {
@@ -8502,26 +8425,64 @@
         }
       }
 
-      // 8. Если недавно кликнули по цели и персонаж еще в пути или ждет ответа сервера (< 5 сек)
-      if (activeMiningRockIndex >= 0 && Date.now() - targetAssignedTime < 5000) {
-        const isTargetDug = st?.dug && st.dug[activeMiningRockIndex] === '1';
-        if (!isTargetDug) return true;
-      }
-
-      // 9. Анти-мерцание (Hysteresis / Grace Period):
-      // Если герой копал менее 2.5 секунд назад, и нет явного сигнала об окончании копки
-      if (lastMiningConfirmedTime > 0 && Date.now() - lastMiningConfirmedTime < 2500) {
-        const isTargetDug = activeMiningRockIndex >= 0 && st?.dug && st.dug[activeMiningRockIndex] === '1';
-        if (!isTargetDug) {
+      // 4. Живой объект движка игры S.myI
+      if (G.__lgMineS && typeof G.__lgMineS.myI === 'number' && G.__lgMineS.myI >= 0) {
+        const isWalking = Boolean(G.__lgMineS.path && G.__lgMineS.path.length > 0);
+        const isDug = Boolean(st && st.dug && st.dug[G.__lgMineS.myI] === '1');
+        if (!isWalking && !isDug && !G.__lgMineS.left) {
+          lastMiningConfirmedTime = Date.now();
           return true;
         }
       }
-    } catch (e) {
-      if (activeMiningRockIndex >= 0) return true;
-    }
+
+      // 5. Кнопка остановки добычи внутри видимой плашки добычи
+      const stopBtn = document.querySelector('.mn-nowl:not([hidden]) [data-mn-stop]');
+      if (stopBtn) {
+        lastMiningConfirmedTime = Date.now();
+        return true;
+      }
+
+      // 6. Только для Ghost-режима (когда экрана шахты нет): проверка снимка героя
+      if (!isScreen) {
+        const myMe = G.__lgMineMe;
+        if (myMe && typeof myMe.i === 'number' && myMe.i >= 0) {
+          const meFloor = myMe.f || myMe.at;
+          const isOldFloorSnap = (st && st.n != null && meFloor != null && meFloor < st.n);
+          if (!isOldFloorSnap && (!st || !st.dug || st.dug[myMe.i] !== '1')) {
+            lastMiningConfirmedTime = Date.now();
+            return true;
+          }
+        }
+        const cId = currentMineId || 'home';
+        const heroMn = G.ME?.hero?.mn;
+        if (heroMn && heroMn[cId] && typeof heroMn[cId].i === 'number' && heroMn[cId].i >= 0) {
+          const mnSnap = heroMn[cId];
+          const mnFloor = mnSnap.f || mnSnap.at;
+          const isOldFloorSnap = (st && st.n != null && mnFloor != null && mnFloor < st.n);
+          if (!isOldFloorSnap && (!st || !st.dug || st.dug[heroMn[cId].i] !== '1')) {
+            lastMiningConfirmedTime = Date.now();
+            return true;
+          }
+        }
+      }
+
+      // 7. Анти-мерцание (Hysteresis / Grace Period):
+      // Если герой копал менее 1.5 секунд назад, и на экране герой НЕ стоит в явном бездействии
+      if (lastMiningConfirmedTime > 0 && Date.now() - lastMiningConfirmedTime < 1500) {
+        const isHeroVisiblyIdle = isScreen && !digHero && !myBar && (!nowlEl || nowlEl.hidden) && (!G.__lgMineS?.path || G.__lgMineS.path.length === 0);
+        if (!isHeroVisiblyIdle) {
+          const isTargetDug = activeMiningRockIndex >= 0 && st?.dug && st.dug[activeMiningRockIndex] === '1';
+          if (!isTargetDug) {
+            return true;
+          }
+        }
+      }
+    } catch (e) {}
 
     return false;
   }
+  G.__mineIsMining = isMining;
+  G.__mineGetActiveMiningRockIndex = getActiveMiningRockIndex;
 
   function clickTarget(candidate) {
     if (!candidate) return false;
@@ -8534,7 +8495,6 @@
       const parsed = parseInt(candidate.rockId, 10);
       if (!isNaN(parsed) && parsed >= 0) {
         idx = parsed;
-        activeMiningRockIndex = idx;
       }
     }
     let group = candidate.group;
@@ -8648,8 +8608,15 @@
 
       const isFar = matchedG ? matchedG.classList.contains('far') : false;
 
-      if (activeMiningRockIndex >= 0 && (iNum === activeMiningRockIndex || rockId === String(activeMiningRockIndex))) {
+      // isMe подтверждается ТОЛЬКО реальными доказательствами (класс me, liveMyI или st.dg)
+      if (!isMe && liveMyI >= 0 && iNum === liveMyI) {
         isMe = true;
+      }
+      if (!isMe && iNum >= 0 && G.__lgMineState?.dg?.[iNum]) {
+        const myLogin = (G.ME?.user?.login || G.__lgMineMe?.name || getMyNick() || '').toLowerCase();
+        if (myLogin && Array.isArray(G.__lgMineState.dg[iNum]) && G.__lgMineState.dg[iNum].some(l => String(l).toLowerCase() === myLogin)) {
+          isMe = true;
+        }
       }
 
       candidates.push({ bar, group: matchedG, rockId, count, isFar, isMe, inBlacklist: blacklist.has(rockId) });
@@ -8722,12 +8689,36 @@
 
     if (isRidingLift || pendingLiftRide) return;
 
-    // 🛡️ Синхронизация движка игры: если персонаж копает, сбрасываем S.left (защита от 30с стопа игры)
-    // и восстанавливаем S.myI, если движок игры его случайно потерял
+    // 🛡️ Сторожевой таймер (Watchdog) против зависания героя:
+    // Если на экране герой физически не машет киркой (.dig), нет полоски (.mn-bar.me),
+    // нет плашки (.mn-nowl), и герой не идёт (!S.path)
+    const digEl = document.querySelector('.mn-heroes .mn-h.me.dig, .mn .mn-heroes .mn-h.me.dig');
+    const myBarEl = document.querySelector('.mn-bar.me, .mn .mn-bar.me');
+    const nowlEl = document.querySelector('.mn-nowl:not([hidden])');
+    const isWalking = Boolean(G.__lgMineS?.path && G.__lgMineS.path.length > 0);
+    const hasLiveDigProof = Boolean(digEl || myBarEl || nowlEl);
+
+    if (!hasLiveDigProof && !isWalking) {
+      if (!idleHeroDetectedTime) {
+        idleHeroDetectedTime = Date.now();
+      } else if (Date.now() - idleHeroDetectedTime > 2000) {
+        // Герой стоит без дела уже более 2 секунд — сбрасываем залипшее состояние
+        activeMiningRockIndex = -1;
+        lastTargetKey = null;
+        lastMiningConfirmedTime = 0;
+        lastKnownMiningProgress = null;
+        if (G.__lgMineS && G.__lgMineS.myI >= 0) {
+          G.__lgMineS.myI = -1;
+        }
+        idleHeroDetectedTime = 0;
+      }
+    } else {
+      idleHeroDetectedTime = 0;
+    }
+
     if (G.__lgMineS) {
-      if (G.__lgMineS.left) G.__lgMineS.left = null;
-      if (activeMiningRockIndex >= 0 && G.__lgMineS.myI < 0 && (typeof isMining === 'function' && isMining())) {
-        G.__lgMineS.myI = activeMiningRockIndex;
+      if (G.__lgMineS.left && (typeof isMining === 'function' && isMining())) {
+        G.__lgMineS.left = null;
       }
     }
 
@@ -9029,7 +9020,7 @@
         }
 
         // 100% защита от случайного повторного клика по камню, который мы уже копаем
-        if (best.isMe || (activeMiningRockIndex >= 0 && targetKey === String(activeMiningRockIndex))) {
+        if (mining && (best.isMe || (activeMiningRockIndex >= 0 && targetKey === String(activeMiningRockIndex)))) {
           shouldClick = false;
         }
 
