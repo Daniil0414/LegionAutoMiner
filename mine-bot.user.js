@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      8.9.25
+// @version      8.9.26
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -2131,7 +2131,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">⛏️ Майнер v8.9.25</span>
+        <span style="flex-shrink:0;">⛏️ Майнер v8.9.26</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -9107,10 +9107,11 @@
       });
     };
 
-    // 🏆 Сортировка для режима «Рейтинг» (Гонка топа):
-    // 1) Толпа (2-4+ чел) для 3-5x кратного ускорения добивания камня
-    // 2) При равной толпе — наименьшее оставшееся HP (докапывается быстрее всего, принося +1 в рейтинг)
-    // 3) При равных HP и толпе — более ценная руда
+    // 🏆 Сортировка для режима «Рейтинг»:
+    // Главная цель — максимум выкопанных камней в час (+1 в рейтинг).
+    // 1) Обычные камни/базальт/уголь/железо НАМНОГО быстрее копаются, чем редкие жилы золота/сундуки (у тех в 5-10 раз больше HP).
+    // 2) Скорость разрушения (наименьшее ETA / наименьший % HP добивания): чем быстрее камень ломается, тем выше приоритет!
+    // 3) Оптимальная группа игроков: 2-5 человек (вместе ломают быстро, не нужно бегать в толпу из 60 человек на золото).
     const sortRatingCandidates = (arr) => {
       arr.sort((a, b) => {
         // 1. Стабильность (гистерезис): удерживаем начатый камень или цель, к которой уже идём
@@ -9119,24 +9120,50 @@
         if (aIsCur && !bIsCur) return -1;
         if (!aIsCur && bIsCur) return 1;
 
-        // 2. Толпа (число игроков): 4+ > 3 > 2 > 1 > 0
+        // 2. Предпочтение быстро разрушаемым породам (Обычный камень/базальт/уголь/железо vs Редкие толстые жилы):
+        const catA = getRockCategory(a.rockId, a.group);
+        const catB = getRockCategory(b.rockId, b.group);
+        const isRareA = (catA === 'rare' || catA === 'chest' || catA === 'gold');
+        const isRareB = (catB === 'rare' || catB === 'chest' || catB === 'gold');
+        if (!isRareA && isRareB) return -1;
+        if (isRareA && !isRareB) return 1;
+
+        // 3. Наличие группы (минимум 1-2 копателя): камень с копателями ломается быстрее одиночного
         const countA = a.count || 0;
         const countB = b.count || 0;
-        if (countA !== countB) return countB - countA;
+        const hasCrowdA = countA >= 2;
+        const hasCrowdB = countB >= 2;
+        if (hasCrowdA && !hasCrowdB) return -1;
+        if (!hasCrowdA && hasCrowdB) return 1;
 
-        // 3. Оставшееся здоровье (HP): выбираем камень с наименьшим оставшимся HP
-        const hpA = getCandidateHpProgress(a).remPct;
-        const hpB = getCandidateHpProgress(b).remPct;
-        if (Math.abs(hpA - hpB) >= 3) {
-          return hpA - hpB; // Меньше оставшийся процент HP -> быстрее сломается
+        // 4. ГЛАВНЫЙ КРИТЕРИЙ: Скорость добивания (наименьшее время ETA или наименьший % HP):
+        const progA = getCandidateHpProgress(a);
+        const progB = getCandidateHpProgress(b);
+
+        // Если есть расчёт времени в секундах у обоих:
+        if (progA.etaSec > 0 && progB.etaSec > 0) {
+          if (Math.abs(progA.etaSec - progB.etaSec) >= 15) {
+            return progA.etaSec - progB.etaSec; // Меньше секунд до разрушения -> ПЕРВЫМ!
+          }
         }
 
-        // 4. Бонус: при равных HP и толпе предпочтение более ценной руде
-        const tierA = getRockPriorityTier(a.rockId, a.group);
-        const tierB = getRockPriorityTier(b.rockId, b.group);
-        if (tierA !== tierB) return tierB - tierA;
+        // Если время не рассчитано или одинаково — сортируем по оставшемуся % HP (добивание):
+        if (Math.abs(progA.remPct - progB.remPct) >= 5) {
+          return progA.remPct - progB.remPct; // Меньше % HP -> быстрее сломается!
+        }
 
-        // 5. Детерминированный порядок по номеру клетки
+        // 5. Оптимальный размер группы: 2-5 человек лучше гигантской толпы на жиле
+        const scoreGroup = (cnt) => {
+          if (cnt >= 2 && cnt <= 5) return 3; // Идеально 2-5 чел
+          if (cnt > 5) return 2;              // Много людей
+          if (cnt === 1) return 1;            // 1 человек
+          return 0;                           // Пустой камень
+        };
+        const grpA = scoreGroup(countA);
+        const grpB = scoreGroup(countB);
+        if (grpA !== grpB) return grpB - grpA;
+
+        // 6. Детерминированный порядок по номеру клетки
         return (+a.rockId || 0) - (+b.rockId || 0);
       });
     };
@@ -9144,14 +9171,14 @@
     let best = null;
     if (isRatingMode) {
       // 🏆 В режиме «Рейтинг» фильтруем кандидатов:
-      // Если на камне толпа (2+ человека), исключаем умирающие камни (< 30% HP), если мы к ним еще не идем,
-      // чтобы избежать напрасной ходьбы через полкарты к камню, который сломается до нашего первого удара:
+      // 1) Исключаем умирающие камни (< 25% HP), чтобы не бежать напрасно
+      // 2) Исключаем толстые жилы золота/сундуки со свежим HP (> 70% HP), если есть нормальные камни
       const safeRatingCandidates = valid.filter(c => {
         if (c.isMe || c.rockId === String(activeMiningRockIndex) || c.rockId === lastTargetKey) return true;
-        if (c.count >= 2) {
-          const hp = getCandidateHpProgress(c);
-          return hp.remPct >= 30;
-        }
+        const hp = getCandidateHpProgress(c);
+        if (c.count >= 2 && hp.remPct < 25) return false;
+        const cat = getRockCategory(c.rockId, c.group);
+        if ((cat === 'rare' || cat === 'chest' || cat === 'gold') && hp.remPct > 70) return false;
         return true;
       });
       const ratingPool = safeRatingCandidates.length > 0 ? safeRatingCandidates : valid;
