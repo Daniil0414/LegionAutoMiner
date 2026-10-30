@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      8.9.1
+// @version      8.9.3
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -281,7 +281,23 @@
   let isCheckingLiftFloors = false;
   let isRidingLift = false;
   let pendingLiftRide = null;
-  const fundedDrills = new Set();
+  // Восстановление профинансированных буров из localStorage
+  let savedFundedDrills = [];
+  try {
+    savedFundedDrills = JSON.parse(localStorage.getItem('lg_funded_drills_keys') || '[]');
+  } catch (e) {}
+  const fundedDrills = new Set(Array.isArray(savedFundedDrills) ? savedFundedDrills : []);
+
+  let myFundedDrillsCount = parseInt(localStorage.getItem('lg_my_funded_drills_count') || '0', 10) || 0;
+  let myFundedDrillsTotalCoins = parseInt(localStorage.getItem('lg_my_funded_drills_coins') || '0', 10) || 0;
+
+  function saveFundedDrillsState() {
+    try {
+      localStorage.setItem('lg_funded_drills_keys', JSON.stringify(Array.from(fundedDrills)));
+      localStorage.setItem('lg_my_funded_drills_count', String(myFundedDrillsCount));
+      localStorage.setItem('lg_my_funded_drills_coins', String(myFundedDrillsTotalCoins));
+    } catch (e) {}
+  }
   let lastDrillCheckTime = 0;
 
   // =========================================================================
@@ -1588,6 +1604,11 @@
           display: block;
           overflow: visible;
         }
+        #b-open-prio-tab:hover { background: #3d3759 !important; }
+        #b-players-clear:hover { border-color: #ef4444 !important; }
+        #b-prio-reset:hover { color: #fff !important; }
+        a.lg-bot-author-link:hover { text-decoration: underline !important; }
+        .b-ore-slot:hover { background: rgba(30,26,50,0.95) !important; filter: brightness(1.25); }
       `;
       (document.head || document.documentElement).appendChild(style);
     } catch (e) {}
@@ -1635,7 +1656,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">⛏️ Майнер v8.9.1</span>
+        <span style="flex-shrink:0;">⛏️ Майнер v8.9.3</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -1704,7 +1725,7 @@
             <input type="checkbox" id="b-ore-first" ${oreFirst ? 'checked' : ''} style="accent-color:#00ff66;cursor:pointer;width:14px;height:14px;">
             <span>💎 Сперва руда</span>
           </label>
-          <button id="b-open-prio-tab" style="background:#262238;border:1px solid #eab308;color:#eab308;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:10px;font-weight:bold;display:flex;align-items:center;gap:3px;transition:all 0.2s;" onmouseenter="this.style.background='#3d3759'" onmouseleave="this.style.background='#262238'" title="Открыть вкладку детальной настройки приоритетов руд и сундуков (Drag & Drop)">
+          <button id="b-open-prio-tab" style="background:#262238;border:1px solid #eab308;color:#eab308;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:10px;font-weight:bold;display:flex;align-items:center;gap:3px;transition:all 0.2s;"  title="Открыть вкладку детальной настройки приоритетов руд и сундуков (Drag & Drop)">
             <span>🎯 Очередь руды</span>
           </button>
         </div>
@@ -1820,7 +1841,7 @@
           <div style="display:flex;gap:4px;margin-bottom:6px;align-items:center;">
             <button id="b-players-refresh" title="Обновить список активных игроков" style="padding:4px 8px;background:#262238;color:#00ff66;border:1px solid #3d3759;border-radius:4px;cursor:pointer;font-size:11px;font-weight:bold;">🔄</button>
             <input id="b-players-search" type="text" placeholder="🔍 Поиск игрока..." style="flex:1;background:#121026;color:#fff;border:1px solid #3d3759;border-radius:4px;padding:4px 8px;font-size:11px;outline:none;" />
-            <button id="b-players-clear" title="Очистить накопленную базу игроков" style="padding:4px 7px;background:#262238;color:#ef4444;border:1px solid #3d3759;border-radius:4px;cursor:pointer;font-size:11px;" onmouseenter="this.style.borderColor='#ef4444'" onmouseleave="this.style.borderColor='#3d3759'">🗑️</button>
+            <button id="b-players-clear" title="Очистить накопленную базу игроков" style="padding:4px 7px;background:#262238;color:#ef4444;border:1px solid #3d3759;border-radius:4px;cursor:pointer;font-size:11px;" >🗑️</button>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:10px;color:#8899aa;">
             <span id="b-players-status">Игроков: 0</span>
@@ -2108,7 +2129,7 @@
       <div id="b-tab-priority" style="display:none;width:100%;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid #3d3759;">
           <b style="color:#eab308;font-size:11.5px;">🎯 Приоритеты добычи</b>
-          <button id="b-prio-reset" style="background:#262238;border:1px solid #3d3759;color:#94a3b8;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:9.5px;font-weight:bold;transition:all 0.2s;" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='#94a3b8'" title="Сбросить к стандарту (Железо выше Угля)">🔄 По умолч.</button>
+          <button id="b-prio-reset" style="background:#262238;border:1px solid #3d3759;color:#94a3b8;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:9.5px;font-weight:bold;transition:all 0.2s;"  title="Сбросить к стандарту (Железо выше Угля)">🔄 По умолч.</button>
         </div>
         <div style="font-size:10px;color:#94a3b8;line-height:1.4;margin-bottom:8px;background:rgba(234,179,8,0.06);border:1px solid rgba(234,179,8,0.18);border-radius:5px;padding:5px 7px;max-width:320px;white-space:normal;word-break:break-word;">
           💡 Перетаскивайте карточки (<b>Drag & Drop</b>) или кнопками <b>▲ ▼</b>.<br>Снимите галочку <b>[ ]</b>, чтобы бот не бил этот ресурс.
@@ -2125,7 +2146,7 @@
       <!-- Контакты / Подвал -->
       <div id="b-footer" style="margin-top:8px;padding-top:6px;border-top:1px solid #3d3759;display:flex;justify-content:center;align-items:center;gap:5px;font-size:10px;color:#8899aa;user-select:text;">
         <span>Связь:</span>
-        <a href="https://t.me/daniil63799" target="_blank" rel="noopener noreferrer" style="color:#38bdf8;text-decoration:none;font-weight:bold;display:inline-flex;align-items:center;gap:3px;" onmouseenter="this.style.textDecoration='underline'" onmouseleave="this.style.textDecoration='none'" title="Написать в Telegram @daniil63799">
+        <a href="https://t.me/daniil63799" target="_blank" rel="noopener noreferrer" style="color:#38bdf8;text-decoration:none;font-weight:bold;display:inline-flex;align-items:center;gap:3px;"  title="Написать в Telegram @daniil63799">
           <span>✈️ Тг @daniil63799</span>
         </a>
       </div>
@@ -2277,8 +2298,6 @@
     }
   }
 
-  let myFundedDrillsCount = 0;
-  let myFundedDrillsTotalCoins = 0;
   let lastDrillsScanTime = 0;
   let isScanningDrills = false;
 
@@ -7111,7 +7130,7 @@
         artSvg = getFallbackOreSvg(e.key, e.color, e.kind, 26);
       }
 
-      return '<div class="b-ore-slot" title="' + tip.replace(/"/g, '&quot;') + '" style="position:relative;width:34px;height:34px;min-width:34px;border-radius:6px;background:rgba(18,16,32,0.85);border:1px solid ' + e.color + '55;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;box-sizing:border-box;overflow:hidden;transition:all 0.15s ease;" onmouseenter="this.style.borderColor=\'' + e.color + '\';this.style.background=\'rgba(30,26,50,0.95)\'" onmouseleave="this.style.borderColor=\'' + e.color + '55\';this.style.background=\'rgba(18,16,32,0.85)\'">' +
+      return '<div class="b-ore-slot" title="' + tip.replace(/"/g, '&quot;') + '" style="position:relative;width:34px;height:34px;min-width:34px;border-radius:6px;background:rgba(18,16,32,0.85);border:1px solid ' + e.color + '55;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;box-sizing:border-box;overflow:hidden;transition:all 0.15s ease;">' +
         '<div style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;pointer-events:none;">' +
           artSvg +
         '</div>' +
@@ -7499,8 +7518,11 @@
       mineSelect.innerHTML = newHtml;
     }
 
+    const baseId = String(currentMineId || 'home').split('.')[0];
     if (availableMines.some(m => m.id === currentMineId)) {
       mineSelect.value = currentMineId;
+    } else if (availableMines.some(m => m.id === baseId)) {
+      mineSelect.value = baseId;
     } else if (availableMines.some(m => m.id === existingVal)) {
       mineSelect.value = existingVal;
     } else {
@@ -7634,18 +7656,29 @@
     const world = document.querySelector('.mn-world');
     if (!world) return false;
 
+    const targetBase = String(target).split('.')[0];
+    const targetFloor = target.includes('.') ? parseInt(target.split('.')[1], 10) : null;
+
     // 1. По перехваченному ID вызова LGMine.open
-    if (G.__lgMineCurrent && G.__lgMineCurrent !== target) {
-      return false;
+    if (G.__lgMineCurrent) {
+      const curBase = String(G.__lgMineCurrent).split('.')[0];
+      if (curBase !== targetBase) return false;
+      if (targetFloor != null && G.__lgMineCurrent.includes('.')) {
+        const curFloor = parseInt(G.__lgMineCurrent.split('.')[1], 10);
+        if (curFloor !== targetFloor) return false;
+      }
     }
-    // 2. По текущему серверному состоянию st.id
-    if (G.__lgMineState && G.__lgMineState.id && G.__lgMineState.id !== target) {
-      return false;
+
+    // 2. По текущему серверному состоянию st.id и st.n
+    const st = G.__lgMineState || (G.__lgMineS && G.__lgMineS.st);
+    if (st && st.id) {
+      const stBase = String(st.id).split('.')[0];
+      if (stBase !== targetBase) return false;
+      if (targetFloor != null && st.n != null && st.n !== targetFloor) {
+        return false;
+      }
     }
-    // 3. По объекту движка игры S.st.id
-    if (G.__lgMineS && G.__lgMineS.st && G.__lgMineS.st.id && G.__lgMineS.st.id !== target) {
-      return false;
-    }
+
     return true;
   }
 
@@ -7738,6 +7771,7 @@
     clearTimeout(timer);
     initBackgroundAudioKeepAlive();
     initBackgroundWorker();
+    setTimeout(() => { try { scanMyDrillsServerWide(); } catch (e) {} }, 3500);
     if (mode === 'ghost') {
       setGhostVisuals(true);
       ensureCityVisible(false);
@@ -7803,12 +7837,32 @@
   w.querySelector('#b-cls').onclick = window.__mineBotStop;
 
   function closeNewsModal() {
-    const modal = document.querySelector('.mn-news, [aria-label*="тебя не было"]');
-    if (modal && !modal.hidden && modal.style.display !== 'none') {
-      const okBtn = modal.querySelector('[data-ok], [data-x], button');
-      if (okBtn) okBtn.click();
+    const wrap = document.querySelector('.mn-news-w');
+    const modal = document.querySelector('.mn-news, [aria-label*="тебя не было"], [role="dialog"].mn-news');
+    if (wrap || modal) {
+      const root = wrap || modal;
+      const okBtn = root.querySelector('[data-ok], [data-x], button.primary, button');
+      if (okBtn) {
+        try { okBtn.click(); } catch (e) {}
+      }
+      if (wrap && wrap.parentNode) {
+        try { wrap.remove(); } catch (e) {}
+      } else if (modal && modal.parentNode && modal.parentNode !== document.body) {
+        try { modal.remove(); } catch (e) {}
+      }
+      try {
+        const C = (G.__lgMineS && G.__lgMineS.st && G.__lgMineS.st.id) || currentMineId || 'home';
+        window.X?.api?.('/api/mineSeen', { c: C });
+      } catch (e) {}
     }
   }
+
+  // Регулярное фоновое закрытие модалки «Пока тебя не было», если она появилась
+  setInterval(() => {
+    if (G.__mineBotRunning && !isPaused) {
+      closeNewsModal();
+    }
+  }, 1000);
 
   function checkTipError() {
     const tip = document.querySelector('.mn-tip');
@@ -8096,6 +8150,11 @@
 
   // Режим экрана шахты
   function stepScreen() {
+    // 0. Своевременно закрываем всплывашку «Пока тебя не было»
+    closeNewsModal();
+
+    if (isRidingLift || pendingLiftRide) return;
+
     // Проверяем, не вывела ли игра сообщение об ошибке открытия шахты
     const errPanel = document.querySelector('.mn-panel .empty, .mn-err');
     if (errPanel && errPanel.textContent && errPanel.textContent.includes('не открылась')) {
@@ -8387,33 +8446,63 @@
 
   function getMyLoginsSet() {
     const set = new Set();
-    const raw = [
-      G.ME?.user?.login,
-      G.ME?.user?.name,
-      G.ME?.hero?.n,
-      G.ME?.hero?.name,
-      G.__lgMineMe?.n,
-      G.__lgMineMe?.name,
-      G.__lgMineMe?.user?.name,
-      typeof getMyNick === 'function' ? getMyNick() : ''
-    ];
-    for (const x of raw) {
-      if (x && typeof x === 'string') {
-        const trimmed = x.trim().toLowerCase();
+    const addCandidate = (val) => {
+      if (!val) return;
+      if (typeof val === 'string') {
+        const trimmed = val.replace(/^@/, '').trim().toLowerCase();
         if (trimmed) set.add(trimmed);
       }
+    };
+
+    // 1. Из нативных контекстов движка игры (LGMine / LGCity / LGAuc / X.login())
+    const ctxs = [G.__lgMineContext, G.__lgCityContext, G.__lgAucContext, G.__lgQuestContext, window.X];
+    for (const ctx of ctxs) {
+      if (ctx && typeof ctx.login === 'function') {
+        try { addCandidate(ctx.login()); } catch (e) {}
+      }
     }
+
+    // 2. Из DOM профиля игрока в правом верхнем углу сайта
+    const whoEl = document.querySelector('#whob, .who, [title*="профиль"], [title*="Твой профиль"]');
+    if (whoEl && whoEl.textContent) {
+      addCandidate(whoEl.textContent);
+    }
+
+    // 3. Из глобальных объектов состояния
+    addCandidate(G.ME?.user?.login);
+    addCandidate(G.ME?.user?.name);
+    addCandidate(G.ME?.hero?.n);
+    addCandidate(G.ME?.hero?.name);
+    addCandidate(G.__lgMineMe?.login);
+    addCandidate(G.__lgMineMe?.n);
+    addCandidate(G.__lgMineMe?.name);
+    addCandidate(G.__lgMineMe?.user?.name);
+    addCandidate(G.__lgHero?.name);
+    addCandidate(G.__lgHero?.n);
+
+    // 4. Через getMyNick()
+    if (typeof getMyNick === 'function') {
+      addCandidate(getMyNick());
+    }
+
     return set;
   }
 
   function isMyFundedDrill(d, loginsSet) {
     if (!d || !Array.isArray(d)) return null;
+    const drillKey = String(d[0]);
+    if (fundedDrills.has(drillKey)) {
+      return { coins: 100, key: drillKey, res: d[11], lv: d[4], stg: d[3] };
+    }
     const byList = Array.isArray(d[12]) ? d[12] : [];
     for (const entry of byList) {
       if (Array.isArray(entry) && entry[0]) {
-        const l = String(entry[0]).trim().toLowerCase();
-        if (loginsSet.has(l)) {
-          return { coins: +entry[1] || 100, key: d[0], res: d[11], lv: d[4], stg: d[3] };
+        const l = String(entry[0]).replace(/^@/, '').trim().toLowerCase();
+        if (loginsSet && loginsSet.has(l)) {
+          return { coins: +entry[1] || 100, key: drillKey, res: d[11], lv: d[4], stg: d[3] };
+        }
+        if (loginsSet && Array.from(loginsSet).some(my => my === l || (my.length >= 4 && l.includes(my)) || (l.length >= 4 && my.includes(l)))) {
+          return { coins: +entry[1] || 100, key: drillKey, res: d[11], lv: d[4], stg: d[3] };
         }
       }
     }
@@ -8422,14 +8511,28 @@
 
   async function scanMyDrillsServerWide() {
     if (isScanningDrills) return;
-    const S = G.__lgMineS;
-    if (!S || !S.st) return;
+    const st = (G.__lgMineS && G.__lgMineS.st) || G.__lgMineState;
+    if (!st) {
+      showToast('⚠️ Шахта еще не загружена');
+      return;
+    }
 
-    const currentFloor = S.st.n || 1;
-    const deep = S.st.deep || currentFloor;
+    let logins = getMyLoginsSet();
+    if (logins.size === 0) {
+      try {
+        const meRes = await gameApi('/api/me');
+        if (meRes) {
+          G.ME = meRes;
+          if (meRes.user?.login) logins.add(String(meRes.user.login).replace(/^@/, '').trim().toLowerCase());
+          if (meRes.user?.name) logins.add(String(meRes.user.name).replace(/^@/, '').trim().toLowerCase());
+          if (meRes.hero?.n) logins.add(String(meRes.hero.n).replace(/^@/, '').trim().toLowerCase());
+        }
+      } catch (e) {}
+    }
+
+    const currentFloor = st.n || 1;
+    const deep = st.deep || currentFloor;
     const baseId = (currentMineId || 'home').split('.')[0];
-    const logins = getMyLoginsSet();
-    if (logins.size === 0) return;
 
     isScanningDrills = true;
     lastDrillsScanTime = Date.now();
@@ -8442,7 +8545,7 @@
       for (let f = 1; f <= deep; f++) {
         let drillsForFloor = [];
         if (f === currentFloor) {
-          drillsForFloor = (S.st && Array.isArray(S.st.drills)) ? S.st.drills : [];
+          drillsForFloor = (st && Array.isArray(st.drills)) ? st.drills : [];
         } else {
           const roomKey = f >= deep ? baseId : `${baseId}.${f}`;
           try {
@@ -8465,9 +8568,11 @@
         }
       }
 
-      myFundedDrillsCount = myCount;
-      myFundedDrillsTotalCoins = myCoins;
+      myFundedDrillsCount = Math.max(myFundedDrillsCount, myCount);
+      myFundedDrillsTotalCoins = Math.max(myFundedDrillsTotalCoins, myCoins);
+      saveFundedDrillsState();
       updateDrillsUI();
+      showToast(`🏗️ Найдено буровых с вашим взносом: ${myFundedDrillsCount} шт. (${myFundedDrillsTotalCoins} монет)`);
     } catch (err) {
       console.warn('[Шахта] Ошибка сканирования буров:', err);
     } finally {
@@ -8543,12 +8648,10 @@
       }
 
       if (shouldSwitch) {
-        if (isMining()) {
-          pendingLiftRide = { floor: best.floor, count: best.count, percent: percentDiff };
-          showToast(`🛗 На этаже ${best.floor} на ${percentDiff}% больше людей (${best.count} против ${curCount}). Переедем после камня!`);
-        } else {
-          await executeLiftRide(best.floor, best.count, percentDiff);
-        }
+        // Переезжаем СРАЗУ на более людный этаж, не дожидаясь окончания текущей руды/камня!
+        // На этаже с толпой скорость добычи и профит несравнимо выше.
+        pendingLiftRide = null;
+        await executeLiftRide(best.floor, best.count, percentDiff);
       }
     } catch (err) {
       console.warn('[Шахта] Ошибка авто-проверки этажей лифта:', err);
@@ -8560,6 +8663,9 @@
   async function executeLiftRide(targetFloor, peopleCount, percentDiff) {
     if (isRidingLift) return;
     isRidingLift = true;
+    pendingLiftRide = null;
+    activeMiningRockIndex = -1;
+    lastTargetKey = null;
 
     try {
       const S = G.__lgMineS;
@@ -8567,6 +8673,11 @@
       const deep = (S && S.st && (S.st.deep || S.st.n)) || 1;
 
       showToast(`🛗 Лифт: спускаемся на этаж ${targetFloor} (+${percentDiff}%, ${peopleCount} чел.)…`);
+
+      // 0. Принудительно прекращаем копание текущей руды/камня
+      try {
+        await stopMiningInGame(currentMineId);
+      } catch (e) {}
 
       // 1. Попытка открыть лифт в нативном интерфейсе игры
       let rideSuccess = false;
@@ -8602,6 +8713,10 @@
           currentMineId = targetKey;
           tryOpenMineOnScreen(targetKey);
           isRidingLift = false;
+          closeNewsModal();
+          setTimeout(closeNewsModal, 300);
+          setTimeout(closeNewsModal, 1000);
+          setTimeout(closeNewsModal, 2000);
         }, delay);
       } else {
         isRidingLift = false;
@@ -8628,7 +8743,14 @@
 
   async function step() {
     if (!G.__mineBotRunning) return;
+    closeNewsModal();
     if (isRidingLift) return;
+
+    if (!isPaused && autoLiftBestFloor) {
+      checkAutoLiftStep();
+      if (isRidingLift) return;
+    }
+
     lastStepExecutionTime = Date.now();
     try {
       if (!isPaused) {
