@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      8.9.15
+// @version      8.9.17
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -422,30 +422,11 @@
 
   let oreFirst = localStorage.getItem('lg_bot_ore_first') !== '0'; // По умолчанию true (включено: сначала руда с макс. числом людей)
   let coalIronFirst = localStorage.getItem('lg_bot_coal_iron_first') !== '0'; // По умолчанию true (включено: приоритет сперва уголь, затем железо)
-  let hideGamePanel = localStorage.getItem('lg_bot_hide_game_panel') === '1'; // Скрытие боковой панели игры (СЕЙЧАС, ЗАРАБОТОК, ЖУРНАЛ ШАХТЫ)
-
-  function applyHideGamePanel(hide) {
-    try {
-      let style = document.getElementById('lg-style-hide-game-panel');
-      if (hide) {
-        if (!style) {
-          style = document.createElement('style');
-          style.id = 'lg-style-hide-game-panel';
-          style.textContent = `
-            .mn-panel, aside.mn-panel, .mn .mn-panel {
-              display: none !important;
-            }
-          `;
-          (document.head || document.documentElement).appendChild(style);
-        }
-      } else {
-        if (style) style.remove();
-      }
-    } catch (e) {}
-  }
-
-  // Применяем скрытие сразу при загрузке скрипта
-  applyHideGamePanel(hideGamePanel);
+  // Очистка стиля скрытия боковой панели игры, если был установлен ранее
+  try {
+    document.getElementById('lg-style-hide-game-panel')?.remove();
+    localStorage.removeItem('lg_bot_hide_game_panel');
+  } catch (e) {}
   let timer = null;
   let refreshMinesTimer = null;
   const blacklist = new Map();
@@ -1920,7 +1901,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">⛏️ Майнер v8.9.15</span>
+        <span style="flex-shrink:0;">⛏️ Майнер v8.9.17</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -2009,9 +1990,9 @@
             <span id="b-my-drills-info" style="font-size:10px;color:#38bdf8;font-weight:bold;cursor:pointer;padding:1px 5px;background:rgba(56,189,248,0.12);border-radius:4px;border:1px solid rgba(56,189,248,0.25);" title="Число буров, в которые вы внесли от 100м (опрос сервера раз в 5 минут). Нажмите для обновления.">Наших: 0 шт.</span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);">
-            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#06b6d4;font-size:10.5px;font-weight:bold;user-select:none;" title="Автоматически при сканировании этажей шахты вносить по 100м во все строящиеся буровые на ВСЕХ этажах (1..N) через API без необходимости переезжать на лифте">
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#06b6d4;font-size:10.5px;font-weight:bold;user-select:none;" title="Автоматически при сканировании этажей шахты вносить по 100 монет во все строящиеся и улучшаемые буровые на ВСЕХ этажах (1..N) через API без необходимости переезжать на лифте">
               <input type="checkbox" id="b-drill-all-floors" ${isDrillBuildAllFloors ? 'checked' : ''} style="accent-color:#06b6d4;cursor:pointer;width:14px;height:14px;">
-              <span>🌐 Взнос в буры на ВСЕХ этажах (1..N)</span>
+              <span>🌐 Авто улучшение буров всех этажей (Взнос 100 монет)</span>
             </label>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);">
@@ -2026,12 +2007,7 @@
               <span>🛗 Авто-лифт на людный этаж (+30%)</span>
             </label>
           </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);">
-            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#f43f5e;font-size:10.5px;font-weight:bold;user-select:none;" title="Полностью скрыть боковую панель игры (СЕЙЧАС, ЗАРАБОТОК, ЖУРНАЛ ШАХТЫ, кнопки Поручения/Сумка), чтобы освободить экран">
-              <input type="checkbox" id="b-hide-game-panel" ${hideGamePanel ? 'checked' : ''} style="accent-color:#f43f5e;cursor:pointer;width:14px;height:14px;">
-              <span>👁️ Скрыть боковую панель игры</span>
-            </label>
-          </div>
+
         </div>
         <div id="b-st" style="margin-bottom:8px;color:#ffc107;font-size:12px;font-weight:bold;min-height:16px;line-height:1.35;word-break:break-word;">На паузе</div>
         <!-- Прогресс-бар добычи текущего камня (здоровье камня / сколько осталось, как в игре) -->
@@ -2441,7 +2417,6 @@
   const checkDrillBuildAllFloors = w.querySelector('#b-drill-all-floors');
   const checkAutoClaimQuests = w.querySelector('#b-auto-claim-quests');
   const checkAutoLift = w.querySelector('#b-auto-lift');
-  const checkHideGamePanel = w.querySelector('#b-hide-game-panel');
 
   if (checkOreFirst) {
     checkOreFirst.onchange = () => {
@@ -2479,8 +2454,8 @@
       isDrillBuildAllFloors = checkDrillBuildAllFloors.checked;
       localStorage.setItem('lg_bot_drill_build_all_floors', isDrillBuildAllFloors ? 'true' : 'false');
       showToast(isDrillBuildAllFloors 
-        ? '🌐 Взнос в буры на ВСЕХ этажах ВКЛ (по 100м через API)' 
-        : 'Взнос в буры на всех этажах выключен');
+        ? '🌐 Авто улучшение буров всех этажей ВКЛ (Взнос 100 монет)' 
+        : 'Авто улучшение буров всех этажей выключено');
       if (isDrillBuildAllFloors) {
         lastDrillsScanTime = 0;
         scanMyDrillsServerWide();
@@ -2513,16 +2488,7 @@
       }
     };
   }
-  if (checkHideGamePanel) {
-    checkHideGamePanel.onchange = () => {
-      hideGamePanel = checkHideGamePanel.checked;
-      try {
-        localStorage.setItem('lg_bot_hide_game_panel', hideGamePanel ? '1' : '0');
-      } catch (e) {}
-      applyHideGamePanel(hideGamePanel);
-      showToast(hideGamePanel ? '👁️ Боковая панель игры СКРЫТА' : 'Боковая панель игры показана');
-    };
-  }
+
 
   // ---------- ЛОГИКА АВТОБУРОВ (ШАХТА 3.0) ----------
   function getDrillsList() {
