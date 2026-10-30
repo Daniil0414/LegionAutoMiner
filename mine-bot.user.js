@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      8.9.4
+// @version      8.9.6
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -222,6 +222,8 @@
   function resolveBackgroundWalking(force = false) {
     const S = G.__lgMineS;
     if (!S) return false;
+    // 🛡️ Защита: во время перехода этажей (< 5 сек) не вмешиваемся в анимацию спавна/хода персонажа
+    if (Date.now() - lastFloorTransitionTime < 5000) return false;
     if (S.path && S.path.length > 0 && typeof S.then === 'function') {
       const elapsed = Date.now() - targetAssignedTime;
       let requiredTime = 2500;
@@ -1008,8 +1010,20 @@
       // Смена этажа: моментально начинаем поиск первой цели на новом этаже
       activeMiningRockIndex = -1;
       lastTargetKey = null;
+      targetAssignedTime = 0;
+      lastFloorTransitionTime = Date.now();
+      pendingLiftRide = null;
+      if (G.__lgMineS) {
+        G.__lgMineS.left = null;
+      }
+      // 🛡️ Автоматическая синхронизация currentMineId с новым этажом шахты
+      const baseId = String(currentMineId || 'home').split('.')[0];
+      const deep = st.deep || st.n || 1;
+      currentMineId = (st.n >= deep) ? baseId : `${baseId}.${st.n}`;
+      G.__lgMineCurrent = currentMineId;
+      try { updateMineSelectorUI(); } catch (e) {}
       clearTimeout(timer);
-      timer = setTimeout(step, 80);
+      timer = setTimeout(step, 200);
     }
 
     lastDugString = st.dug || '';
@@ -1094,6 +1108,14 @@
               }
               G.__lgMineState = data.st;
               G.__lgMineError = null;
+              // 🛡️ Защита от follow3: если этаж продвинулся, выравниваем snapshot me.at,
+              // чтобы движок игры не откатывал открытую шахту назад на старый этаж
+              if (data.st.n && data.me && typeof data.me.at === 'number' && data.me.at < data.st.n) {
+                data.me.at = data.st.n;
+              }
+              if (G.__lgMineS && data.st.n && G.__lgMineS.me && typeof G.__lgMineS.me.at === 'number' && G.__lgMineS.me.at < data.st.n) {
+                G.__lgMineS.me.at = data.st.n;
+              }
             }
             if (data && data.me) {
               G.__lgMineMe = data.me;
@@ -1227,6 +1249,7 @@
   // Хранилище доступных шахт и сессии (Гарантируем Домашнюю и Рябиненень + тестовые округа)
   let currentMineId = localStorage.getItem('lg_bot_mine') || 'home';
   let lastMineOpenAttempt = 0;
+  let lastFloorTransitionTime = 0;
   const NEIGHBOR_MINES = [
     { id: 'camp', name: '⛺ Перепутье (Лагерь)', danger: 1, test: true },
     { id: 'd04', name: 'Рябиново (Склоны меча)', danger: 1, test: true },
@@ -1512,9 +1535,35 @@
             }
           }
           if (d.me) G.__lgMineMe = d.me;
+          // 🛡️ Защита от follow3: выравниваем me.at
+          const S = G.__lgMineS;
+          const curN = d.st?.n || S?.st?.n;
+          if (curN) {
+            if (S?.me && typeof S.me.at === 'number' && S.me.at < curN) S.me.at = curN;
+            if (d.me && typeof d.me.at === 'number' && d.me.at < curN) d.me.at = curN;
+          }
         }
         return origOnEvent.apply(this, arguments);
       };
+    }
+    if (G.LGMine3 && !G.LGMine3.__botHooked) {
+      G.LGMine3.__botHooked = true;
+      const origScene = G.LGMine3.scene;
+      if (typeof origScene === 'function') {
+        G.LGMine3.scene = function (S) {
+          if (S) {
+            G.__lgMineS = S;
+            protectMineState(S);
+            if (S.st) {
+              G.__lgMineState = S.st;
+              if (S.F && S.F.cells) {
+                cachedFloorCells = S.F.cells.map(c => Array.isArray(c) ? c : [c.t, c.lv, c.r]);
+              }
+            }
+          }
+          return origScene.apply(this, arguments);
+        };
+      }
     }
     if (G.LGCity && !G.LGCity.__cityHooked) {
       G.LGCity.__cityHooked = true;
@@ -1707,7 +1756,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">⛏️ Майнер v8.9.4</span>
+        <span style="flex-shrink:0;">⛏️ Майнер v8.9.6</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -2465,16 +2514,30 @@
     // 2. Из снимка героя S.me.i или G.__lgMineMe.i
     const myMe = G.__lgMineMe || (G.__lgMineS && G.__lgMineS.me);
     if (myMe && typeof myMe.i === 'number' && myMe.i >= 0) {
-      return myMe.i;
+      const meFloor = myMe.f || myMe.at;
+      const isOldFloorSnap = (st && st.n != null && meFloor != null && meFloor < st.n);
+      if (!isOldFloorSnap) {
+        return myMe.i;
+      }
     }
     // 3. Из G.ME.hero.mn[cId].i
     const cId = currentMineId || 'home';
     const heroMn = G.ME?.hero?.mn;
     if (heroMn && heroMn[cId] && typeof heroMn[cId].i === 'number' && heroMn[cId].i >= 0) {
-      return heroMn[cId].i;
+      const mnSnap = heroMn[cId];
+      const mnFloor = mnSnap.f || mnSnap.at;
+      const isOldFloorSnap = (st && st.n != null && mnFloor != null && mnFloor < st.n);
+      if (!isOldFloorSnap) {
+        return heroMn[cId].i;
+      }
     }
     if (heroMn && heroMn.home && typeof heroMn.home.i === 'number' && heroMn.home.i >= 0) {
-      return heroMn.home.i;
+      const mnSnap = heroMn.home;
+      const mnFloor = mnSnap.f || mnSnap.at;
+      const isOldFloorSnap = (st && st.n != null && mnFloor != null && mnFloor < st.n);
+      if (!isOldFloorSnap) {
+        return heroMn.home.i;
+      }
     }
     // 4. Из активной переменной activeMiningRockIndex
     if (activeMiningRockIndex >= 0) {
@@ -7707,27 +7770,35 @@
     const world = document.querySelector('.mn-world');
     if (!world) return false;
 
+    // Во время активного перехода между этажами (< 15с) сцена уже создана, не дергаем open повторно
+    if (Date.now() - lastFloorTransitionTime < 15000) {
+      return true;
+    }
+
     const targetBase = String(target).split('.')[0];
     const targetFloor = target.includes('.') ? parseInt(target.split('.')[1], 10) : null;
 
-    // 1. По перехваченному ID вызова LGMine.open
-    if (G.__lgMineCurrent) {
-      const curBase = String(G.__lgMineCurrent).split('.')[0];
-      if (curBase !== targetBase) return false;
-      if (targetFloor != null && G.__lgMineCurrent.includes('.')) {
-        const curFloor = parseInt(G.__lgMineCurrent.split('.')[1], 10);
-        if (curFloor !== targetFloor) return false;
-      }
-    }
-
-    // 2. По текущему серверному состоянию st.id и st.n
+    // 1. По текущему серверному состоянию st.id и st.n
     const st = G.__lgMineState || (G.__lgMineS && G.__lgMineS.st);
     if (st && st.id) {
       const stBase = String(st.id).split('.')[0];
       if (stBase !== targetBase) return false;
-      if (targetFloor != null && st.n != null && st.n !== targetFloor) {
-        return false;
+      if (st.n != null) {
+        const deep = st.deep || st.n || 1;
+        // Если этаж продвинулся (спуск на следующий), синхронизируем currentMineId, не ломая сцену
+        if (targetFloor != null && st.n !== targetFloor) {
+          const newKey = st.n >= deep ? targetBase : `${targetBase}.${st.n}`;
+          currentMineId = newKey;
+          G.__lgMineCurrent = newKey;
+          try { updateMineSelectorUI(); } catch (e) {}
+        }
       }
+    }
+
+    // 2. По перехваченному ID вызова LGMine.open
+    if (G.__lgMineCurrent) {
+      const curBase = String(G.__lgMineCurrent).split('.')[0];
+      if (curBase !== targetBase) return false;
     }
 
     return true;
@@ -7927,7 +7998,11 @@
   }
 
   function isMining() {
-    // 0. Очевидный признак простоя: игра явно пишет "Выбери камень"
+    // 0. Если герой явно анимирован маханием киркой (.mn-heroes .mn-h.me.dig) — мы 100% копаем!
+    const digHero = document.querySelector('.mn-heroes .mn-h.me.dig, .mn .mn-heroes .mn-h.me.dig');
+    if (digHero) return true;
+
+    // Очевидный признак простоя: игра явно пишет "Выбери камень" (только если герой не машет киркой)
     const statusEl = document.querySelector('[data-mn="status"]');
     if (statusEl && statusEl.textContent) {
       const stText = statusEl.textContent.toLowerCase();
@@ -7947,16 +8022,19 @@
     // 2. Снимок героя S.me.i или G.__lgMineMe.i или G.ME.hero.mn
     const myMe = G.__lgMineMe || (G.__lgMineS && G.__lgMineS.me);
     if (myMe && typeof myMe.i === 'number' && myMe.i >= 0) {
-      const st = G.__lgMineState || (G.__lgMineS && G.__lgMineS.st);
-      if (!st || !st.dug || st.dug[myMe.i] !== '1') {
+      const meFloor = myMe.f || myMe.at;
+      const isOldFloorSnap = (st && st.n != null && meFloor != null && meFloor < st.n);
+      if (!isOldFloorSnap && (!st || !st.dug || st.dug[myMe.i] !== '1')) {
         return true;
       }
     }
     const cId = currentMineId || 'home';
     const heroMn = G.ME?.hero?.mn;
     if (heroMn && heroMn[cId] && typeof heroMn[cId].i === 'number' && heroMn[cId].i >= 0) {
-      const st = G.__lgMineState || (G.__lgMineS && G.__lgMineS.st);
-      if (!st || !st.dug || st.dug[heroMn[cId].i] !== '1') {
+      const mnSnap = heroMn[cId];
+      const mnFloor = mnSnap.f || mnSnap.at;
+      const isOldFloorSnap = (st && st.n != null && mnFloor != null && mnFloor < st.n);
+      if (!isOldFloorSnap && (!st || !st.dug || st.dug[heroMn[cId].i] !== '1')) {
         return true;
       }
     }
@@ -7987,9 +8065,7 @@
     const activeCard = document.querySelector('.m2-card.m2-now.on, .m2-now.on, [data-mn-pr]');
     if (activeCard) return true;
 
-    // 7. Проверяем спрайт героя: анимация махания киркой (.mn-heroes .mn-h.me.dig)
-    const digHero = document.querySelector('.mn-heroes .mn-h.me.dig, .mn .mn-heroes .mn-h.me.dig');
-    if (digHero) return true;
+    // 7. Проверяем спрайт героя: анимация махания киркой (уже проверено в пункте 0)
 
     // 8. Проверяем список копателей у камней в st.dg
     const st = G.__lgMineState;
@@ -8017,6 +8093,10 @@
 
   function clickTarget(candidate) {
     if (!candidate) return false;
+    // 🛡️ Защита: убиваем 30-секундный таймер mineStop в движке игры S.left
+    if (G.__lgMineS) {
+      G.__lgMineS.left = null;
+    }
     let idx = -1;
     if (candidate.rockId != null) {
       const parsed = parseInt(candidate.rockId, 10);
@@ -8136,6 +8216,10 @@
 
       const isFar = matchedG ? matchedG.classList.contains('far') : false;
 
+      if (activeMiningRockIndex >= 0 && (iNum === activeMiningRockIndex || rockId === String(activeMiningRockIndex))) {
+        isMe = true;
+      }
+
       candidates.push({ bar, group: matchedG, rockId, count, isFar, isMe, inBlacklist: blacklist.has(rockId) });
     }
 
@@ -8205,6 +8289,15 @@
     closeNewsModal();
 
     if (isRidingLift || pendingLiftRide) return;
+
+    // 🛡️ Синхронизация движка игры: если персонаж копает, сбрасываем S.left (защита от 30с стопа игры)
+    // и восстанавливаем S.myI, если движок игры его случайно потерял
+    if (G.__lgMineS) {
+      if (G.__lgMineS.left) G.__lgMineS.left = null;
+      if (activeMiningRockIndex >= 0 && G.__lgMineS.myI < 0 && (typeof isMining === 'function' && isMining())) {
+        G.__lgMineS.myI = activeMiningRockIndex;
+      }
+    }
 
     // Проверяем, не вывела ли игра сообщение об ошибке открытия шахты
     const errPanel = document.querySelector('.mn-panel .empty, .mn-err');
@@ -8399,7 +8492,9 @@
     const hasSufficientCrowd = best && (best.count >= myCount + crowdDiff) && (currentMineId === 'home' || best.count >= 3);
     const canSwitchToCrowd = mining && !currentIsOre && currentPct <= 35 && switchElapsed > 12000 && hasSufficientCrowd;
 
-    const shouldSwitchToCrowd = mining && best && !best.isMe && (shouldSwitchToOre || canSwitchToCrowd);
+    // Защита: мы никогда не переключаемся на толпу/руду, если цель - это ТОТ ЖЕ САМЫЙ камень, который мы уже копаем!
+    const isTargetSameAsCurrent = (activeMiningRockIndex >= 0 && best && best.rockId === String(activeMiningRockIndex));
+    const shouldSwitchToCrowd = mining && best && !best.isMe && !isTargetSameAsCurrent && (shouldSwitchToOre || canSwitchToCrowd);
 
     const prefix = mode === 'ghost' ? '🏙️ ' : '';
     if (mining && !shouldSwitchToCrowd) {
@@ -8432,6 +8527,10 @@
       if (pMineWrap) pMineWrap.style.display = 'none';
       if (best) {
         const targetKey = best.rockId;
+        // 🛡️ Защита от спама кликами: если мы УЖЕ копаем этот целевой камень (или стоим на нём) — НЕ кликаем повторно!
+        if (mining && activeMiningRockIndex >= 0 && targetKey === String(activeMiningRockIndex)) {
+          return;
+        }
         const targetOreName = formatRockName(targetKey);
         const targetOreLabel = targetOreName ? `: ${targetOreName}` : '';
         if (shouldSwitchToCrowd) {
@@ -8762,7 +8861,11 @@
         const delay = targetFloor >= deep ? 600 : 2600;
         setTimeout(() => {
           currentMineId = targetKey;
-          tryOpenMineOnScreen(targetKey);
+          G.__lgMineCurrent = targetKey;
+          lastFloorTransitionTime = Date.now();
+          if (!isTargetMineOpen(targetKey)) {
+            tryOpenMineOnScreen(targetKey);
+          }
           isRidingLift = false;
           closeNewsModal();
           setTimeout(closeNewsModal, 300);
@@ -8817,14 +8920,20 @@
           }
 
           if (!isTargetMineOpen(currentMineId)) {
-            tryOpenMineOnScreen(currentMineId);
+            if (Date.now() - lastMineOpenAttempt > 5000 && Date.now() - lastFloorTransitionTime > 15000) {
+              lastMineOpenAttempt = Date.now();
+              tryOpenMineOnScreen(currentMineId);
+            }
           }
           setGhostVisuals(true);
           ensureCityVisible(false);
           stepScreen();
         } else {
           if (!isTargetMineOpen(currentMineId)) {
-            tryOpenMineOnScreen(currentMineId);
+            if (Date.now() - lastMineOpenAttempt > 5000 && Date.now() - lastFloorTransitionTime > 15000) {
+              lastMineOpenAttempt = Date.now();
+              tryOpenMineOnScreen(currentMineId);
+            }
           }
           setGhostVisuals(false);
           stepScreen();
