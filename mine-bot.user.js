@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      8.9.26
+// @version      8.9.27
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -497,8 +497,23 @@
   }
 
   let isRatingMode = localStorage.getItem('lg_bot_rating_mode') === '1'; // Режим «Рейтинг» (толпа + добивание камней + железная фиксация)
+  let ratingCrowdRange = localStorage.getItem('lg_bot_rating_crowd') || '2-5'; // Выбор количества игроков у цели в режиме «Рейтинг»
   let oreFirst = !isRatingMode && localStorage.getItem('lg_bot_ore_first') !== '0'; // По умолчанию true (выключено, если включен Режим «Рейтинг»)
   let coalIronFirst = localStorage.getItem('lg_bot_coal_iron_first') !== '0'; // По умолчанию true (включено: приоритет сперва уголь, затем железо)
+
+  function parseRatingCrowdRange(rangeStr) {
+    if (!rangeStr || rangeStr === 'any') return [1, 9999];
+    if (rangeStr === '2-5') return [2, 5];
+    if (rangeStr === '2-8') return [2, 8];
+    if (rangeStr === '2-15') return [2, 15];
+    if (rangeStr === '3-6') return [3, 6];
+    if (rangeStr === '1-5') return [1, 5];
+    const parts = String(rangeStr).split('-').map(n => parseInt(n, 10));
+    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      return [parts[0], parts[1]];
+    }
+    return [2, 5];
+  }
   // Очистка стиля скрытия боковой панели игры, если был установлен ранее
   try {
     document.getElementById('lg-style-hide-game-panel')?.remove();
@@ -775,6 +790,60 @@
       return gy * 7 + gx;
     }
     return -1;
+  }
+
+  // 🛡️ Проверка физической достижимости камня героем через игровой движок пути (A* / BFS pathTo)
+  // Исключает выбор камней через непроходимые сталагмиты, сосульки или нераскопанные барьеры
+  function isRockPathReachable(rockId) {
+    try {
+      const idx = typeof rockId === 'number' ? rockId : parseInt(rockId, 10);
+      if (isNaN(idx) || idx < 0) return true;
+      const S = G.__lgMineS;
+      if (!S || !S.pos) return true;
+      const dug = S.dug || G.__lgMineState?.dug;
+      if (!dug) return true;
+      const isV3 = !!(S.F?.v3 || G.__lgMineState?.fl?.v3);
+      const m3info = S.F || G.__lgMineState?.fl;
+      const MW = S.Wd || ((isV3 && G.LGWorldLib?.mine3 && m3info) ? G.LGWorldLib.mine3(m3info) : (G.LGWorldLib?.mine || G.LGCraftWorld));
+      if (!MW || typeof MW.pathTo !== 'function' || typeof MW.digSpot !== 'function') return true;
+
+      const from = (typeof MW.cellOfPt === 'function') 
+        ? MW.cellOfPt(S.pos.x, S.pos.y) 
+        : ((typeof MW.cellAt === 'function') ? MW.cellAt(S.pos.x, S.pos.y) : -1);
+      if (from < 0) return true;
+
+      const dugArr = (typeof dug === 'string') 
+        ? dug.split('').map(ch => ch === '1' ? 1 : 0) 
+        : dug;
+
+      const sp = MW.digSpot(dugArr, idx);
+      if (sp == null || sp < 0) return false;
+      if (from === sp) return true;
+
+      const p = MW.pathTo(dugArr, from, sp);
+      return Boolean(p && p.length > 0);
+    } catch (e) {
+      return true;
+    }
+  }
+
+  // Расчёт расстояния от текущей позиции героя до камня
+  function getRockDistance(rockId) {
+    try {
+      const idx = typeof rockId === 'number' ? rockId : parseInt(rockId, 10);
+      if (isNaN(idx) || idx < 0) return -1;
+      const S = G.__lgMineS;
+      if (!S || !S.pos) return -1;
+      const isV3 = !!(S.F?.v3 || G.__lgMineState?.fl?.v3);
+      const m3info = S.F || G.__lgMineState?.fl;
+      const MW = S.Wd || ((isV3 && G.LGWorldLib?.mine3 && m3info) ? G.LGWorldLib.mine3(m3info) : (G.LGWorldLib?.mine || G.LGCraftWorld));
+      if (!MW || typeof MW.cellXY !== 'function') return -1;
+      const pt = MW.cellXY(idx);
+      if (!pt) return -1;
+      return Math.hypot(pt.cx - S.pos.x, pt.cy - S.pos.y);
+    } catch (e) {
+      return -1;
+    }
   }
 
   function getCurrentMiningRockName(myCandidate) {
@@ -2131,7 +2200,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">⛏️ Майнер v8.9.26</span>
+        <span style="flex-shrink:0;">⛏️ Майнер v8.9.27</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -2194,12 +2263,23 @@
             <option value="ryabinen">Рябиненень ★</option>
           </select>
         </div>
-        <!-- Режим «Рейтинг» (толпа + добивание камней + железная фиксация цели) -->
-        <div style="display:flex;align-items:center;justify-content:flex-start;margin-bottom:8px;background:linear-gradient(135deg, rgba(38,28,12,0.85) 0%, rgba(26,23,46,0.95) 100%);padding:6px 8px;border-radius:6px;border:1px solid #eab308;">
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#ffd700;font-size:11px;font-weight:bold;user-select:none;" title="Режим «Рейтинг» (максимум камней в час): приоритет толпы (2-4+ чел) для моментального добивания, выбор камней с меньшим HP (от 30%), железная фиксация цели до 100% разрушения без бросания на полпути">
+        <!-- Режим «Рейтинг» (выбор нужного числа игроков + добивание камней + железная фиксация) -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;background:linear-gradient(135deg, rgba(38,28,12,0.85) 0%, rgba(26,23,46,0.95) 100%);padding:6px 8px;border-radius:6px;border:1px solid #eab308;flex-wrap:wrap;gap:4px;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#ffd700;font-size:11px;font-weight:bold;user-select:none;" title="Режим «Рейтинг»: поиск камней/руд с выбранным числом игроков, добивание камней с низким HP, фиксация цели до 100% разрушения">
             <input type="checkbox" id="b-rating-mode" ${isRatingMode ? 'checked' : ''} style="accent-color:#ffd700;cursor:pointer;width:14px;height:14px;">
             <span>🏆 Режим «Рейтинг»</span>
           </label>
+          <div id="b-rating-crowd-row" style="display:${isRatingMode ? 'flex' : 'none'};align-items:center;gap:4px;">
+            <span style="color:#fef08a;font-size:10px;font-weight:bold;">Игроков:</span>
+            <select id="b-rating-crowd-select" style="background:#121026;color:#ffd700;border:1px solid #eab308;border-radius:4px;padding:2px 4px;font-size:10px;font-weight:bold;cursor:pointer;outline:none;">
+              <option value="2-5" ${ratingCrowdRange === '2-5' ? 'selected' : ''}>2–5 чел</option>
+              <option value="2-8" ${ratingCrowdRange === '2-8' ? 'selected' : ''}>2–8 чел</option>
+              <option value="2-15" ${ratingCrowdRange === '2-15' ? 'selected' : ''}>2–15 чел</option>
+              <option value="3-6" ${ratingCrowdRange === '3-6' ? 'selected' : ''}>3–6 чел</option>
+              <option value="1-5" ${ratingCrowdRange === '1-5' ? 'selected' : ''}>1–5 чел</option>
+              <option value="any" ${ratingCrowdRange === 'any' ? 'selected' : ''}>Любое кол-во</option>
+            </select>
+          </div>
         </div>
         <!-- Переключатели приоритета: Сперва руда / Сперва уголь и железо -->
         <div style="display:flex;align-items:center;justify-content:flex-start;gap:12px;margin-bottom:8px;background:#1a172e;padding:6px 8px;border-radius:6px;border:1px solid #3d3759;flex-wrap:wrap;">
@@ -2656,10 +2736,24 @@
   const checkAutoClaimQuests = w.querySelector('#b-auto-claim-quests');
   const checkAutoLift = w.querySelector('#b-auto-lift');
 
+  const ratingCrowdRow = w.querySelector('#b-rating-crowd-row');
+  const ratingCrowdSelect = w.querySelector('#b-rating-crowd-select');
+  if (ratingCrowdSelect) {
+    ratingCrowdSelect.onchange = () => {
+      ratingCrowdRange = ratingCrowdSelect.value;
+      localStorage.setItem('lg_bot_rating_crowd', ratingCrowdRange);
+      lastTargetKey = null;
+      showToast(`🏆 Рейтинг: поиск камней (${ratingCrowdSelect.options[ratingCrowdSelect.selectedIndex].text})`);
+    };
+  }
+
   if (checkRatingMode) {
     checkRatingMode.onchange = () => {
       isRatingMode = checkRatingMode.checked;
       localStorage.setItem('lg_bot_rating_mode', isRatingMode ? '1' : '0');
+      if (ratingCrowdRow) {
+        ratingCrowdRow.style.display = isRatingMode ? 'flex' : 'none';
+      }
       if (isRatingMode) {
         // При включении Режима «Рейтинг» автоматически отключаем «Сперва руда»
         if (checkOreFirst) {
@@ -2670,8 +2764,9 @@
             coalIronLabel.style.opacity = '0.5';
           }
         }
+        lastTargetKey = null;
       }
-      showToast(isRatingMode ? '🏆 Режим «Рейтинг»: включен' : 'Режим «Рейтинг»: выключен');
+      showToast(isRatingMode ? `🏆 Режим «Рейтинг» (${ratingCrowdRange} чел): включен` : 'Режим «Рейтинг»: выключен');
     };
   }
 
@@ -8512,7 +8607,19 @@
     const tip = document.querySelector('.mn-tip');
     if (tip && !tip.hidden && tip.textContent) {
       const txt = tip.textContent.toLowerCase();
-      if (txt.includes('не подойти') || txt.includes('не пройти') || txt.includes('недоступен') || txt.includes('твёрд') || txt.includes('тверд') || txt.includes('обойти')) {
+      if (
+        txt.includes('не подойти') || 
+        txt.includes('не пройти') || 
+        txt.includes('недоступен') || 
+        txt.includes('твёрд') || 
+        txt.includes('тверд') || 
+        txt.includes('обойти') || 
+        txt.includes('расчисти') || 
+        txt.includes('раскопать') || 
+        txt.includes('не разбить') || 
+        txt.includes('далеко') || 
+        txt.includes('препятств')
+      ) {
         return tip.textContent.trim();
       }
     }
@@ -8715,6 +8822,7 @@
       if (typeof checkOreFirst !== 'undefined' && checkOreFirst) {
         checkOreFirst.checked = false;
       }
+      lastTargetKey = null;
     }
   };
   G.__mineGetCandidateHpProgress = getCandidateHpProgress;
@@ -8773,6 +8881,19 @@
       target.dispatchEvent(new PointerEvent('pointerdown', opts));
       target.dispatchEvent(new PointerEvent('pointerup', opts));
       target.dispatchEvent(new MouseEvent('click', opts));
+
+      const tipErr = checkTipError();
+      if (tipErr) {
+        if (candidate.rockId != null) {
+          blacklist.set(String(candidate.rockId), Date.now() + 30000);
+        }
+        lastTargetKey = null;
+        if (st) {
+          st.textContent = 'Путь закрыт, меняем...';
+          st.style.color = '#ff9900';
+        }
+        return false;
+      }
       return true;
     }
     if (bar) {
@@ -8783,6 +8904,19 @@
       bar.dispatchEvent(new PointerEvent('pointerdown', opts));
       bar.dispatchEvent(new PointerEvent('pointerup', opts));
       bar.dispatchEvent(new MouseEvent('click', opts));
+
+      const tipErr = checkTipError();
+      if (tipErr) {
+        if (candidate.rockId != null) {
+          blacklist.set(String(candidate.rockId), Date.now() + 30000);
+        }
+        lastTargetKey = null;
+        if (st) {
+          st.textContent = 'Путь закрыт, меняем...';
+          st.style.color = '#ff9900';
+        }
+        return false;
+      }
       return true;
     }
     return false;
@@ -8879,6 +9013,7 @@
       if (isNaN(iNum) || candidateIndices.has(iNum)) continue;
       const rockId = String(iNum);
       if (blacklist.has(rockId)) continue;
+      if (!isRockPathReachable(iNum)) continue; // 🛡️ Исключаем физически недостижимые камни через сталагмиты/стены
 
       let matchedG = document.querySelector(`svg.mn-bg g[data-i="${iNum}"]`) || allGroups.find(g => g.dataset.i === rockId) || null;
       const isOre = isValuableRock(iNum, matchedG);
@@ -8904,6 +9039,7 @@
         const rockId = String(iNum);
         if (blacklist.has(rockId)) continue;
         if (g.classList.contains('far')) continue;
+        if (!isRockPathReachable(iNum)) continue; // 🛡️ Исключаем физически недостижимые камни через сталагмиты/стены
 
         const isOpen = g.classList.contains('open') || (frontSet.size > 0 ? frontSet.has(iNum) : true);
         if (!isOpen) continue;
@@ -8968,7 +9104,10 @@
       if (!idleHeroDetectedTime) {
         idleHeroDetectedTime = Date.now();
       } else if (Date.now() - idleHeroDetectedTime > 2000) {
-        // Герой стоит без дела уже более 2 секунд — сбрасываем залипшее состояние
+        // Герой стоит без дела уже более 2 секунд — блокируем зависшую цель в черный список и сбрасываем состояние
+        if (lastTargetKey) {
+          blacklist.set(lastTargetKey, Date.now() + 30000);
+        }
         activeMiningRockIndex = -1;
         lastTargetKey = null;
         lastMiningConfirmedTime = 0;
@@ -9090,7 +9229,7 @@
       }
     }
 
-    const valid = candidates.filter(c => !c.isFar && !c.inBlacklist);
+    const valid = candidates.filter(c => !c.isFar && !c.inBlacklist && (c.isMe || isRockPathReachable(c.rockId)));
 
     // Функция стабильной сортировки кандидатов с гистерезисом (предотвращает метания между одинаковыми камнями)
     const sortCandidates = (arr) => {
@@ -9108,10 +9247,10 @@
     };
 
     // 🏆 Сортировка для режима «Рейтинг»:
-    // Главная цель — максимум выкопанных камней в час (+1 в рейтинг).
-    // 1) Обычные камни/базальт/уголь/железо НАМНОГО быстрее копаются, чем редкие жилы золота/сундуки (у тех в 5-10 раз больше HP).
-    // 2) Скорость разрушения (наименьшее ETA / наименьший % HP добивания): чем быстрее камень ломается, тем выше приоритет!
-    // 3) Оптимальная группа игроков: 2-5 человек (вместе ломают быстро, не нужно бегать в толпу из 60 человек на золото).
+    // Главная цель — максимум набранных очков и разрушенных камней/руд в час (+1 в рейтинг).
+    // 1) Соответствие выбранному диапазону игроков (например 2-5 чел)
+    // 2) Скорость разрушения (наименьшее ETA / наименьший % HP добивания): чем быстрее блок ломается, тем выше приоритет!
+    // 3) Близость к игроку (расстояние): меньше времени на ходьбу — быстрее добыча!
     const sortRatingCandidates = (arr) => {
       arr.sort((a, b) => {
         // 1. Стабильность (гистерезис): удерживаем начатый камень или цель, к которой уже идём
@@ -9120,7 +9259,16 @@
         if (aIsCur && !bIsCur) return -1;
         if (!aIsCur && bIsCur) return 1;
 
-        // 2. Предпочтение быстро разрушаемым породам (Обычный камень/базальт/уголь/железо vs Редкие толстые жилы):
+        // 2. Соответствие выбранному диапазону игроков (приоритет целям с нужным числом копателей):
+        const countA = a.count || 0;
+        const countB = b.count || 0;
+        const [minC, maxC] = parseRatingCrowdRange(ratingCrowdRange);
+        const inRangeA = countA >= minC && (maxC <= 0 || countA <= maxC);
+        const inRangeB = countB >= minC && (maxC <= 0 || countB <= maxC);
+        if (inRangeA && !inRangeB) return -1;
+        if (!inRangeA && inRangeB) return 1;
+
+        // 3. Быстро разрушаемые породы (Обычный камень/базальт/уголь/железо быстрее редких жил золота):
         const catA = getRockCategory(a.rockId, a.group);
         const catB = getRockCategory(b.rockId, b.group);
         const isRareA = (catA === 'rare' || catA === 'chest' || catA === 'gold');
@@ -9128,21 +9276,13 @@
         if (!isRareA && isRareB) return -1;
         if (isRareA && !isRareB) return 1;
 
-        // 3. Наличие группы (минимум 1-2 копателя): камень с копателями ломается быстрее одиночного
-        const countA = a.count || 0;
-        const countB = b.count || 0;
-        const hasCrowdA = countA >= 2;
-        const hasCrowdB = countB >= 2;
-        if (hasCrowdA && !hasCrowdB) return -1;
-        if (!hasCrowdA && hasCrowdB) return 1;
-
         // 4. ГЛАВНЫЙ КРИТЕРИЙ: Скорость добивания (наименьшее время ETA или наименьший % HP):
         const progA = getCandidateHpProgress(a);
         const progB = getCandidateHpProgress(b);
 
         // Если есть расчёт времени в секундах у обоих:
         if (progA.etaSec > 0 && progB.etaSec > 0) {
-          if (Math.abs(progA.etaSec - progB.etaSec) >= 15) {
+          if (Math.abs(progA.etaSec - progB.etaSec) >= 10) {
             return progA.etaSec - progB.etaSec; // Меньше секунд до разрушения -> ПЕРВЫМ!
           }
         }
@@ -9152,16 +9292,12 @@
           return progA.remPct - progB.remPct; // Меньше % HP -> быстрее сломается!
         }
 
-        // 5. Оптимальный размер группы: 2-5 человек лучше гигантской толпы на жиле
-        const scoreGroup = (cnt) => {
-          if (cnt >= 2 && cnt <= 5) return 3; // Идеально 2-5 чел
-          if (cnt > 5) return 2;              // Много людей
-          if (cnt === 1) return 1;            // 1 человек
-          return 0;                           // Пустой камень
-        };
-        const grpA = scoreGroup(countA);
-        const grpB = scoreGroup(countB);
-        if (grpA !== grpB) return grpB - grpA;
+        // 5. Близость к игроку (расстояние): меньше времени на ходьбу
+        const distA = getRockDistance(a.rockId);
+        const distB = getRockDistance(b.rockId);
+        if (distA >= 0 && distB >= 0 && Math.abs(distA - distB) > 50) {
+          return distA - distB;
+        }
 
         // 6. Детерминированный порядок по номеру клетки
         return (+a.rockId || 0) - (+b.rockId || 0);
@@ -9170,18 +9306,36 @@
 
     let best = null;
     if (isRatingMode) {
+      const [minCrowd, maxCrowd] = parseRatingCrowdRange(ratingCrowdRange);
+
       // 🏆 В режиме «Рейтинг» фильтруем кандидатов:
-      // 1) Исключаем умирающие камни (< 25% HP), чтобы не бежать напрасно
-      // 2) Исключаем толстые жилы золота/сундуки со свежим HP (> 70% HP), если есть нормальные камни
+      // 1) Исключаем умирающие камни (< 25% HP при наличии людей), чтобы не бежать напрасно
+      // 2) ФИЛЬТР ПО КОЛИЧЕСТВУ ИГРОКОВ: отбираем только камни и руды с нужным числом копателей (например 2-5 чел),
+      // полностью исключая гигантские толпы по 50-70+ человек и пустые камни, если настроен лимит!
       const safeRatingCandidates = valid.filter(c => {
         if (c.isMe || c.rockId === String(activeMiningRockIndex) || c.rockId === lastTargetKey) return true;
         const hp = getCandidateHpProgress(c);
         if (c.count >= 2 && hp.remPct < 25) return false;
-        const cat = getRockCategory(c.rockId, c.group);
-        if ((cat === 'rare' || cat === 'chest' || cat === 'gold') && hp.remPct > 70) return false;
+        const count = c.count || 0;
+        if (count < minCrowd) return false;
+        if (maxCrowd > 0 && count > maxCrowd) return false;
         return true;
       });
-      const ratingPool = safeRatingCandidates.length > 0 ? safeRatingCandidates : valid;
+
+      // Если в заданном диапазоне игроков (например 2-5) есть кандидаты — берем их!
+      // Если ни одного такого камня нет на экране, берем любые камни, но строго исключаем экстремальные зерги (> 20 чел)
+      let ratingPool = safeRatingCandidates;
+      if (ratingPool.length === 0) {
+        ratingPool = valid.filter(c => {
+          if (c.isMe || c.rockId === String(activeMiningRockIndex) || c.rockId === lastTargetKey) return true;
+          const hp = getCandidateHpProgress(c);
+          if (c.count >= 2 && hp.remPct < 25) return false;
+          if (c.count > 20) return false;
+          return true;
+        });
+        if (ratingPool.length === 0) ratingPool = valid;
+      }
+
       sortRatingCandidates(ratingPool);
       best = ratingPool[0];
     } else if (oreFirst) {
@@ -9233,7 +9387,11 @@
         const lockedCand = valid.find(c => c.rockId === lastTargetKey);
         if (lockedCand) {
           if (isRatingMode) {
-            best = lockedCand;
+            const lockedCat = getRockCategory(lockedCand.rockId, lockedCand.group);
+            const isPureLocked = (lockedCat === 'rock' && !isValuableRock(lockedCand.rockId, lockedCand.group));
+            if (isPureLocked) {
+              best = lockedCand;
+            }
           } else {
             const lockedTier = getRockPriorityTier(lockedCand.rockId, lockedCand.group);
             const bestTier = best ? getRockPriorityTier(best.rockId, best.group) : 0;
