@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      8.9.19
+// @version      8.9.23
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -358,6 +358,15 @@
   } catch (e) {}
   const fundedDrills = new Set(Array.isArray(savedFundedDrills) ? savedFundedDrills : []);
 
+  // ⏳ Суточный лимит копания (10 часов / me.cap, сброс в 05:00 МСК)
+  let cachedDailyMiningCapReached = false;
+  let cachedDailyMiningCapDay = '';
+
+  function getMineGamingDay(ts = Date.now()) {
+    // 05:00 МСК (02:00 UTC) — граница игровых суток
+    return new Date(ts - 2 * 3600 * 1000).toISOString().slice(0, 10);
+  }
+
   let myFundedDrillsCount = parseInt(localStorage.getItem('lg_my_funded_drills_count') || '0', 10) || 0;
   let myFundedDrillsTotalCoins = parseInt(localStorage.getItem('lg_my_funded_drills_coins') || '0', 10) || 0;
 
@@ -489,6 +498,7 @@
 
   let oreFirst = localStorage.getItem('lg_bot_ore_first') !== '0'; // По умолчанию true (включено: сначала руда с макс. числом людей)
   let coalIronFirst = localStorage.getItem('lg_bot_coal_iron_first') !== '0'; // По умолчанию true (включено: приоритет сперва уголь, затем железо)
+  let isRatingMode = localStorage.getItem('lg_bot_rating_mode') === '1'; // Режим «Рейтинг» (Гонка топа: толпа + добивание камней + железная фиксация)
   // Очистка стиля скрытия боковой панели игры, если был установлен ранее
   try {
     document.getElementById('lg-style-hide-game-panel')?.remove();
@@ -948,6 +958,68 @@
     return getDomMiningProgress(myCandidate);
   }
 
+  // Расчет оставшегося процента здоровья камня для любого кандидата (для режима «Рейтинг»)
+  function getCandidateHpProgress(candidate) {
+    if (!candidate) return { remPct: 100, pct: 0, etaSec: 0, etaText: '—', leftHp: 0, totalHp: 0, rate: 0 };
+    const idx = parseInt(candidate.rockId, 10);
+    const st = G.__lgMineState || (G.__lgMineS && G.__lgMineS.st);
+    if (st && st.bl && !isNaN(idx) && idx >= 0 && st.bl[idx]) {
+      const b = st.bl[idx];
+      const [left, w, rate, n] = b;
+      if (w > 0) {
+        const now = Date.now();
+        const stAt = st.at || now;
+        const age = Math.max(0, (now - stAt) / 60000);
+        let effRate = (rate && rate > 0) ? rate : 0;
+        if (effRate <= 0) {
+          const diggerCount = Math.max(1, (candidate.count != null ? candidate.count : n) || 1);
+          effRate = diggerCount * 40;
+        }
+        const l2 = Math.max(0, left - effRate * age);
+        const remPct = Math.max(0, Math.min(100, Math.round((l2 / w) * 100)));
+        const pct = Math.max(0, Math.min(100, 100 - remPct));
+        const etaSec = effRate > 0 ? (l2 / effRate) * 60 : 0;
+        return {
+          pct,
+          remPct,
+          etaSec,
+          etaText: etaSec > 0 ? formatEtaTime(etaSec) : '—',
+          leftHp: Math.round(l2),
+          totalHp: Math.round(w),
+          rate: effRate
+        };
+      }
+    }
+
+    if (candidate.bar) {
+      const barI = candidate.bar.querySelector('i');
+      if (barI) {
+        let remPct = 100;
+        if (barI.dataset.rem) {
+          const rem = parseFloat(barI.dataset.rem);
+          remPct = Math.round(Math.max(0, Math.min(1, rem)) * 100);
+        } else if (barI.style.width) {
+          const wVal = parseFloat(barI.style.width);
+          if (!isNaN(wVal)) {
+            remPct = Math.round(Math.max(0, Math.min(100, wVal)));
+          }
+        }
+        const etaSec = parseFloat(barI.dataset.eta) || 0;
+        return {
+          pct: 100 - remPct,
+          remPct,
+          etaSec,
+          etaText: etaSec > 0 ? formatEtaTime(etaSec) : '—',
+          leftHp: 0,
+          totalHp: 0,
+          rate: 0
+        };
+      }
+    }
+
+    return { remPct: 100, pct: 0, etaSec: 0, etaText: '—', leftHp: 0, totalHp: 0, rate: 0 };
+  }
+
   // Всплывающий анимированный текст при выкапывании руды / камня
   function showFloatingDugToast(text, subText = '') {
     try {
@@ -1274,6 +1346,14 @@
             }
             if (data && data.ok === false) {
               G.__lgMineError = data.error || 'error';
+              if (data.error && typeof data.error === 'string') {
+                const errLower = data.error.toLowerCase();
+                if (errLower.includes('хватит') || errLower.includes('лимит') || errLower.includes('cap')) {
+                  cachedDailyMiningCapReached = true;
+                  cachedDailyMiningCapDay = getMineGamingDay();
+                  try { localStorage.setItem('lg_mining_cap_day', cachedDailyMiningCapDay); } catch (e) {}
+                }
+              }
             }
             if (typeof updateStatsUI === 'function') updateStatsUI();
           }).catch(() => {});
@@ -1727,7 +1807,7 @@
           if (d.st) {
             G.__lgMineState = d.st;
             G.__lgMineError = null;
-            if (isDrillBuild && d.st.drills && !isRidingLift) {
+            if (!isPaused && isDrillBuild && d.st.drills && !isRidingLift) {
               processDrillAutoFund();
             }
             if (typeof G.__mineHandleStateUpdate === 'function') {
@@ -2051,7 +2131,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">⛏️ Майнер v8.9.19</span>
+        <span style="flex-shrink:0;">⛏️ Майнер v8.9.23</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -2113,6 +2193,14 @@
             <option value="home">Домашняя ★</option>
             <option value="ryabinen">Рябиненень ★</option>
           </select>
+        </div>
+        <!-- Режим «Рейтинг» (Гонка топа: толпа + добивание камней + железная фиксация цели) -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;background:linear-gradient(135deg, rgba(38,28,12,0.85) 0%, rgba(26,23,46,0.95) 100%);padding:6px 8px;border-radius:6px;border:1px solid #eab308;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#ffd700;font-size:11px;font-weight:bold;user-select:none;" title="Режим гонки рейтинга (максимум камней в час): приоритет толпы (2-4+ чел) для моментального добивания, выбор камней с меньшим HP (от 30%), железная фиксация цели до 100% разрушения без бросания на полпути">
+            <input type="checkbox" id="b-rating-mode" ${isRatingMode ? 'checked' : ''} style="accent-color:#ffd700;cursor:pointer;width:14px;height:14px;">
+            <span>🏆 Режим «Рейтинг» (Гонка топа)</span>
+          </label>
+          <span id="b-rating-badge" style="font-size:9.5px;color:#ffd700;background:rgba(255,215,0,0.15);padding:1px 6px;border-radius:4px;border:1px solid rgba(255,215,0,0.4);font-weight:bold;${isRatingMode ? '' : 'display:none;'}">ТОП-СКОРОСТЬ</span>
         </div>
         <!-- Переключатели приоритета: Сперва руда / Сперва уголь и железо -->
         <div style="display:flex;align-items:center;justify-content:flex-start;gap:12px;margin-bottom:8px;background:#1a172e;padding:6px 8px;border-radius:6px;border:1px solid #3d3759;flex-wrap:wrap;">
@@ -2559,6 +2647,8 @@
   const btnScreen = w.querySelector('#b-mode-screen'), btnGhost = w.querySelector('#b-mode-ghost');
   const checkScreen = w.querySelector('#b-check-screen'), checkGhost = w.querySelector('#b-check-ghost');
   const mineSelect = w.querySelector('#b-mine-select'), btnRefreshMines = w.querySelector('#b-refresh-mines');
+  const checkRatingMode = w.querySelector('#b-rating-mode');
+  const ratingBadge = w.querySelector('#b-rating-badge');
   const checkOreFirst = w.querySelector('#b-ore-first');
   const checkCoalIronFirst = w.querySelector('#b-coal-iron-first');
   const coalIronLabel = w.querySelector('#b-coal-iron-label');
@@ -2567,6 +2657,15 @@
   const checkDrillBuildAllFloors = w.querySelector('#b-drill-all-floors');
   const checkAutoClaimQuests = w.querySelector('#b-auto-claim-quests');
   const checkAutoLift = w.querySelector('#b-auto-lift');
+
+  if (checkRatingMode) {
+    checkRatingMode.onchange = () => {
+      isRatingMode = checkRatingMode.checked;
+      localStorage.setItem('lg_bot_rating_mode', isRatingMode ? '1' : '0');
+      if (ratingBadge) ratingBadge.style.display = isRatingMode ? 'inline-block' : 'none';
+      showToast(isRatingMode ? '🏆 Режим «Рейтинг» (Гонка топа): активен' : '💎 Стандартный режим «Фарм руды»: активен');
+    };
+  }
 
   if (checkOreFirst) {
     checkOreFirst.onchange = () => {
@@ -2596,7 +2695,7 @@
       isDrillBuild = checkDrillBuild.checked;
       localStorage.setItem('lg_bot_drill_build', isDrillBuild ? 'true' : 'false');
       showToast(isDrillBuild ? '🏗️ Авто-установка буров ВКЛ (взнос 100м)' : 'Авто-установка буров выключена');
-      if (isDrillBuild) processDrillAutoFund();
+      if (!isPaused && isDrillBuild) processDrillAutoFund();
     };
   }
   if (checkDrillBuildAllFloors) {
@@ -2606,7 +2705,7 @@
       showToast(isDrillBuildAllFloors 
         ? '🌐 Авто улучшение буров всех этажей ВКЛ (Взнос 100 монет)' 
         : 'Авто улучшение буров всех этажей выключено');
-      if (isDrillBuildAllFloors) {
+      if (!isPaused && isDrillBuildAllFloors) {
         lastDrillsScanTime = 0;
         scanMyDrillsServerWide();
       }
@@ -2616,7 +2715,7 @@
   if (myDrillsEl) {
     myDrillsEl.onclick = () => {
       showToast('🔄 Сканирование буров на всех этажах шахты…');
-      scanMyDrillsServerWide();
+      scanMyDrillsServerWide(true); // Только чтение (без отправки монет)
     };
   }
   if (checkAutoClaimQuests) {
@@ -2624,7 +2723,7 @@
       autoClaimQuests = checkAutoClaimQuests.checked;
       localStorage.setItem('lg_bot_auto_claim_quests', autoClaimQuests ? 'true' : 'false');
       showToast(autoClaimQuests ? '🎁 Автосбор поручений ВКЛЮЧЁН' : 'Автосбор поручений выключен');
-      if (autoClaimQuests) tryAutoClaimMineQuests();
+      if (!isPaused && autoClaimQuests) tryAutoClaimMineQuests();
     };
   }
   if (checkAutoLift) {
@@ -2632,13 +2731,25 @@
       autoLiftBestFloor = checkAutoLift.checked;
       localStorage.setItem('lg_bot_auto_lift', autoLiftBestFloor ? 'true' : 'false');
       showToast(autoLiftBestFloor ? '🛗 Авто-лифт ВКЛ (раз в 2 мин, порог +30% людей)' : 'Авто-лифт выключен');
-      if (autoLiftBestFloor) {
+      if (!isPaused && autoLiftBestFloor) {
         lastLiftCheckTime = 0;
         checkAndSelectBestFloor();
       }
     };
   }
 
+
+  // 🛡️ СТЕЛС-ПРОВЕРКА: Персонаж физически находится в шахте (а не в городе, не в таверне и не в ghost-режиме)
+  function isPlayerInMine() {
+    if (mode === 'ghost') return false;
+    const mnWorld = document.querySelector('.mn-world');
+    const mnEl = document.querySelector('.mn');
+    if (!mnWorld || !mnEl) return false;
+    const otherEl = document.querySelector('.mn-other');
+    if (otherEl && !otherEl.hidden) return false;
+    if (!G.__lgMineS) return false;
+    return true;
+  }
 
   // ---------- ЛОГИКА АВТОБУРОВ (ШАХТА 3.0) ----------
   function getDrillsList() {
@@ -2719,7 +2830,7 @@
 
   let isFundingDrill = false;
   async function processDrillAutoFund() {
-    if (!isDrillBuild || isFundingDrill) return;
+    if (isPaused || !isDrillBuild || isFundingDrill) return;
     isFundingDrill = true;
     try {
       await processDrillAutoFundInner();
@@ -2729,7 +2840,10 @@
   }
 
   async function processDrillAutoFundInner() {
-    if (!isDrillBuild) return;
+    if (isPaused || !isDrillBuild) return;
+    // 🛡️ СТЕЛС: Взаимодействие с буровой разрешено СТРОГО только когда персонаж физически в шахте (не в Городе!)
+    if (!isPlayerInMine()) return;
+
     const drills = getDrillsList();
     if (!drills || drills.length === 0) return;
 
@@ -2889,6 +3003,9 @@
               st.textContent = mode === 'ghost' ? `Город: ${getMineLabel(currentMineId)} (Пауза)` : `На паузе (${getMineLabel(currentMineId)})`;
               st.style.color = '#ffc107';
             }
+          } else if (isDailyMiningCapReached()) {
+            st.textContent = '⏳ Лимит 10ч исчерпан (Сброс в 05:00) · Буры и лифт активны';
+            st.style.color = '#ffd700';
           }
           if (typeof updateHeaderProgressUI === 'function') updateHeaderProgressUI();
         }
@@ -4276,7 +4393,7 @@
   }
 
   function tryAutoClaimMineQuests() {
-    if (!autoClaimQuests) return;
+    if (isPaused || !autoClaimQuests) return;
     const me = window.__lgMineMe || (G.__lgMineS && G.__lgMineS.me);
     const qData = me && me.q;
     if (qData) {
@@ -6994,7 +7111,7 @@
       if (activeTab === 'quest') {
         refreshQuestUI();
       }
-      if (isDrillBuild && !isRidingLift) {
+      if (!isPaused && isDrillBuild && !isRidingLift) {
         processDrillAutoFund();
       }
     }, 1000);
@@ -8379,6 +8496,85 @@
     return null;
   }
 
+  // ⏳ Проверка исчерпания суточного лимита копания (10 часов / me.cap, сброс в 05:00 МСК)
+  function isDailyMiningCapReached() {
+    try {
+      const currentDay = getMineGamingDay();
+
+      // 1. Проверяем объект me (наиболее точный и первичный источник данных игры)
+      const me = G.__lgMineMe || (G.__lgMineS && G.__lgMineS.me);
+      if (me) {
+        const cap = Number(me.cap);
+        const day = Number(me.day);
+        if (cap > 0 && !isNaN(day)) {
+          if (day >= cap) {
+            cachedDailyMiningCapReached = true;
+            cachedDailyMiningCapDay = currentDay;
+            try { localStorage.setItem('lg_mining_cap_day', currentDay); } catch (e) {}
+            return true;
+          } else {
+            // Если сервер вернул day < cap (например, новые сутки наступили в 05:00), сбрасываем кэш
+            cachedDailyMiningCapReached = false;
+            cachedDailyMiningCapDay = '';
+            try { localStorage.removeItem('lg_mining_cap_day'); } catch (e) {}
+            return false;
+          }
+        }
+      }
+
+      // 2. Проверка всплывающей подсказки (tip) игры
+      const tipEl = document.querySelector('.mn-tip');
+      if (tipEl && !tipEl.hidden && tipEl.textContent) {
+        const tipTxt = tipEl.textContent.toLowerCase();
+        if (tipTxt.includes('на сегодня хватит') || tipTxt.includes('новые сутки') || tipTxt.includes('сброс суток')) {
+          cachedDailyMiningCapReached = true;
+          cachedDailyMiningCapDay = currentDay;
+          try { localStorage.setItem('lg_mining_cap_day', currentDay); } catch (e) {}
+          return true;
+        }
+      }
+
+      // 3. Проверка виджета "Сегодня: X из Y" в панели шахты (.mn-wg-day)
+      const dayWg = document.querySelector('.mn-wg-day');
+      if (dayWg && dayWg.textContent) {
+        const txt = dayWg.textContent;
+        const barI = dayWg.querySelector('i');
+        if (barI && barI.style && barI.style.width) {
+          const wNum = parseFloat(barI.style.width);
+          if (!isNaN(wNum) && wNum >= 100) {
+            cachedDailyMiningCapReached = true;
+            cachedDailyMiningCapDay = currentDay;
+            try { localStorage.setItem('lg_mining_cap_day', currentDay); } catch (e) {}
+            return true;
+          }
+        }
+        const m = txt.match(/(\d+)\s*ч.*?из\s*(\d+)\s*ч/i);
+        if (m && m[1] && m[2]) {
+          const curH = parseInt(m[1], 10);
+          const maxH = parseInt(m[2], 10);
+          if (curH >= maxH && maxH > 0) {
+            cachedDailyMiningCapReached = true;
+            cachedDailyMiningCapDay = currentDay;
+            try { localStorage.setItem('lg_mining_cap_day', currentDay); } catch (e) {}
+            return true;
+          }
+        }
+      }
+
+      // 4. Проверка сохранённого кэша текущих игровых суток (до 05:00 МСК)
+      if (cachedDailyMiningCapReached && cachedDailyMiningCapDay === currentDay) {
+        return true;
+      }
+      const savedCapDay = localStorage.getItem('lg_mining_cap_day');
+      if (savedCapDay && savedCapDay === currentDay) {
+        cachedDailyMiningCapReached = true;
+        cachedDailyMiningCapDay = currentDay;
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
   function isMining() {
     try {
       const st = G.__lgMineState || (G.__lgMineS && G.__lgMineS.st);
@@ -8483,9 +8679,28 @@
   }
   G.__mineIsMining = isMining;
   G.__mineGetActiveMiningRockIndex = getActiveMiningRockIndex;
+  G.__mineIsDailyMiningCapReached = isDailyMiningCapReached;
+  G.__mineGetGamingDay = getMineGamingDay;
+  G.__mineClickTarget = clickTarget;
+  G.__mineIsRatingMode = () => isRatingMode;
+  G.__mineSetRatingMode = (val) => {
+    isRatingMode = !!val;
+    localStorage.setItem('lg_bot_rating_mode', isRatingMode ? '1' : '0');
+  };
+  G.__mineGetCandidateHpProgress = getCandidateHpProgress;
 
   function clickTarget(candidate) {
     if (!candidate) return false;
+    // ⏳ Если суточный лимит 10ч исчерпан — блокируем любые клики по камням
+    if (isDailyMiningCapReached()) {
+      lastTargetKey = null;
+      activeMiningRockIndex = -1;
+      if (st) {
+        st.textContent = '⏳ Лимит 10ч исчерпан (Сброс в 05:00) · Буры и лифт активны';
+        st.style.color = '#ffd700';
+      }
+      return false;
+    }
     // 🛡️ Защита: убиваем 30-секундный таймер mineStop в движке игры S.left
     if (G.__lgMineS) {
       G.__lgMineS.left = null;
@@ -8689,6 +8904,27 @@
 
     if (isRidingLift || pendingLiftRide) return;
 
+    // ⏳ Проверка исчерпания суточного лимита копания (10 часов / me.cap, сброс в 05:00 МСК)
+    if (isDailyMiningCapReached()) {
+      if (isMining()) {
+        const oreName = getCurrentMiningRockName();
+        const oreLabel = oreName ? `: ${oreName}` : '';
+        if (st) {
+          st.textContent = `⏳ Лимит 10ч исчерпан · Докапываем${oreLabel}...`;
+          st.style.color = '#ffd700';
+        }
+      } else {
+        lastTargetKey = null;
+        activeMiningRockIndex = -1;
+        if (pMineWrap) pMineWrap.style.display = 'none';
+        if (st) {
+          st.textContent = '⏳ Лимит 10ч исчерпан (Сброс в 05:00) · Буры и лифт активны';
+          st.style.color = '#ffd700';
+        }
+      }
+      return;
+    }
+
     // 🛡️ Сторожевой таймер (Watchdog) против зависания героя:
     // Если на экране герой физически не машет киркой (.dig), нет полоски (.mn-bar.me),
     // нет плашки (.mn-nowl), и герой не идёт (!S.path)
@@ -8841,8 +9077,57 @@
       });
     };
 
+    // 🏆 Сортировка для режима «Рейтинг» (Гонка топа):
+    // 1) Толпа (2-4+ чел) для 3-5x кратного ускорения добивания камня
+    // 2) При равной толпе — наименьшее оставшееся HP (докапывается быстрее всего, принося +1 в рейтинг)
+    // 3) При равных HP и толпе — более ценная руда
+    const sortRatingCandidates = (arr) => {
+      arr.sort((a, b) => {
+        // 1. Стабильность (гистерезис): удерживаем начатый камень или цель, к которой уже идём
+        const aIsCur = a.isMe || a.rockId === String(activeMiningRockIndex) || a.rockId === lastTargetKey;
+        const bIsCur = b.isMe || b.rockId === String(activeMiningRockIndex) || b.rockId === lastTargetKey;
+        if (aIsCur && !bIsCur) return -1;
+        if (!aIsCur && bIsCur) return 1;
+
+        // 2. Толпа (число игроков): 4+ > 3 > 2 > 1 > 0
+        const countA = a.count || 0;
+        const countB = b.count || 0;
+        if (countA !== countB) return countB - countA;
+
+        // 3. Оставшееся здоровье (HP): выбираем камень с наименьшим оставшимся HP
+        const hpA = getCandidateHpProgress(a).remPct;
+        const hpB = getCandidateHpProgress(b).remPct;
+        if (Math.abs(hpA - hpB) >= 3) {
+          return hpA - hpB; // Меньше оставшийся процент HP -> быстрее сломается
+        }
+
+        // 4. Бонус: при равных HP и толпе предпочтение более ценной руде
+        const tierA = getRockPriorityTier(a.rockId, a.group);
+        const tierB = getRockPriorityTier(b.rockId, b.group);
+        if (tierA !== tierB) return tierB - tierA;
+
+        // 5. Детерминированный порядок по номеру клетки
+        return (+a.rockId || 0) - (+b.rockId || 0);
+      });
+    };
+
     let best = null;
-    if (oreFirst) {
+    if (isRatingMode) {
+      // 🏆 В режиме «Рейтинг» фильтруем кандидатов:
+      // Если на камне толпа (2+ человека), исключаем умирающие камни (< 30% HP), если мы к ним еще не идем,
+      // чтобы избежать напрасной ходьбы через полкарты к камню, который сломается до нашего первого удара:
+      const safeRatingCandidates = valid.filter(c => {
+        if (c.isMe || c.rockId === String(activeMiningRockIndex) || c.rockId === lastTargetKey) return true;
+        if (c.count >= 2) {
+          const hp = getCandidateHpProgress(c);
+          return hp.remPct >= 30;
+        }
+        return true;
+      });
+      const ratingPool = safeRatingCandidates.length > 0 ? safeRatingCandidates : valid;
+      sortRatingCandidates(ratingPool);
+      best = ratingPool[0];
+    } else if (oreFirst) {
       // 1. Исключаем кандидатов, чьи категории выключены пользователем
       const activeCandidates = valid.filter(c => {
         const cat = getRockCategory(c.rockId, c.group);
@@ -8890,10 +9175,14 @@
       if (!isTargetDug && !blacklist.has(lastTargetKey) && walkElapsed < 7500) {
         const lockedCand = valid.find(c => c.rockId === lastTargetKey);
         if (lockedCand) {
-          const lockedTier = getRockPriorityTier(lockedCand.rockId, lockedCand.group);
-          const bestTier = best ? getRockPriorityTier(best.rockId, best.group) : 0;
-          if (bestTier <= lockedTier) {
+          if (isRatingMode) {
             best = lockedCand;
+          } else {
+            const lockedTier = getRockPriorityTier(lockedCand.rockId, lockedCand.group);
+            const bestTier = best ? getRockPriorityTier(best.rockId, best.group) : 0;
+            if (bestTier <= lockedTier) {
+              best = lockedCand;
+            }
           }
         }
       }
@@ -8937,8 +9226,15 @@
 
     // Защита: мы никогда не переключаемся на толпу/руду, если цель - это ТОТ ЖЕ САМЫЙ камень, который мы уже копаем!
     const isTargetSameAsCurrent = (activeMiningRockIndex >= 0 && best && best.rockId === String(activeMiningRockIndex));
-    const shouldSwitchToCrowd = mining && best && !best.isMe && !isTargetSameAsCurrent && 
+    let shouldSwitchToCrowd = mining && best && !best.isMe && !isTargetSameAsCurrent && 
       (shouldSwitchToHigherOre || shouldSwitchToOreCrowd || canSwitchToRockCrowd || shouldSwitchPureCrowd);
+
+    if (isRatingMode && mining) {
+      // 🏆 В режиме «Рейтинг» действует ЖЕЛЕЗНОЕ ПРАВИЛО:
+      // НИ В КОЕМ СЛУЧАЕ НЕ БРОСАТЬ НАЧАТЫЙ КАМЕНЬ ДО ЕГО ПОЛНОГО РАЗРУШЕНИЯ!
+      // Любое переключение mid-dig обнуляет весь нанесенный урон и очко в топ!
+      shouldSwitchToCrowd = false;
+    }
 
     const prefix = mode === 'ghost' ? '🏙️ ' : '';
     if (mining && !shouldSwitchToCrowd) {
@@ -8965,8 +9261,13 @@
         pMineWrap.style.display = 'none';
       }
 
-      st.textContent = `${prefix}Копаем${oreLabel} (${myCount || 1} чел)${progLabel} ⛏️`;
-      st.style.color = '#00ff66';
+      if (isRatingMode) {
+        st.textContent = `${prefix}🏆 [Рейтинг] Добиваем${oreLabel} (${myCount || 1} чел)${progLabel} ⛏️`;
+        st.style.color = '#ffd700';
+      } else {
+        st.textContent = `${prefix}Копаем${oreLabel} (${myCount || 1} чел)${progLabel} ⛏️`;
+        st.style.color = '#00ff66';
+      }
     } else {
       if (pMineWrap) pMineWrap.style.display = 'none';
       if (best) {
@@ -9025,8 +9326,15 @@
         }
 
         if (!shouldSwitchToCrowd) {
-          st.textContent = `${prefix}Идем${targetOreLabel} (${best.count} чел)...`;
-          st.style.color = '#66ccff';
+          if (isRatingMode) {
+            const candHp = getCandidateHpProgress(best);
+            const hpLabel = candHp.remPct < 100 ? `, ост. ${candHp.remPct}%` : '';
+            st.textContent = `${prefix}🏆 [Рейтинг] Идем${targetOreLabel} (${best.count} чел${hpLabel})...`;
+            st.style.color = '#ffd700';
+          } else {
+            st.textContent = `${prefix}Идем${targetOreLabel} (${best.count} чел)...`;
+            st.style.color = '#66ccff';
+          }
         }
         if (shouldClick) {
           clickTarget(best);
@@ -9105,7 +9413,7 @@
     return null;
   }
 
-  async function scanMyDrillsServerWide() {
+  async function scanMyDrillsServerWide(forceScanOnly = false) {
     if (isScanningDrills) return;
     const st = (G.__lgMineS && G.__lgMineS.st) || G.__lgMineState;
     if (!st) {
@@ -9160,8 +9468,9 @@
             myCount++;
             myCoins += myInfo.coins;
             fundedDrills.add(String(myInfo.key));
-          } else if (isDrillBuildAllFloors && !myInfo && Array.isArray(d)) {
-            // Взнос в буровые на других этажах через API (Вариант 1)
+          } else if (!isPaused && !forceScanOnly && isDrillBuildAllFloors && !myInfo && Array.isArray(d)) {
+            // Взнос в буровые на других этажах через API — СТРОГО ТОЛЬКО КОГДА ПЕРСОНАЖ В ШАХТЕ!
+            if (!isPlayerInMine()) continue; // СТЕЛС: Из Города или в Ghost-режиме буровые не трогаем!
             const [k, , , stg, lv, c, need, , , , , res] = d;
             const drillKey = String(k);
             if ((stg === 'site' || stg === 'work') && (+lv || 0) < 3 && !fundedDrills.has(drillKey)) {
@@ -9222,7 +9531,7 @@
   // 🛗 Шахта 3.0: Авто-лифт на самый людный этаж (+30%)
   // ==========================================
   async function checkAndSelectBestFloor() {
-    if (!autoLiftBestFloor || isCheckingLiftFloors || isRidingLift) return;
+    if (isPaused || !autoLiftBestFloor || isCheckingLiftFloors || isRidingLift) return;
     const S = G.__lgMineS;
     if (!S || !S.st) return;
 
@@ -9286,6 +9595,13 @@
       }
 
       if (shouldSwitch) {
+        if (isRatingMode && isMining()) {
+          // 🏆 В режиме «Рейтинг» не прерываем копание начатого камня!
+          // Запоминаем этаж и переедем на лифте сразу, как только текущий камень разрушится:
+          pendingLiftRide = { floor: best.floor, count: best.count, percent: percentDiff };
+          showToast(`🏆 Лифт: этаж ${best.floor} (+${percentDiff}%) ждет окончания текущего камня`);
+          return;
+        }
         // Переезжаем СРАЗУ на более людный этаж, не дожидаясь окончания текущей руды/камня!
         // На этаже с толпой скорость добычи и профит несравнимо выше.
         pendingLiftRide = null;
@@ -9404,7 +9720,7 @@
   }
 
   function checkAutoLiftStep() {
-    if (!autoLiftBestFloor || isRidingLift) return;
+    if (isPaused || !autoLiftBestFloor || isRidingLift) return;
 
     if (pendingLiftRide && !isMining()) {
       const { floor, count, percent } = pendingLiftRide;
