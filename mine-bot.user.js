@@ -2110,8 +2110,8 @@
           <b style="color:#eab308;font-size:11.5px;">🎯 Приоритеты добычи</b>
           <button id="b-prio-reset" style="background:#262238;border:1px solid #3d3759;color:#94a3b8;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:9.5px;font-weight:bold;transition:all 0.2s;" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='#94a3b8'" title="Сбросить к стандарту (Железо выше Угля)">🔄 По умолч.</button>
         </div>
-        <div style="font-size:10px;color:#94a3b8;line-height:1.4;margin-bottom:8px;background:rgba(234,179,8,0.06);border:1px solid rgba(234,179,8,0.18);border-radius:5px;padding:5px 7px;">
-          💡 Перетаскивайте карточки мышкой (<b>Drag & Drop</b>) или кнопками <b>▲ ▼</b> для настройки очереди копки. Снимите галочку <b>[ ]</b>, чтобы бот не бил этот ресурс.
+        <div style="font-size:10px;color:#94a3b8;line-height:1.4;margin-bottom:8px;background:rgba(234,179,8,0.06);border:1px solid rgba(234,179,8,0.18);border-radius:5px;padding:5px 7px;max-width:320px;white-space:normal;word-break:break-word;">
+          💡 Перетаскивайте карточки (<b>Drag & Drop</b>) или кнопками <b>▲ ▼</b>.<br>Снимите галочку <b>[ ]</b>, чтобы бот не бил этот ресурс.
         </div>
         <div id="b-priority-list" style="display:flex;flex-direction:column;gap:4px;max-height:260px;overflow-y:auto;padding-right:2px;">
           <!-- Карточки генерируются скриптом -->
@@ -2617,7 +2617,10 @@
         tabBtnPriority.style.border = 'none';
       }
       if (tabPriority) tabPriority.style.display = 'block';
-      if (!isMinimized && !isSquare) w.style.minWidth = '340px';
+      if (!isMinimized && !isSquare) {
+        w.style.minWidth = '340px';
+        w.style.maxWidth = '360px';
+      }
       renderPriorityListUI();
     } else {
       activeTab = 'mine';
