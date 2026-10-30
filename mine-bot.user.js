@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      8.9.3
+// @version      8.9.4
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -1421,6 +1421,57 @@
   }
 
   // Перехват контекста LGMine.open для прямого перехода в любую шахту на экране
+  // Защита состояния шахты от багов движка игры (mine.js: panelStatus reading 'cells' of null)
+  function protectMineState(S) {
+    if (!S || S.__protectedF) return;
+    S.__protectedF = true;
+    let _F = S.F;
+    Object.defineProperty(S, 'F', {
+      get() {
+        if (!_F) {
+          if (S.st && S.st.fl) {
+            const fl = S.st.fl;
+            if (fl.v3 && window.LGMine3 && typeof window.LGMine3.floorOf === 'function') {
+              try {
+                const resF = window.LGMine3.floorOf(S.st);
+                if (resF) { _F = resF; return _F; }
+              } catch (e) {}
+            }
+            const N = (fl.w && fl.h) ? (fl.w * fl.h) : 84;
+            const cells = new Array(N);
+            for (let i = 0; i < N; i++) cells[i] = { t: 'fog', k: 0, lv: 0, r: null, a: 0 };
+            for (const c of fl.c || []) {
+              if (Array.isArray(c)) {
+                const [i, t, lv, r, a] = c;
+                if (i >= 0 && i < N) cells[i] = { t: t || 'rock', lv: lv || 1, r: r || null, a: a || 0, k: 1 };
+              }
+            }
+            return { cells, v3: !!fl.v3, n: S.st.n || 1 };
+          }
+          const dummyCells = new Array(200);
+          for (let i = 0; i < 200; i++) dummyCells[i] = { t: 'rock', lv: 1, r: null, a: 0, k: 1 };
+          return { cells: dummyCells, v3: false };
+        }
+        return _F;
+      },
+      set(val) {
+        _F = val;
+      },
+      configurable: true,
+      enumerable: true
+    });
+  }
+
+  // Предзагрузка mine3.js для исключения задержки загрузки этажа 3.0
+  try {
+    if (!window.LGMine3) {
+      const m3Sc = document.createElement('script');
+      m3Sc.src = '/site/mine3.js';
+      m3Sc.async = true;
+      (document.head || document.documentElement).appendChild(m3Sc);
+    }
+  } catch (e) {}
+
   function hookMineOpen() {
     if (G.LGMine && !G.LGMine.__hooked) {
       G.LGMine.__hooked = true;
@@ -1656,7 +1707,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">⛏️ Майнер v8.9.3</span>
+        <span style="flex-shrink:0;">⛏️ Майнер v8.9.4</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
