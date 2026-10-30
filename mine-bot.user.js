@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      8.9.6
+// @version      8.9.7
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -1756,7 +1756,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">⛏️ Майнер v8.9.6</span>
+        <span style="flex-shrink:0;">⛏️ Майнер v8.9.7</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -8479,22 +8479,31 @@
     const currentProg = (mining && activeMiningRockIndex >= 0) ? getRockMiningProgress(activeMiningRockIndex, myCandidate) : null;
     const currentPct = currentProg ? currentProg.pct : 0;
 
-    // 1) Переключение на руду более высокого приоритета (Уголь > Железо > Прочая руда > Обычный камень):
-    // Разрешено только если текущий камень ещё не добит (прогресс < 70%) и после прошлого переключения прошло > 4 сек
-    const shouldSwitchToOre = oreFirst && mining && (bestTier > currentTier) && currentPct < 70 && switchElapsed > 4000;
+    const bestIsOre = bestTier > 0;
+    const effectiveMyCount = Math.max(1, myCount);
+    // 🛡️ Порог толпы: минимум в 1.5 раза больше игроков, чем на текущей цели (и минимум на 1 игрока больше)
+    const crowdThreshold = Math.max(effectiveMyCount + 1, Math.ceil(effectiveMyCount * 1.5));
+    const has15xCrowd = best && (best.count >= crowdThreshold);
 
-    // 2) Переключение на толпу:
-    // - Если УЖЕ копаем руду — НИКОГДА не бросаем её ради другой толпы! Копаем руду до конца.
-    // - Если текущий камень уже выкопан более чем на 35% — не бросаем начатую работу.
-    // - Кулдаун между переключениями толпы: минимум 12 секунд.
-    // - Порог толпы: в окружных шахтах (Рябиненень и др.) +2 человека (и всего в толпе от 3 чел), в городе +10 чел.
-    const crowdDiff = (currentMineId === 'home' ? 10 : 2);
-    const hasSufficientCrowd = best && (best.count >= myCount + crowdDiff) && (currentMineId === 'home' || best.count >= 3);
-    const canSwitchToCrowd = mining && !currentIsOre && currentPct <= 35 && switchElapsed > 12000 && hasSufficientCrowd;
+    // 1) Переключение на руду более высокого приоритета (Уголь > Железо > Прочая руда > Обычный камень):
+    // Разрешено, если текущий камень ещё не добит (прогресс < 70%) и прошло > 4 сек
+    const shouldSwitchToHigherOre = oreFirst && mining && (bestTier > currentTier) && currentPct < 70 && switchElapsed > 4000;
+
+    // 2) Переключение на руду с толпой (в 1.5 раза больше игроков):
+    // Разрешено, если цель — руда, её ранг не ниже текущего (bestTier >= currentTier) или мы копали камень (!currentIsOre),
+    // на ней минимум в 1.5 раза больше копателей, текущий блок не добит (< 70%) и прошел кулдаун (> 4 сек)
+    const shouldSwitchToOreCrowd = oreFirst && mining && bestIsOre && (bestTier >= currentTier || !currentIsOre) && has15xCrowd && currentPct < 70 && switchElapsed > 4000;
+
+    // 3) Переключение между обычными камнями по толпе:
+    const canSwitchToRockCrowd = mining && !currentIsOre && !bestIsOre && has15xCrowd && currentPct <= 35 && switchElapsed > 6000;
+
+    // 4) Чистый режим толпы (если выключен Приоритет руды):
+    const shouldSwitchPureCrowd = !oreFirst && mining && has15xCrowd && currentPct < 70 && switchElapsed > 4000;
 
     // Защита: мы никогда не переключаемся на толпу/руду, если цель - это ТОТ ЖЕ САМЫЙ камень, который мы уже копаем!
     const isTargetSameAsCurrent = (activeMiningRockIndex >= 0 && best && best.rockId === String(activeMiningRockIndex));
-    const shouldSwitchToCrowd = mining && best && !best.isMe && !isTargetSameAsCurrent && (shouldSwitchToOre || canSwitchToCrowd);
+    const shouldSwitchToCrowd = mining && best && !best.isMe && !isTargetSameAsCurrent && 
+      (shouldSwitchToHigherOre || shouldSwitchToOreCrowd || canSwitchToRockCrowd || shouldSwitchPureCrowd);
 
     const prefix = mode === 'ghost' ? '🏙️ ' : '';
     if (mining && !shouldSwitchToCrowd) {
@@ -8535,7 +8544,9 @@
         const targetOreLabel = targetOreName ? `: ${targetOreName}` : '';
         if (shouldSwitchToCrowd) {
           lastRockSwitchTime = Date.now();
-          const switchReason = shouldSwitchToOre ? `Найдена руда${targetOreLabel}` : `Рывок на толпу${targetOreLabel}`;
+          const switchReason = shouldSwitchToHigherOre 
+            ? `Найдена руда${targetOreLabel}` 
+            : (shouldSwitchToOreCrowd ? `Толпа на руде${targetOreLabel}` : `Рывок на толпу${targetOreLabel}`);
           st.textContent = `${prefix}${switchReason} (${best.count} чел)!`;
           st.style.color = '#ffd700';
           // В Mine 2.0 прямой клик по новому камню сам перенаправляет героя без stopMiningInGame()
