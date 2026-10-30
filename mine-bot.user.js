@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      8.9.11
+// @version      8.9.13
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -362,7 +362,7 @@
       const cell = getFloorCell(idx);
       if (cell && Array.isArray(cell)) {
         const [t, lv, r] = cell;
-        if (t === 'chest') return 'chest';
+        if (t === 'chest' || t === 'prize') return 'chest';
         const res = r ? String(r).toLowerCase() : '';
         if (res === 'iron') return 'iron';
         if (res === 'coal') return 'coal';
@@ -379,7 +379,7 @@
     const name = formatRockName(rockId);
     if (name) {
       const l = name.toLowerCase();
-      if (l.includes('сундук') || l.includes('клад')) return 'chest';
+      if (l.includes('сундук') || l.includes('клад') || l.includes('chest') || l.includes('prize')) return 'chest';
       if (l.includes('железо') || l.includes('железа') || l.includes('iron')) return 'iron';
       if (l.includes('уголь') || l.includes('угля') || l.includes('coal')) return 'coal';
       if (l.includes('золото') || l.includes('золота') || l.includes('gold')) return 'gold';
@@ -392,8 +392,8 @@
     }
 
     if (group) {
-      const title = ((group.getAttribute && (group.getAttribute('title') || group.getAttribute('data-t'))) || '').toLowerCase();
-      if (title.includes('сундук') || title.includes('клад')) return 'chest';
+      const title = ((group.getAttribute && (group.getAttribute('title') || group.getAttribute('data-t') || group.getAttribute('data-obj'))) || '').toLowerCase();
+      if (title.includes('сундук') || title.includes('клад') || title.includes('chest') || title.includes('prize')) return 'chest';
       if (title.includes('железо') || title.includes('железа') || title.includes('iron')) return 'iron';
       if (title.includes('уголь') || title.includes('угля') || title.includes('coal')) return 'coal';
       if (title.includes('золото') || title.includes('золота') || title.includes('gold')) return 'gold';
@@ -402,6 +402,18 @@
       if (title.includes('обсидиан') || title.includes('мифрил') || title.includes('адамантит')) return 'obsidian';
       if (title.includes('редк') || title.includes('самоцвет')) return 'rare';
       if (title.includes('руд') || title.includes('жил')) return 'other_ore';
+
+      // Проверка SVG разметки (mine-art.js: mrc- = chest, mrg- = rare/gem, mro- = ore, mrw- = wall)
+      const html = (group.innerHTML || '').toLowerCase();
+      if (html.includes('mrc-') || html.includes('chest') || html.includes('prize') || html.includes('сундук') || html.includes('клад')) return 'chest';
+      if (html.includes('#7a1a3a') || html.includes('mrg-') || html.includes('rare') || html.includes('самоцвет')) return 'rare';
+      if (html.includes('iron') || html.includes('железо')) return 'iron';
+      if (html.includes('coal') || html.includes('уголь')) return 'coal';
+      if (html.includes('gold') || html.includes('золото')) return 'gold';
+      if (html.includes('silver') || html.includes('серебр')) return 'silver';
+      if (html.includes('crystal') || html.includes('кристалл') || html.includes('sulfur') || html.includes('сера')) return 'crystal';
+      if (html.includes('obsidian') || html.includes('мифрил') || html.includes('адамантит')) return 'obsidian';
+      if (html.includes('mro-') || html.includes('руда') || html.includes('жила')) return 'other_ore';
     }
 
     return 'rock';
@@ -409,6 +421,30 @@
 
   let oreFirst = localStorage.getItem('lg_bot_ore_first') !== '0'; // По умолчанию true (включено: сначала руда с макс. числом людей)
   let coalIronFirst = localStorage.getItem('lg_bot_coal_iron_first') !== '0'; // По умолчанию true (включено: приоритет сперва уголь, затем железо)
+  let hideGamePanel = localStorage.getItem('lg_bot_hide_game_panel') === '1'; // Скрытие боковой панели игры (СЕЙЧАС, ЗАРАБОТОК, ЖУРНАЛ ШАХТЫ)
+
+  function applyHideGamePanel(hide) {
+    try {
+      let style = document.getElementById('lg-style-hide-game-panel');
+      if (hide) {
+        if (!style) {
+          style = document.createElement('style');
+          style.id = 'lg-style-hide-game-panel';
+          style.textContent = `
+            .mn-panel, aside.mn-panel, .mn .mn-panel {
+              display: none !important;
+            }
+          `;
+          (document.head || document.documentElement).appendChild(style);
+        }
+      } else {
+        if (style) style.remove();
+      }
+    } catch (e) {}
+  }
+
+  // Применяем скрытие сразу при загрузке скрипта
+  applyHideGamePanel(hideGamePanel);
   let timer = null;
   let refreshMinesTimer = null;
   const blacklist = new Map();
@@ -467,6 +503,7 @@
   };
 
   let cachedFloorCells = null;
+  const cachedFloorCellMap = new Map();
   let cachedFloorN = null;
   let cachedFloorSeed = null;
   let lastDugString = null;
@@ -483,17 +520,46 @@
     // 1. Из живого объекта этажа движка игры S.F.cells
     if (G.__lgMineS && G.__lgMineS.F && G.__lgMineS.F.cells && G.__lgMineS.F.cells[i]) {
       const c = G.__lgMineS.F.cells[i];
-      return Array.isArray(c) ? c : [c.t, c.lv, c.r];
+      return Array.isArray(c) ? [c[0], c[1], c[2]] : [c.t, c.lv, c.r];
     }
-    // 2. Из перехваченного серверного состояния G.__lgMineState.fl.c
-    if (G.__lgMineState && G.__lgMineState.fl && G.__lgMineState.fl.c && G.__lgMineState.fl.c[i]) {
-      const c = G.__lgMineState.fl.c[i];
-      return Array.isArray(c) ? c : [c.t, c.lv, c.r];
+    // 2. Из быстрого кэша карты клеток этажа
+    if (cachedFloorCellMap.has(i)) {
+      return cachedFloorCellMap.get(i);
     }
-    // 3. Из кэша этажа
-    if (cachedFloorCells && cachedFloorCells[i]) {
-      const c = cachedFloorCells[i];
-      return Array.isArray(c) ? c : [c.t, c.lv, c.r];
+    // 3. Из перехваченного серверного состояния G.__lgMineState.fl.c
+    if (G.__lgMineState && G.__lgMineState.fl && G.__lgMineState.fl.c) {
+      const fl = G.__lgMineState.fl;
+      if (Array.isArray(fl.c)) {
+        if (fl.v3 || (fl.c[0] && Array.isArray(fl.c[0]) && typeof fl.c[0][0] === 'number')) {
+          const item = fl.c.find(x => x && x[0] === i);
+          if (item) {
+            const res = [item[1], item[2], item[3]];
+            cachedFloorCellMap.set(i, res);
+            return res;
+          }
+        } else if (fl.c[i]) {
+          const c = fl.c[i];
+          const res = Array.isArray(c) ? [c[0], c[1], c[2]] : [c.t, c.lv, c.r];
+          cachedFloorCellMap.set(i, res);
+          return res;
+        }
+      }
+    }
+    // 4. Из резервного кэша этажа
+    if (cachedFloorCells && Array.isArray(cachedFloorCells)) {
+      if (cachedFloorCells[0] && Array.isArray(cachedFloorCells[0]) && typeof cachedFloorCells[0][0] === 'number') {
+        const item = cachedFloorCells.find(x => x && x[0] === i);
+        if (item) {
+          const res = [item[1], item[2], item[3]];
+          cachedFloorCellMap.set(i, res);
+          return res;
+        }
+      } else if (cachedFloorCells[i]) {
+        const c = cachedFloorCells[i];
+        const res = Array.isArray(c) ? [c[0], c[1], c[2]] : [c.t, c.lv, c.r];
+        cachedFloorCellMap.set(i, res);
+        return res;
+      }
     }
     return null;
   }
@@ -513,8 +579,8 @@
     const [t, lv, r] = cell;
     const lvText = lv ? ` ${lv} ур.` : '';
 
-    if (t === 'chest') {
-      return `Сундук${lvText}`;
+    if (t === 'chest' || t === 'prize') {
+      return (t === 'prize' ? `Призовой сундук${lvText}` : `Сундук${lvText}`);
     }
 
     // В игре (mine.js blockTitle):
@@ -546,7 +612,7 @@
       if (cell && Array.isArray(cell)) {
         const [t, lv, r] = cell;
         // Только настоящая руда, редкая жила или сундук считаются ценными!
-        if (t === 'ore' || t === 'rare' || t === 'chest') return true;
+        if (t === 'ore' || t === 'rare' || t === 'chest' || t === 'prize') return true;
         const resStr = r ? String(r).toLowerCase() : '';
         if (resStr === 'coal' || resStr === 'iron') return true;
         // Обычные камни и порода (rock / hard) — это НЕ руда, даже если материал r = limestone!
@@ -555,16 +621,18 @@
     }
     // Если клетки нет в кэше, проверяем SVG группы
     if (group) {
+      const html = (group.innerHTML || '').toLowerCase();
+      // Сундук / Клад (в mine-art.js это символ mrc-..., в Шахте 3.0 c.t 'chest' или 'prize')
+      if (html.includes('mrc-') || html.includes('chest') || html.includes('prize') || html.includes('сундук') || html.includes('клад')) return true;
       // Табличка уровня: для редкой жилы в mine-art.js табличка залита '#7a1a3a'
       if (group.querySelector && group.querySelector('rect[fill="#7a1a3a"]')) return true;
-      const html = (group.innerHTML || '').toLowerCase();
-      if (html.includes('#7a1a3a') || html.includes('stroke="#ffd27a"') || html.includes('stroke-dasharray="4 10"') || html.includes('coal') || html.includes('iron') || html.includes('уголь') || html.includes('железо')) {
+      if (html.includes('#7a1a3a') || html.includes('mrg-') || html.includes('stroke="#ffd27a"') || html.includes('stroke-dasharray="4 10"') || html.includes('coal') || html.includes('iron') || html.includes('уголь') || html.includes('железо') || html.includes('mro-')) {
         return true;
       }
-      if (group.classList && (group.classList.contains('ore') || group.classList.contains('rare') || group.classList.contains('chest') || group.classList.contains('coal') || group.classList.contains('iron'))) return true;
+      if (group.classList && (group.classList.contains('ore') || group.classList.contains('rare') || group.classList.contains('chest') || group.classList.contains('prize') || group.classList.contains('coal') || group.classList.contains('iron'))) return true;
     }
     const name = formatRockName(rockId);
-    if (name && (name.startsWith('Редкая жила') || name.startsWith('Руда') || name.startsWith('Сундук') || name.includes('Уголь') || name.includes('Железо'))) return true;
+    if (name && (name.startsWith('Редкая жила') || name.startsWith('Руда') || name.includes('Сундук') || name.includes('Уголь') || name.includes('Железо'))) return true;
     return false;
   }
 
@@ -940,6 +1008,24 @@
       cachedFloorCells = st.fl.c;
       cachedFloorN = st.n;
       cachedFloorSeed = st.seed;
+      cachedFloorCellMap.clear();
+      if (Array.isArray(st.fl.c)) {
+        const isV3 = !!(st.fl.v3 || (st.fl.c[0] && Array.isArray(st.fl.c[0]) && typeof st.fl.c[0][0] === 'number' && typeof st.fl.c[0][1] === 'string'));
+        if (isV3) {
+          for (const item of st.fl.c) {
+            if (item && typeof item[0] === 'number') {
+              cachedFloorCellMap.set(item[0], [item[1], item[2], item[3]]);
+            }
+          }
+        } else {
+          for (let idx = 0; idx < st.fl.c.length; idx++) {
+            const item = st.fl.c[idx];
+            if (item) {
+              cachedFloorCellMap.set(idx, Array.isArray(item) ? [item[0], item[1], item[2]] : [item.t, item.lv, item.r]);
+            }
+          }
+        }
+      }
     }
 
     const myLogin = (G.ME?.user?.login || G.__lgMineMe?.name || getMyNick() || '').toLowerCase();
@@ -1567,6 +1653,10 @@
               G.__lgMineState = S.st;
               if (S.F && S.F.cells) {
                 cachedFloorCells = S.F.cells.map(c => Array.isArray(c) ? c : [c.t, c.lv, c.r]);
+                cachedFloorCellMap.clear();
+                S.F.cells.forEach((c, idx) => {
+                  if (c) cachedFloorCellMap.set(idx, Array.isArray(c) ? [c[0], c[1], c[2]] : [c.t, c.lv, c.r]);
+                });
               }
             }
           }
@@ -1596,6 +1686,10 @@
             G.__lgMineS = S;
             if (S.F && S.F.cells) {
               cachedFloorCells = S.F.cells.map(c => Array.isArray(c) ? c : [c.t, c.lv, c.r]);
+              cachedFloorCellMap.clear();
+              S.F.cells.forEach((c, idx) => {
+                if (c) cachedFloorCellMap.set(idx, Array.isArray(c) ? [c[0], c[1], c[2]] : [c.t, c.lv, c.r]);
+              });
             }
             if (S.st) G.__lgMineState = S.st;
           }
@@ -1623,6 +1717,10 @@
                 G.__lgMineS = res;
                 if (res.F && res.F.cells) {
                   cachedFloorCells = res.F.cells.map(c => Array.isArray(c) ? c : [c.t, c.lv, c.r]);
+                  cachedFloorCellMap.clear();
+                  res.F.cells.forEach((c, idx) => {
+                    if (c) cachedFloorCellMap.set(idx, Array.isArray(c) ? [c[0], c[1], c[2]] : [c.t, c.lv, c.r]);
+                  });
                 }
                 if (res.st) G.__lgMineState = res.st;
               }
@@ -1765,7 +1863,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">⛏️ Майнер v8.9.11</span>
+        <span style="flex-shrink:0;">⛏️ Майнер v8.9.13</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -1863,6 +1961,12 @@
             <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#a78bfa;font-size:10.5px;font-weight:bold;user-select:none;" title="Каждые 2 минуты проверять онлайн этажей шахты и автоматически переезжать на лифте, если на другом этаже на 30% больше людей/копателей">
               <input type="checkbox" id="b-auto-lift" ${autoLiftBestFloor ? 'checked' : ''} style="accent-color:#a78bfa;cursor:pointer;width:14px;height:14px;">
               <span>🛗 Авто-лифт на людный этаж (+30%)</span>
+            </label>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);">
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#f43f5e;font-size:10.5px;font-weight:bold;user-select:none;" title="Полностью скрыть боковую панель игры (СЕЙЧАС, ЗАРАБОТОК, ЖУРНАЛ ШАХТЫ, кнопки Поручения/Сумка), чтобы освободить экран">
+              <input type="checkbox" id="b-hide-game-panel" ${hideGamePanel ? 'checked' : ''} style="accent-color:#f43f5e;cursor:pointer;width:14px;height:14px;">
+              <span>👁️ Скрыть боковую панель игры</span>
             </label>
           </div>
         </div>
@@ -2273,6 +2377,7 @@
   const checkDrillBuild = w.querySelector('#b-drill-build');
   const checkAutoClaimQuests = w.querySelector('#b-auto-claim-quests');
   const checkAutoLift = w.querySelector('#b-auto-lift');
+  const checkHideGamePanel = w.querySelector('#b-hide-game-panel');
 
   if (checkOreFirst) {
     checkOreFirst.onchange = () => {
@@ -2329,6 +2434,16 @@
         lastLiftCheckTime = 0;
         checkAndSelectBestFloor();
       }
+    };
+  }
+  if (checkHideGamePanel) {
+    checkHideGamePanel.onchange = () => {
+      hideGamePanel = checkHideGamePanel.checked;
+      try {
+        localStorage.setItem('lg_bot_hide_game_panel', hideGamePanel ? '1' : '0');
+      } catch (e) {}
+      applyHideGamePanel(hideGamePanel);
+      showToast(hideGamePanel ? '👁️ Боковая панель игры СКРЫТА' : 'Боковая панель игры показана');
     };
   }
 
@@ -8606,9 +8721,15 @@
     const crowdThreshold = Math.max(effectiveMyCount + 1, Math.ceil(effectiveMyCount * 1.5));
     const has15xCrowd = best && (best.count >= crowdThreshold);
 
-    // 1) Переключение на руду более высокого приоритета (Уголь > Железо > Прочая руда > Обычный камень):
-    // Разрешено, если текущий камень ещё не добит (прогресс < 70%) и прошло > 4 сек
-    const shouldSwitchToHigherOre = oreFirst && mining && (bestTier > currentTier) && currentPct < 70 && switchElapsed > 4000;
+    // 1) Переключение на руду более высокого приоритета (по списку customPriorities):
+    // Разрешено, если текущий камень ещё не добит и прошел кулдаун переключения.
+    // Если лучшая цель — сундук (и его приоритет выше текущего камня по настройкам игрока),
+    // порог отказа от текущего камня увеличен до 80%, а кулдаун сокращен до 2.5 сек, чтобы не упустить клад!
+    const bestCat = best ? getRockCategory(best.rockId, best.group) : '';
+    const isBestChest = bestCat === 'chest';
+    const maxSwitchPct = (isBestChest && bestTier > currentTier) ? 80 : 70;
+    const minSwitchElapsed = (isBestChest && bestTier > currentTier) ? 2500 : 4000;
+    const shouldSwitchToHigherOre = oreFirst && mining && (bestTier > currentTier) && currentPct < maxSwitchPct && switchElapsed > minSwitchElapsed;
 
     // 2) Переключение на руду с толпой (в 1.5 раза больше игроков):
     // Разрешено, если цель — руда, её ранг не ниже текущего (bestTier >= currentTier) или мы копали камень (!currentIsOre),
