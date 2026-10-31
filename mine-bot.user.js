@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      8.9.31
+// @version      8.9.32
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -2200,7 +2200,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">Шамиль Клиент v8.9.31</span>
+        <span style="flex-shrink:0;">Шамиль Клиент v8.9.32</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -2598,71 +2598,105 @@
             <span>⚙️</span>
             <span>Автоматизация & Защита</span>
           </div>
-          <div style="display:flex;flex-direction:column;gap:5px;">
-            <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:10.5px;color:#e2e8f0;background:rgba(244,63,94,0.12);padding:4px 6px;border-radius:5px;border:1px solid rgba(244,63,94,0.3);">
-              <span style="font-weight:bold;color:#fca5a5;">🤝 Автопоход (авто-вход & сбор)</span>
-              <input type="checkbox" id="b-quest-opt-autojoin" style="cursor:pointer;accent-color:#f43f5e;" />
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+            <!-- 1. Автопоход -->
+            <label title="Автопоход (авто-вход & сбор): Сам записывается в поход («поход»/«портал»), ставит шахту на авто-паузу и возвращает после похода" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:rgba(244,63,94,0.12);padding:4px 6px;border-radius:5px;border:1px solid rgba(244,63,94,0.3);min-height:32px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
+                <span style="font-size:10px;font-weight:bold;color:#fca5a5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🤝 Автопоход</span>
+                <span style="font-size:8px;color:#fda4af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">авто-вход & сбор</span>
+              </div>
+              <input type="checkbox" id="b-quest-opt-autojoin" style="cursor:pointer;accent-color:#f43f5e;flex-shrink:0;margin:0;" />
             </label>
-            <div style="font-size:9px;color:#fda4af;margin-top:-3px;margin-bottom:2px;padding-left:6px;">Сам записывается в поход («поход»/«портал»), ставит шахту на авто-паузу и возвращает после похода</div>
 
-            <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:10.5px;color:#e2e8f0;">
-              <span>🚪 Авто-голосование за двери в Данже</span>
-              <input type="checkbox" id="b-quest-opt-dgnvote" style="cursor:pointer;accent-color:#38bdf8;" />
+            <!-- 2. Авто-Бой -->
+            <label title="Умный Авто-Бой: Хил союзников <35% HP, фокус вожака, скиллы без кд" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:rgba(244,63,94,0.12);padding:4px 6px;border-radius:5px;border:1px solid rgba(244,63,94,0.3);min-height:32px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
+                <span style="font-size:10px;font-weight:bold;color:#fca5a5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">⚔️ Авто-Бой</span>
+                <span style="font-size:8px;color:#fda4af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">скиллы, хил & фокус</span>
+              </div>
+              <input type="checkbox" id="b-quest-opt-combat" style="cursor:pointer;accent-color:#f43f5e;flex-shrink:0;margin:0;" />
             </label>
-            <div style="font-size:9px;color:#8899aa;margin-top:-3px;margin-bottom:2px;">Автоматически голосует за верную дверь по подсказке радара или большинству</div>
-            <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:10.5px;color:#e2e8f0;">
-              <span>⚡ Стрим без задержки (dl: 0)</span>
-              <input type="checkbox" id="b-quest-opt-fastforward" style="cursor:pointer;accent-color:#f59e0b;" />
-            </label>
-            <div style="font-size:9px;color:#8899aa;margin-top:-3px;margin-bottom:2px;">Видеть события на 30–60с раньше стрима</div>
 
-            <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:10.5px;color:#e2e8f0;">
-              <span>🛡️ Мгновенный Авто-Блок ударов босса</span>
-              <input type="checkbox" id="b-quest-opt-autoparry" style="cursor:pointer;accent-color:#10b981;" />
+            <!-- 3. Двери Данжа -->
+            <label title="Авто-голосование за двери в Данже: Автоматически голосует за верную дверь по подсказке радара или большинству" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
+                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🚪 Двери Данжа</span>
+                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">авто-выбор двери</span>
+              </div>
+              <input type="checkbox" id="b-quest-opt-dgnvote" style="cursor:pointer;accent-color:#38bdf8;flex-shrink:0;margin:0;" />
             </label>
-            <div style="font-size:9px;color:#8899aa;margin-top:-3px;margin-bottom:2px;">100% защита от атак босса (отправка секретного слова)</div>
 
-            <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:10.5px;color:#e2e8f0;">
-              <span>🧩 Радар тайников Данжа</span>
-              <input type="checkbox" id="b-quest-opt-dgn" style="cursor:pointer;accent-color:#38bdf8;" />
+            <!-- 4. Без задержки -->
+            <label title="Стрим без задержки (dl: 0): Видеть события на 30–60с раньше стрима" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
+                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">⚡ Без задержки</span>
+                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">dl: 0 (раньше стрима)</span>
+              </div>
+              <input type="checkbox" id="b-quest-opt-fastforward" style="cursor:pointer;accent-color:#f59e0b;flex-shrink:0;margin:0;" />
             </label>
-            <div style="font-size:9px;color:#8899aa;margin-top:-3px;margin-bottom:2px;">Расчёт плит, порядка рун, глифов и подсветка верных дверей</div>
 
-            <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:10.5px;color:#e2e8f0;">
-              <span>🔮 Декодер кода сокровищницы (при ≤2 неразгаданных)</span>
-              <input type="checkbox" id="b-quest-opt-solve-code" style="cursor:pointer;accent-color:#a855f7;" />
+            <!-- 5. Авто-Блок -->
+            <label title="Мгновенный Авто-Блок ударов босса: 100% защита от атак босса (отправка секретного слова)" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
+                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🛡️ Авто-Блок</span>
+                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">слово босса (100%)</span>
+              </div>
+              <input type="checkbox" id="b-quest-opt-autoparry" style="cursor:pointer;accent-color:#10b981;flex-shrink:0;margin:0;" />
             </label>
-            <div style="font-size:9px;color:#8899aa;margin-top:-3px;margin-bottom:2px;">Взлом шифра двери: ввод кода, когда осталось ≤2 неизвестных цифр</div>
 
-            <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:10.5px;color:#e2e8f0;">
-              <span>🪵 Авто-Переправа (безопасные кочки)</span>
-              <input type="checkbox" id="b-quest-opt-crossing" style="cursor:pointer;accent-color:#10b981;" />
+            <!-- 6. Радар Данжа -->
+            <label title="Радар тайников Данжа: Расчёт плит, порядка рун, глифов и подсветка верных дверей" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
+                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🧩 Радар Данжа</span>
+                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">плиты, руны, двери</span>
+              </div>
+              <input type="checkbox" id="b-quest-opt-dgn" style="cursor:pointer;accent-color:#38bdf8;flex-shrink:0;margin:0;" />
             </label>
-            <div style="font-size:9px;color:#8899aa;margin-top:-3px;margin-bottom:2px;">Авто-прыжок на безопасную кочку (исключая утонувшие)</div>
 
-            <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:10.5px;color:#e2e8f0;">
-              <span>🫧 Авто-Трясина («тянем!» и «руби»)</span>
-              <input type="checkbox" id="b-quest-opt-bog" style="cursor:pointer;accent-color:#38bdf8;" />
+            <!-- 7. Декодер шифра -->
+            <label title="Декодер кода сокровищницы: Взлом шифра двери: ввод кода, когда осталось ≤2 неизвестных цифр" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
+                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🔮 Декодер кода</span>
+                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">взлом при ≤2 скрытых</span>
+              </div>
+              <input type="checkbox" id="b-quest-opt-solve-code" style="cursor:pointer;accent-color:#a855f7;flex-shrink:0;margin:0;" />
             </label>
-            <div style="font-size:9px;color:#8899aa;margin-top:-3px;margin-bottom:2px;">Клик «тянем» по кд раз в 2с, когда вязнем, и «руби» при атаке твари</div>
 
-            <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:10.5px;color:#e2e8f0;">
-              <span>🎃 Авто-Ивенты (Котёл & Сладость/Гадость)</span>
-              <input type="checkbox" id="b-quest-opt-hwevents" style="cursor:pointer;accent-color:#f59e0b;" />
+            <!-- 8. Переправа -->
+            <label title="Авто-Переправа (безопасные кочки): Авто-прыжок на безопасную кочку (исключая утонувшие)" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
+                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🪵 Переправа</span>
+                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">безопасные кочки</span>
+              </div>
+              <input type="checkbox" id="b-quest-opt-crossing" style="cursor:pointer;accent-color:#10b981;flex-shrink:0;margin:0;" />
             </label>
-            <div style="font-size:9px;color:#8899aa;margin-top:-3px;margin-bottom:2px;">Голосование за сладость (+конфеты) и сбор ингредиентов в котёл</div>
 
-            <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:10.5px;color:#e2e8f0;">
-              <span>⚔️ Умный Авто-Бой</span>
-              <input type="checkbox" id="b-quest-opt-combat" style="cursor:pointer;accent-color:#f43f5e;" />
+            <!-- 9. Трясина -->
+            <label title="Авто-Трясина («тянем!» и «руби»): Клик «тянем» по кд раз в 2с, когда вязнем, и «руби» при атаке твари" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
+                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🫧 Трясина</span>
+                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">«тянем!» & «руби»</span>
+              </div>
+              <input type="checkbox" id="b-quest-opt-bog" style="cursor:pointer;accent-color:#38bdf8;flex-shrink:0;margin:0;" />
             </label>
-            <div style="font-size:9px;color:#8899aa;margin-top:-3px;margin-bottom:2px;">Хил союзников &lt;35% HP, фокус вожака, скиллы без кд</div>
 
-            <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:10.5px;color:#e2e8f0;">
-              <span>🔓 Разблокировка QA-панели</span>
-              <input type="checkbox" id="b-quest-opt-qa" style="cursor:pointer;accent-color:#a855f7;" />
+            <!-- 10. Авто-Ивенты -->
+            <label title="Авто-Ивенты (Котёл & Сладость/Гадость): Голосование за сладость (+конфеты) и сбор ингредиентов в котёл" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
+                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🎃 Авто-Ивенты</span>
+                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">котёл & конфеты</span>
+              </div>
+              <input type="checkbox" id="b-quest-opt-hwevents" style="cursor:pointer;accent-color:#f59e0b;flex-shrink:0;margin:0;" />
             </label>
-            <div style="font-size:9px;color:#8899aa;margin-top:-3px;">Принудительно ME.hero.qa = true (быстрые кнопки игры)</div>
+
+            <!-- 11. QA-панель (на всю ширину двух колонок внизу) -->
+            <label title="Разблокировка QA-панели: Принудительно ME.hero.qa = true (быстрые кнопки игры)" style="grid-column:span 2;display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:28px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
+                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🔓 QA-панель игры</span>
+                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">принудительно ME.hero.qa = true (быстрые кнопки игры)</span>
+              </div>
+              <input type="checkbox" id="b-quest-opt-qa" style="cursor:pointer;accent-color:#a855f7;flex-shrink:0;margin:0;" />
+            </label>
           </div>
         </div>
 
