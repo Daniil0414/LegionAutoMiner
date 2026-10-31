@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.6
+// @version      9.1.8
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -134,8 +134,8 @@
       G.window.addEventListener('visibilitychange', suppressHiddenEvent, true);
     }
 
-    window.addEventListener('focus', () => { isWindowFocused = true; if (typeof updateBackgroundSleepState === 'function') updateBackgroundSleepState(); }, true);
-    window.addEventListener('blur', () => { isWindowFocused = false; if (typeof updateBackgroundSleepState === 'function') updateBackgroundSleepState(); }, true);
+    window.addEventListener('focus', () => { isWindowFocused = true; }, true);
+    window.addEventListener('blur', () => { isWindowFocused = false; }, true);
   } catch (e) {
   }
 
@@ -161,34 +161,16 @@
   // S.then не вызывается, /api/mineDig не отправляется).
   // Полифил гарантирует выполнение очередей кадров в фоне через быстрый таймер!
   // =========================================================================
-  let isEcoOptimizer = false;
+  // 🧹 Очистка остаточных ключей оптимизаций в браузере
   try {
-    isEcoOptimizer = localStorage.getItem('lg_bot_eco_optimizer') === '1';
+    localStorage.removeItem('lg_bot_eco_optimizer');
+    localStorage.removeItem('lgCityR');
+    localStorage.removeItem('lgCityHide');
+    localStorage.removeItem('lgCityCap');
+    localStorage.removeItem('lgCityQ');
+    localStorage.removeItem('lgMineHide');
+    if (document.body) document.body.classList.remove('lg-eco-active');
   } catch (e) {}
-
-  // Функция глубокого сна графики в фоновых вкладках (Headless-режим)
-  function updateBackgroundSleepState() {
-    try {
-      if (!isEcoOptimizer) {
-        if (document.body && document.body.classList.contains('lg-bg-sleep')) {
-          document.body.classList.remove('lg-bg-sleep');
-        }
-        return;
-      }
-      const hidden = isPageActuallyHidden();
-      if (document.body) {
-        document.body.classList.toggle('lg-bg-sleep', hidden);
-      }
-    } catch (e) {}
-  }
-
-  // Предварительное применение системных флагов оптимизации игры для фермы
-  if (isEcoOptimizer) {
-    try { localStorage.setItem('lgCityR', 'svg'); } catch (e) {}
-    try { localStorage.setItem('lgMineHide', '1'); } catch (e) {}
-    if (document.body) document.body.classList.add('lg-eco-active');
-    else window.addEventListener('DOMContentLoaded', () => { if (document.body) document.body.classList.add('lg-eco-active'); });
-  }
 
   const origRAF = (G.requestAnimationFrame || window.requestAnimationFrame)?.bind(G) || null;
   const origCAF = (G.cancelAnimationFrame || window.cancelAnimationFrame)?.bind(G) || null;
@@ -200,7 +182,7 @@
       return origRAF(cb);
     }
     const id = ++bgRafIdCounter;
-    const delay = isEcoOptimizer ? 150 : 40; // В эко-режиме снижаем фоновый FPS до ~6-7 для глубокого сбережения RAM и CPU
+    const delay = 40;
     const t = setTimeout(() => {
       bgRafCallbacks.delete(id);
       try {
@@ -233,53 +215,6 @@
   } catch (e) {}
 
   // =========================================================================
-  // 🧹 ГЛУБОКАЯ ОЧИСТКА ПАМЯТИ (DOM TRIMMING, CANVAS PURGE & ANTI-OOM)
-  // =========================================================================
-  function purgeMemoryNow() {
-    try {
-      // 1. Очистка переполненных лент чата и журнала событий (оставляем не более 30 узлов)
-      const feeds = document.querySelectorAll('.cy-chat-msgs, .cy-chat-feed, [data-cy-feed], .mn-log, .cy-feed');
-      feeds.forEach(feed => {
-        while (feed.children && feed.children.length > 30) {
-          if (feed.firstElementChild) feed.firstElementChild.remove();
-          else break;
-        }
-      });
-
-      // 2. В шахте скрываем других игроков (если включен эко-режим)
-      if (isEcoOptimizer) {
-        const hb = document.querySelector('[data-mn-hide]');
-        if (hb && hb.getAttribute('aria-pressed') !== 'true') {
-          try { hb.click(); } catch (e) {}
-        }
-        const heroesContainer = document.querySelector('.mn-heroes');
-        if (heroesContainer) {
-          heroesContainer.querySelectorAll('.mn-h:not(.me):not([data-k="me"])').forEach(h => h.remove());
-        }
-      }
-
-      // 3. Сжатие буферов неиспользуемых canvas элементов
-      document.querySelectorAll('canvas').forEach(c => {
-        if (!c.isConnected || c.style.display === 'none' || c.hidden || (c.offsetWidth === 0 && c.offsetHeight === 0)) {
-          try {
-            c.width = 1;
-            c.height = 1;
-          } catch (e) {}
-        }
-      });
-
-      updateBackgroundSleepState();
-    } catch (e) {}
-  }
-
-  // Периодическая фоновая очистка памяти при активном эко-режиме (раз в 20 секунд)
-  setInterval(() => {
-    if (isEcoOptimizer) {
-      purgeMemoryNow();
-    }
-  }, 20000);
-
-  // =========================================================================
   // 🎵 БЕСШУМНЫЙ WEB AUDIO KEEP-ALIVE (ОБХОД СНА ВКЛАДОК И MEMORY SAVER)
   // Активный AudioContext с нулевой громкостью (gain = 0) сигнализирует Chromium/Edge,
   // что вкладка воспроизводит аудио. Это полностью исключает:
@@ -290,7 +225,6 @@
   // =========================================================================
   let bgAudioCtx = null;
   function initBackgroundAudioKeepAlive() {
-    if (isEcoOptimizer) return; // В эко-режиме (особенно для Firefox) не создаем Web Audio контекстов
     if (bgAudioCtx) return;
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext || G.AudioContext || G.webkitAudioContext;
@@ -403,9 +337,6 @@
 
   function onBackgroundHeartbeat() {
     if (!G.__mineBotRunning) return;
-
-    // 0. Обновляем статус сна графики (если вкладка в фоне)
-    updateBackgroundSleepState();
 
     if (isPaused) return;
 
@@ -2235,25 +2166,6 @@
         #b-prio-reset:hover { color: #fff !important; }
         a.lg-bot-author-link:hover { text-decoration: underline !important; }
         .b-ore-slot:hover { background: rgba(30,26,50,0.95) !important; filter: brightness(1.25); }
-        /* 🚀 Экстремальная оптимизация графики и медиа (Farm Mode) */
-        body.lg-eco-active img:not(#mine-bot-v3 *),
-        body.lg-eco-active video,
-        body.lg-eco-active .cy-bg,
-        body.lg-eco-active .cy-sky,
-        body.lg-eco-active .cy-ground,
-        body.lg-eco-active .cy-decor,
-        body.lg-eco-active .mn-dfx,
-        body.lg-eco-active [style*="background-image"]:not(#mine-bot-v3 *):not(.b-coin-ico):not(.b-lot-art *):not(.mn-bg *) {
-          display: none !important;
-          visibility: hidden !important;
-        }
-        /* 🚀 Эко-режим: глубокий сон графики в фоновых вкладках (Anti-OOM) */
-        .lg-bg-sleep .mn-dfx { display: none !important; }
-        .lg-bg-sleep .mn-heroes .mn-h:not(.me):not([data-k="me"]) { display: none !important; }
-        .lg-bg-sleep .mn-view { will-change: auto !important; }
-        .lg-bg-sleep .mn-bg { filter: none !important; }
-        .lg-bg-sleep .cy-street { display: none !important; }
-        .lg-bg-sleep * { animation-play-state: paused !important; }
       `;
       (document.head || document.documentElement).appendChild(style);
     } catch (e) {}
@@ -2301,7 +2213,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">Шамиль Клиент v9.1.6</span>
+        <span style="flex-shrink:0;">Шамиль Клиент v9.1.8</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -2312,32 +2224,29 @@
       </div>
     </div>
     <div id="b-body" style="margin-top:8px;">
-      <!-- Вкладки: Шахта, Рынок, Игроки, Рассылка, Город, Поход, Руда и Настройки (Строго сетка 4x2 одинакового размера) -->
-      <div id="b-tabs" style="display:grid;grid-template-columns:repeat(4, 1fr);gap:4px;margin-bottom:8px;border-bottom:1px solid #3d3759;padding-bottom:6px;">
-        <button id="b-tab-btn-mine" style="height:26px;box-sizing:border-box;padding:0 2px;background:#28a745;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;white-space:nowrap;overflow:hidden;" title="Авто-шахта">⛏️ Шахта</button>
-        <button id="b-tab-btn-market" style="height:26px;box-sizing:border-box;padding:0 2px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;white-space:nowrap;overflow:hidden;" title="Аукцион и снайпер">
-          <span style="white-space:nowrap;">🏛️ Рынок</span>
-          <span id="b-auc-badge" style="display:none;background:#ff3366;color:#fff;border-radius:8px;padding:0 3px;font-size:8px;font-weight:bold;line-height:12px;flex-shrink:0;">0</span>
+      <!-- Вкладки: Шахта, Рынок, Игроки, Рассылка, Город, Поход и Руда -->
+      <div id="b-tabs" style="display:flex;gap:2px;margin-bottom:8px;border-bottom:1px solid #3d3759;padding-bottom:6px;">
+        <button id="b-tab-btn-mine" style="flex:1;padding:5px 1px;background:#28a745;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Авто-шахта">⛏️ Шахта</button>
+        <button id="b-tab-btn-market" style="flex:1;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Аукцион и снайпер">
+          <span>🏛️ Рынок</span>
+          <span id="b-auc-badge" style="display:none;background:#ff3366;color:#fff;border-radius:8px;padding:0 3px;font-size:8px;font-weight:bold;line-height:12px;">0</span>
         </button>
-        <button id="b-tab-btn-players" style="height:26px;box-sizing:border-box;padding:0 2px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;white-space:nowrap;overflow:hidden;" title="Разведка игроков">
-          <span style="white-space:nowrap;">👥 Игроки</span>
-          <span id="b-players-badge" style="background:#3d3759;color:#66ccff;border-radius:8px;padding:0 3px;font-size:8px;font-weight:bold;line-height:12px;flex-shrink:0;">0</span>
+        <button id="b-tab-btn-players" style="flex:1;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Разведка игроков">
+          <span>👥 Игроки</span>
+          <span id="b-players-badge" style="background:#3d3759;color:#66ccff;border-radius:8px;padding:0 3px;font-size:8px;font-weight:bold;line-height:12px;">0</span>
         </button>
-        <button id="b-tab-btn-broadcast" style="height:26px;box-sizing:border-box;padding:0 2px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;white-space:nowrap;overflow:hidden;" title="Массовая рассылка сообщений в ЛС игрокам">
-          <span style="white-space:nowrap;">📢 Рассылка</span>
+        <button id="b-tab-btn-broadcast" style="flex:1;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Массовая рассылка сообщений в ЛС игрокам">
+          <span>📢 Рассылка</span>
         </button>
-        <button id="b-tab-btn-city" style="height:26px;box-sizing:border-box;padding:0 2px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;white-space:nowrap;overflow:hidden;" title="Карманный город: лавка, когтекузня, тренер, склад из любой точки">
-          <span style="white-space:nowrap;">🏰 Город</span>
+        <button id="b-tab-btn-city" style="flex:1;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Карманный город: лавка, когтекузня, тренер, склад из любой точки">
+          <span>🏰 Город</span>
         </button>
-        <button id="b-tab-btn-quest" style="height:26px;box-sizing:border-box;padding:0 2px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;white-space:nowrap;overflow:hidden;" title="Поход / Данж: Авто-блок босса, радар тайников, авто-бой, стрим без задержки">
-          <span style="white-space:nowrap;">⚔️ Поход</span>
-          <span id="b-quest-badge" style="display:none;background:#e11d48;color:#fff;border-radius:8px;padding:0 3px;font-size:8px;font-weight:bold;line-height:12px;flex-shrink:0;">!</span>
+        <button id="b-tab-btn-quest" style="flex:1;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Поход / Данж: Авто-блок босса, радар тайников, авто-бой, стрим без задержки">
+          <span>⚔️ Поход</span>
+          <span id="b-quest-badge" style="display:none;background:#e11d48;color:#fff;border-radius:8px;padding:0 3px;font-size:8px;font-weight:bold;line-height:12px;">!</span>
         </button>
-        <button id="b-tab-btn-priority" style="height:26px;box-sizing:border-box;padding:0 2px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;white-space:nowrap;overflow:hidden;" title="Приоритеты добычи руды, самоцветов и сундуков (Drag & Drop перетаскивание)">
-          <span style="white-space:nowrap;">🎯 Руда</span>
-        </button>
-        <button id="b-tab-btn-settings" style="height:26px;box-sizing:border-box;padding:0 2px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;white-space:nowrap;overflow:hidden;" title="Системные настройки, режим фермы и защита от вылетов Firefox (Anti-OOM)">
-          <span style="white-space:nowrap;">⚙️ Настр.</span>
+        <button id="b-tab-btn-priority" style="flex:1;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Приоритеты добычи руды, самоцветов и сундуков (Drag & Drop перетаскивание)">
+          <span>🎯 Руда</span>
         </button>
       </div>
 
@@ -2866,55 +2775,6 @@
         </div>
       </div>
 
-      <!-- Контейнер вкладки: Настройки -->
-      <div id="b-tab-settings" style="display:none;width:100%;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #3d3759;">
-          <b style="color:#38bdf8;font-size:11.5px;">⚙️ Системные настройки</b>
-          <span style="font-size:9.5px;color:#94a3b8;">v9.1.6</span>
-        </div>
-
-        <!-- Карточка: Оптимизация для фермы и Firefox -->
-        <div style="background:#201c33;padding:8px 9px;border-radius:6px;border:1px solid #3d3759;margin-bottom:8px;">
-          <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;margin-bottom:4px;">
-            <div style="display:flex;flex-direction:column;gap:2px;">
-              <span style="color:#38bdf8;font-size:11.5px;font-weight:bold;">🚀 Режим фермы (Firefox OOM Fix)</span>
-              <span style="color:#94a3b8;font-size:9.5px;">Снижает потребление RAM в 3-5 раз</span>
-            </div>
-            <input type="checkbox" id="b-opt-eco" ${isEcoOptimizer ? 'checked' : ''} style="accent-color:#38bdf8;width:16px;height:16px;cursor:pointer;">
-          </label>
-
-          <div id="b-eco-status" style="margin-top:6px;margin-bottom:8px;font-size:9.5px;padding:4px 7px;border-radius:4px;background:${isEcoOptimizer ? 'rgba(0,255,102,0.12)' : 'rgba(255,255,255,0.05)'};color:${isEcoOptimizer ? '#00ff66' : '#888'};border:1px solid ${isEcoOptimizer ? 'rgba(0,255,102,0.3)' : 'rgba(255,255,255,0.1)'};">
-            <span>${isEcoOptimizer ? '✅ Активно: WebGL отключен · Игроки скрыты · DOM очищается' : '⚪ Выключено (стандартный режим рендера)'}</span>
-          </div>
-
-          <div style="font-size:9.5px;color:#cbd5e1;line-height:1.45;background:rgba(56,189,248,0.05);border:1px solid rgba(56,189,248,0.15);border-radius:5px;padding:6px 8px;margin-bottom:8px;">
-            <div style="margin-bottom:3px;font-weight:bold;color:#38bdf8;">Что делает эта оптимизация:</div>
-            <div>• 🛑 <b>Отключение WebGL/Pixi:</b> город в SVG режиме (нет утечек видеопамяти)</div>
-            <div>• 👥 <b>Скрытие других игроков:</b> не строит тяжелые SVG аватары толпы</div>
-            <div>• 🖼️ <b>Скрытие картинок и фонов:</b> скрывает тяжелые текстуры, баннеры и медиа</div>
-            <div>• 💤 <b>Глубокий Headless-сон графики:</b> в фоне GPU полностью засыпает, анимации стопятся</div>
-            <div>• ⚔️ <b>Автобой и авто-шахта активны:</b> вся логика и таймеры работают на 100%</div>
-            <div>• 🧹 <b>Авто-очистка DOM:</b> чат и журнал удерживаются до 30 записей</div>
-            <div>• 🔇 <b>Глушение звука:</b> выгружает фоновые аудио-потоки браузера</div>
-          </div>
-
-          <div style="display:flex;flex-direction:column;gap:5px;">
-            <button id="b-btn-purge-ram" style="width:100%;padding:5px 8px;background:#262238;color:#38bdf8;border:1px solid #0284c7;border-radius:5px;cursor:pointer;font-size:10.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:5px;transition:all 0.2s;" title="Немедленно обрезать разросшийся DOM чата и сбросить буферы Canvas">
-              <span>🧹 Очистить RAM сейчас</span>
-            </button>
-            <button id="b-btn-reload-eco" style="width:100%;padding:5px 8px;background:#0369a1;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:10.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:5px;transition:all 0.2s;" title="Перезагрузить страницу для полной выгрузки текстур и WebGL из памяти браузера">
-              <span>🔄 Перезагрузить вкладку (F5)</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Карточка: Совет по Firefox -->
-        <div style="background:#181528;padding:7px 9px;border-radius:6px;border:1px dashed #3d3759;font-size:9.5px;color:#94a3b8;line-height:1.4;">
-          <b style="color:#fbbf24;">💡 Совет для ферм в Firefox:</b><br>
-          В адресной строке введите <code style="color:#fff;background:rgba(255,255,255,0.1);padding:1px 3px;border-radius:3px;">about:config</code>, найдите параметр <code style="color:#fff;background:rgba(255,255,255,0.1);padding:1px 3px;border-radius:3px;">dom.ipc.processCount</code> и установите <b>16</b> или <b>32</b>. Это разделит вкладки по разным системным процессам.
-        </div>
-      </div>
-
       <!-- Контакты / Подвал -->
       <div id="b-footer" style="margin-top:8px;padding-top:6px;border-top:1px solid #3d3759;display:flex;justify-content:center;align-items:center;gap:5px;font-size:10px;color:#8899aa;user-select:text;">
         <span>Связь:</span>
@@ -3398,12 +3258,9 @@
   // Элементы вкладок
   const tabBtnMine = w.querySelector('#b-tab-btn-mine'), tabBtnMarket = w.querySelector('#b-tab-btn-market');
   const mineClaimBtn = w.querySelector('#b-mine-claim-btn');
-  const tabBtnPlayers = w.querySelector('#b-tab-btn-players'), tabBtnBroadcast = w.querySelector('#b-tab-btn-broadcast'), tabBtnCity = w.querySelector('#b-tab-btn-city'), tabBtnQuest = w.querySelector('#b-tab-btn-quest'), tabBtnPriority = w.querySelector('#b-tab-btn-priority'), tabBtnSettings = w.querySelector('#b-tab-btn-settings');
+  const tabBtnPlayers = w.querySelector('#b-tab-btn-players'), tabBtnBroadcast = w.querySelector('#b-tab-btn-broadcast'), tabBtnCity = w.querySelector('#b-tab-btn-city'), tabBtnQuest = w.querySelector('#b-tab-btn-quest'), tabBtnPriority = w.querySelector('#b-tab-btn-priority');
   const tabMine = w.querySelector('#b-tab-mine'), tabMarket = w.querySelector('#b-tab-market');
-  const tabPlayers = w.querySelector('#b-tab-players'), tabBroadcast = w.querySelector('#b-tab-broadcast'), tabCity = w.querySelector('#b-tab-city'), tabQuest = w.querySelector('#b-tab-quest'), tabPriority = w.querySelector('#b-tab-priority'), tabSettings = w.querySelector('#b-tab-settings');
-  const checkOptEco = w.querySelector('#b-opt-eco');
-  const btnPurgeRam = w.querySelector('#b-btn-purge-ram');
-  const ecoStatus = w.querySelector('#b-eco-status');
+  const tabPlayers = w.querySelector('#b-tab-players'), tabBroadcast = w.querySelector('#b-tab-broadcast'), tabCity = w.querySelector('#b-tab-city'), tabQuest = w.querySelector('#b-tab-quest'), tabPriority = w.querySelector('#b-tab-priority');
   const aucBadge = w.querySelector('#b-auc-badge'), aucList = w.querySelector('#b-auc-list');
   const questBadge = w.querySelector('#b-quest-badge');
   const aucRefresh = w.querySelector('#b-auc-refresh'), aucFilter = w.querySelector('#b-auc-filter');
@@ -3445,16 +3302,17 @@
   }
 
   let activeTab = localStorage.getItem('lg_bot_tab') || 'mine';
+  if (activeTab === 'settings') activeTab = 'mine';
 
   function applyActiveTab() {
-    [tabBtnMine, tabBtnMarket, tabBtnPlayers, tabBtnBroadcast, tabBtnCity, tabBtnQuest, tabBtnPriority, tabBtnSettings].forEach(btn => {
+    [tabBtnMine, tabBtnMarket, tabBtnPlayers, tabBtnBroadcast, tabBtnCity, tabBtnQuest, tabBtnPriority].forEach(btn => {
       if (btn) {
         btn.style.background = '#262238';
         btn.style.color = '#aaa';
         btn.style.border = '1px solid #3d3759';
       }
     });
-    [tabMine, tabMarket, tabPlayers, tabBroadcast, tabCity, tabQuest, tabPriority, tabSettings].forEach(t => {
+    [tabMine, tabMarket, tabPlayers, tabBroadcast, tabCity, tabQuest, tabPriority].forEach(t => {
       if (t) t.style.display = 'none';
     });
     if (!isMinimized && !isSquare) {
@@ -3512,18 +3370,6 @@
         w.style.maxWidth = '350px';
       }
       renderPriorityListUI();
-    } else if (activeTab === 'settings') {
-      if (tabBtnSettings) {
-        tabBtnSettings.style.background = '#0284c7';
-        tabBtnSettings.style.color = '#fff';
-        tabBtnSettings.style.border = 'none';
-      }
-      if (tabSettings) tabSettings.style.display = 'block';
-      if (!isMinimized && !isSquare) {
-        w.style.minWidth = '310px';
-        w.style.maxWidth = '350px';
-      }
-      updateEcoOptimizerUI();
     } else {
       activeTab = 'mine';
       tabBtnMine.style.background = '#28a745';
@@ -3535,80 +3381,12 @@
     localStorage.setItem('lg_bot_tab', activeTab);
   }
 
-  function updateEcoOptimizerUI() {
-    if (checkOptEco) checkOptEco.checked = isEcoOptimizer;
-    if (ecoStatus) {
-      ecoStatus.style.background = isEcoOptimizer ? 'rgba(0,255,102,0.12)' : 'rgba(255,255,255,0.05)';
-      ecoStatus.style.color = isEcoOptimizer ? '#00ff66' : '#888';
-      ecoStatus.style.border = '1px solid ' + (isEcoOptimizer ? 'rgba(0,255,102,0.3)' : 'rgba(255,255,255,0.1)');
-      ecoStatus.innerHTML = isEcoOptimizer
-        ? '<span>✅ Активно: WebGL отключен · Игроки скрыты · DOM очищается</span>'
-        : '<span>⚪ Выключено (стандартный режим рендера)</span>';
-    }
-  }
-
-  if (checkOptEco) {
-    checkOptEco.onchange = () => {
-      isEcoOptimizer = checkOptEco.checked;
-      try {
-        localStorage.setItem('lg_bot_eco_optimizer', isEcoOptimizer ? '1' : '0');
-      } catch (e) {}
-      if (isEcoOptimizer) {
-        try { localStorage.setItem('lgCityR', 'svg'); } catch (e) {}
-        try { localStorage.setItem('lgMineHide', '1'); } catch (e) {}
-        if (document.body) document.body.classList.add('lg-eco-active');
-        // Автоматически нажимаем кнопку скрытия толпы в шахте (если они видны)
-        try {
-          const hb = document.querySelector('[data-mn-hide]');
-          if (hb && hb.getAttribute('aria-pressed') !== 'true') {
-            hb.click();
-          }
-        } catch (e) {}
-        if (bgAudioCtx) {
-          try {
-            bgAudioCtx.close().catch(() => {});
-            bgAudioCtx = null;
-          } catch (e) {}
-        }
-        purgeMemoryNow();
-      } else {
-        try { localStorage.removeItem('lgCityR'); } catch (e) {}
-        if (document.body) document.body.classList.remove('lg-eco-active');
-        updateBackgroundSleepState();
-      }
-      updateEcoOptimizerUI();
-    };
-  }
-
-  const btnReloadEco = w.querySelector('#b-btn-reload-eco');
-  if (btnReloadEco) {
-    btnReloadEco.onclick = () => {
-      location.reload();
-    };
-  }
-
-  if (btnPurgeRam) {
-    btnPurgeRam.onclick = () => {
-      purgeMemoryNow();
-      const origText = btnPurgeRam.innerHTML;
-      btnPurgeRam.innerHTML = '<span>✅ Память очищена!</span>';
-      btnPurgeRam.style.background = '#28a745';
-      setTimeout(() => {
-        btnPurgeRam.innerHTML = origText;
-        btnPurgeRam.style.background = '#262238';
-      }, 2000);
-    };
-  }
-
   tabBtnMine.onclick = () => { activeTab = 'mine'; applyActiveTab(); };
   tabBtnMarket.onclick = () => { activeTab = 'market'; applyActiveTab(); };
   tabBtnPlayers.onclick = () => { activeTab = 'players'; applyActiveTab(); };
   tabBtnBroadcast.onclick = () => { activeTab = 'broadcast'; applyActiveTab(); };
   tabBtnCity.onclick = () => { activeTab = 'city'; applyActiveTab(); };
   tabBtnQuest.onclick = () => { activeTab = 'quest'; applyActiveTab(); };
-  if (tabBtnSettings) {
-    tabBtnSettings.onclick = () => { activeTab = 'settings'; applyActiveTab(); };
-  }
 
   if (tabBtnPriority) {
     tabBtnPriority.onclick = () => {
