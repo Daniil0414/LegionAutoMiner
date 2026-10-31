@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.0
+// @version      9.0.1
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -1826,7 +1826,6 @@
                       if (G.__lgMineMe) G.__lgMineMe.at = curFloor;
                     }
                     if (S) {
-                      S.rideAt = Date.now();
                       if (G.__mineBotRunning && !isPaused) {
                         S.newsShown = true;
                       }
@@ -2200,7 +2199,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">Шамиль Клиент v9.0</span>
+        <span style="flex-shrink:0;">Шамиль Клиент v9.0.1</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -5911,20 +5910,42 @@
     let bestOpt = V.opts[0];
     let maxVotes = -1;
     for (const opt of V.opts) {
-      const votes = typeof opt[3] === 'number' ? opt[3] : 0;
+      // В dgn.vote: opt[4] — это количество голосов (в обычном опросе — opt[3])
+      const votes = typeof opt[4] === 'number' ? opt[4] : typeof opt[3] === 'number' ? opt[3] : 0;
       if (votes > maxVotes) {
         maxVotes = votes;
         bestOpt = opt;
       }
     }
 
-    const chosenNum = bestOpt[0];
-    const chosenName = bestOpt[1] || `Дверь №${chosenNum}`;
+    // Радар тайников для текущей комнаты
+    const secInfo = dgn.room ? parseDungeonSecrets(dgn.room) : null;
+    const secretOpt = V.opts.find(o => o[1] === 'secret' || (secInfo && secInfo.searchAnswer === o[0]) || (o[2] && String(o[2]).toLowerCase().includes('тайник')));
+    const descentOpt = V.opts.find(o => /down|shaft|pit|stairs/i.test(String(o[1] || '')) || /спуск|этаж/i.test(String(o[2] || '')));
+
+    let chosenOpt = bestOpt;
+    let reason = 'большинство отряда';
+
+    if (secretOpt && maxVotes <= 1) {
+      // Приоритет тайника по подсказке радара, если отряд ещё не сплотился за другую дверь
+      chosenOpt = secretOpt;
+      reason = 'тайник радара ⭐';
+    } else if (descentOpt && maxVotes <= 1) {
+      // Приоритет спуска на новый этаж, если тайников нет
+      chosenOpt = descentOpt;
+      reason = 'спуск на новый этаж ⬇️';
+    } else if (maxVotes > 0) {
+      chosenOpt = bestOpt;
+      reason = `большинство (${maxVotes} голосов)`;
+    }
+
+    const chosenNum = chosenOpt[0];
+    const chosenName = chosenOpt[2] || chosenOpt[1] || `Дверь №${chosenNum}`;
 
     setTimeout(() => {
       sendQuestVote(V.id, chosenNum).then(res => {
         if (res && res.ok !== false) {
-          addQuestLog('puzzle', `🚪 Данж: авто-выбор «${chosenName}» (вариант ${chosenNum})`);
+          addQuestLog('puzzle', `🚪 Данж: авто-выбор «${chosenName}» (${reason}, вариант ${chosenNum})`);
         }
         refreshQuestUI();
       });
@@ -10115,6 +10136,15 @@
           clickTarget(best);
         }
       } else {
+        const S = G.__lgMineS;
+        const currentFloor = (S && S.st && S.st.n) || 1;
+        const deep = (S && S.st && (S.st.deep || S.st.n)) || currentFloor;
+        if (deep > currentFloor && autoLiftBestFloor && !isRidingLift) {
+          st.textContent = `🛗 Этаж ${currentFloor} выкопан! Спускаемся на этаж ${deep}...`;
+          st.style.color = '#38bdf8';
+          executeLiftRide(deep, 1, 100);
+          return;
+        }
         st.textContent = `${prefix}Ищем свободный камень...`;
         st.style.color = '#ffd700';
       }
@@ -10348,6 +10378,14 @@
       const curStat = floorStats.find(x => x.floor === currentFloor);
       const curCount = curStat ? curStat.count : 0;
 
+      // 🛗 Приоритет нового этажа: если открыт новый более глубокий этаж (deep > currentFloor)
+      const deepStat = floorStats.find(x => x.floor === deep);
+      if (deep > currentFloor && deepStat) {
+        pendingLiftRide = null;
+        await executeLiftRide(deep, deepStat.count || 1, 100);
+        return;
+      }
+
       // Сортируем: наибольшее число людей -> активных копателей -> глубина
       floorStats.sort((a, b) => (b.count - a.count) || (b.working - a.working) || (b.floor - a.floor));
       const best = floorStats[0];
@@ -10502,6 +10540,19 @@
       pendingLiftRide = null;
       executeLiftRide(floor, count, percent);
       return;
+    }
+
+    // 🛗 Проверка авто-спуска: если открыт новый этаж (deep > currentFloor)
+    const S = G.__lgMineS;
+    if (S && S.st) {
+      const currentFloor = S.st.n || 1;
+      const deep = S.st.deep || currentFloor;
+      if (deep > currentFloor && !isRidingLift) {
+        if (!isMining()) {
+          executeLiftRide(deep, 1, 100);
+          return;
+        }
+      }
     }
 
     if (Date.now() - lastLiftCheckTime > 120000) {
