@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.1
+// @version      9.1.2
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -2253,7 +2253,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">Шамиль Клиент v9.1.1</span>
+        <span style="flex-shrink:0;">Шамиль Клиент v9.1.2</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -2265,30 +2265,30 @@
     </div>
     <div id="b-body" style="margin-top:8px;">
       <!-- Вкладки: Шахта, Рынок, Игроки, Рассылка, Город, Поход, Руда и Настройки -->
-      <div id="b-tabs" style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:8px;border-bottom:1px solid #3d3759;padding-bottom:6px;">
-        <button id="b-tab-btn-mine" style="flex:1 1 calc(25% - 4px);min-width:55px;padding:5px 1px;background:#28a745;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Авто-шахта">⛏️ Шахта</button>
-        <button id="b-tab-btn-market" style="flex:1 1 calc(25% - 4px);min-width:55px;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Аукцион и снайпер">
+      <div id="b-tabs" style="display:flex;flex-wrap:wrap;justify-content:center;gap:3px;margin-bottom:6px;border-bottom:1px solid #3d3759;padding-bottom:5px;">
+        <button id="b-tab-btn-mine" style="flex:1 1 calc(25% - 4px);max-width:68px;min-width:46px;padding:3.5px 1px;background:#28a745;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:9px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Авто-шахта">⛏️ Шахта</button>
+        <button id="b-tab-btn-market" style="flex:1 1 calc(25% - 4px);max-width:68px;min-width:46px;padding:3.5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:4px;cursor:pointer;font-size:9px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Аукцион и снайпер">
           <span>🏛️ Рынок</span>
           <span id="b-auc-badge" style="display:none;background:#ff3366;color:#fff;border-radius:8px;padding:0 3px;font-size:8px;font-weight:bold;line-height:12px;">0</span>
         </button>
-        <button id="b-tab-btn-players" style="flex:1 1 calc(25% - 4px);min-width:55px;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Разведка игроков">
+        <button id="b-tab-btn-players" style="flex:1 1 calc(25% - 4px);max-width:68px;min-width:46px;padding:3.5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:4px;cursor:pointer;font-size:9px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Разведка игроков">
           <span>👥 Игроки</span>
           <span id="b-players-badge" style="background:#3d3759;color:#66ccff;border-radius:8px;padding:0 3px;font-size:8px;font-weight:bold;line-height:12px;">0</span>
         </button>
-        <button id="b-tab-btn-broadcast" style="flex:1 1 calc(25% - 4px);min-width:55px;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Массовая рассылка сообщений в ЛС игрокам">
+        <button id="b-tab-btn-broadcast" style="flex:1 1 calc(25% - 4px);max-width:68px;min-width:46px;padding:3.5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:4px;cursor:pointer;font-size:9px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Массовая рассылка сообщений в ЛС игрокам">
           <span>📢 Рассылка</span>
         </button>
-        <button id="b-tab-btn-city" style="flex:1 1 calc(25% - 4px);min-width:55px;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Карманный город: лавка, когтекузня, тренер, склад из любой точки">
+        <button id="b-tab-btn-city" style="flex:1 1 calc(25% - 4px);max-width:68px;min-width:46px;padding:3.5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:4px;cursor:pointer;font-size:9px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Карманный город: лавка, когтекузня, тренер, склад из любой точки">
           <span>🏰 Город</span>
         </button>
-        <button id="b-tab-btn-quest" style="flex:1 1 calc(25% - 4px);min-width:55px;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Поход / Данж: Авто-блок босса, радар тайников, авто-бой, стрим без задержки">
+        <button id="b-tab-btn-quest" style="flex:1 1 calc(25% - 4px);max-width:68px;min-width:46px;padding:3.5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:4px;cursor:pointer;font-size:9px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Поход / Данж: Авто-блок босса, радар тайников, авто-бой, стрим без задержки">
           <span>⚔️ Поход</span>
           <span id="b-quest-badge" style="display:none;background:#e11d48;color:#fff;border-radius:8px;padding:0 3px;font-size:8px;font-weight:bold;line-height:12px;">!</span>
         </button>
-        <button id="b-tab-btn-priority" style="flex:1 1 calc(25% - 4px);min-width:55px;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Приоритеты добычи руды, самоцветов и сундуков (Drag & Drop перетаскивание)">
+        <button id="b-tab-btn-priority" style="flex:1 1 calc(25% - 4px);max-width:68px;min-width:46px;padding:3.5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:4px;cursor:pointer;font-size:9px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Приоритеты добычи руды, самоцветов и сундуков (Drag & Drop перетаскивание)">
           <span>🎯 Руда</span>
         </button>
-        <button id="b-tab-btn-settings" style="flex:1 1 calc(25% - 4px);min-width:55px;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Системные настройки, режим фермы и защита от вылетов Firefox (Anti-OOM)">
+        <button id="b-tab-btn-settings" style="flex:1 1 calc(25% - 4px);max-width:68px;min-width:46px;padding:3.5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:4px;cursor:pointer;font-size:9px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Системные настройки, режим фермы и защита от вылетов Firefox (Anti-OOM)">
           <span>⚙️ Настр.</span>
         </button>
       </div>
@@ -3411,14 +3411,14 @@
       tabBtnMarket.style.color = '#fff';
       tabBtnMarket.style.border = 'none';
       tabMarket.style.display = 'block';
-      if (!isMinimized && !isSquare) w.style.minWidth = '340px';
+      if (!isMinimized && !isSquare) w.style.minWidth = '290px';
       fetchAuctionData();
     } else if (activeTab === 'players') {
       tabBtnPlayers.style.background = '#9b59b6';
       tabBtnPlayers.style.color = '#fff';
       tabBtnPlayers.style.border = 'none';
       tabPlayers.style.display = 'block';
-      if (!isMinimized && !isSquare) w.style.minWidth = '340px';
+      if (!isMinimized && !isSquare) w.style.minWidth = '290px';
       if (typeof scanPlayers === 'function') scanPlayers();
     } else if (activeTab === 'broadcast') {
       tabBtnBroadcast.style.background = '#d946ef';
@@ -3426,8 +3426,8 @@
       tabBtnBroadcast.style.border = 'none';
       tabBroadcast.style.display = 'block';
       if (!isMinimized && !isSquare) {
-        w.style.minWidth = '340px';
-        w.style.maxWidth = '370px';
+        w.style.minWidth = '290px';
+        w.style.maxWidth = '350px';
       }
       if (typeof scanPlayers === 'function') scanPlayers(true);
       if (typeof updateBroadcastRecipientsCount === 'function') updateBroadcastRecipientsCount();
@@ -3436,14 +3436,14 @@
       tabBtnCity.style.color = '#000';
       tabBtnCity.style.border = 'none';
       tabCity.style.display = 'block';
-      if (!isMinimized && !isSquare) w.style.minWidth = '340px';
+      if (!isMinimized && !isSquare) w.style.minWidth = '290px';
       if (typeof initPocketCity === 'function') initPocketCity();
     } else if (activeTab === 'quest') {
       tabBtnQuest.style.background = '#e11d48';
       tabBtnQuest.style.color = '#fff';
       tabBtnQuest.style.border = 'none';
       tabQuest.style.display = 'block';
-      if (!isMinimized && !isSquare) w.style.minWidth = '340px';
+      if (!isMinimized && !isSquare) w.style.minWidth = '290px';
       if (typeof refreshQuestUI === 'function') refreshQuestUI();
     } else if (activeTab === 'priority') {
       if (tabBtnPriority) {
@@ -3453,8 +3453,8 @@
       }
       if (tabPriority) tabPriority.style.display = 'block';
       if (!isMinimized && !isSquare) {
-        w.style.minWidth = '340px';
-        w.style.maxWidth = '360px';
+        w.style.minWidth = '290px';
+        w.style.maxWidth = '350px';
       }
       renderPriorityListUI();
     } else if (activeTab === 'settings') {
@@ -3465,8 +3465,8 @@
       }
       if (tabSettings) tabSettings.style.display = 'block';
       if (!isMinimized && !isSquare) {
-        w.style.minWidth = '340px';
-        w.style.maxWidth = '360px';
+        w.style.minWidth = '290px';
+        w.style.maxWidth = '350px';
       }
       updateEcoOptimizerUI();
     } else {
@@ -8176,7 +8176,7 @@
         bSquareBtn.title = 'Свернуть в квадратик';
       }
 
-      w.style.minWidth = (activeTab === 'market' || activeTab === 'players' || activeTab === 'broadcast' || activeTab === 'city' || activeTab === 'quest' ? '340px' : '250px');
+      w.style.minWidth = (activeTab === 'market' || activeTab === 'players' || activeTab === 'broadcast' || activeTab === 'city' || activeTab === 'quest' ? '290px' : '250px');
       w.style.maxWidth = (activeTab === 'broadcast' ? '370px' : 'none');
       w.style.width = 'auto';
       w.style.height = 'auto';
