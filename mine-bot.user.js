@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.4
+// @version      9.1.5
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -134,8 +134,8 @@
       G.window.addEventListener('visibilitychange', suppressHiddenEvent, true);
     }
 
-    window.addEventListener('focus', () => { isWindowFocused = true; }, true);
-    window.addEventListener('blur', () => { isWindowFocused = false; }, true);
+    window.addEventListener('focus', () => { isWindowFocused = true; if (typeof updateBackgroundSleepState === 'function') updateBackgroundSleepState(); }, true);
+    window.addEventListener('blur', () => { isWindowFocused = false; if (typeof updateBackgroundSleepState === 'function') updateBackgroundSleepState(); }, true);
   } catch (e) {
   }
 
@@ -166,6 +166,22 @@
     isEcoOptimizer = localStorage.getItem('lg_bot_eco_optimizer') === '1';
   } catch (e) {}
 
+  // Функция глубокого сна графики в фоновых вкладках (Headless-режим)
+  function updateBackgroundSleepState() {
+    try {
+      if (!isEcoOptimizer) {
+        if (document.body && document.body.classList.contains('lg-bg-sleep')) {
+          document.body.classList.remove('lg-bg-sleep');
+        }
+        return;
+      }
+      const hidden = isPageActuallyHidden();
+      if (document.body) {
+        document.body.classList.toggle('lg-bg-sleep', hidden);
+      }
+    } catch (e) {}
+  }
+
   // Предварительное применение системных флагов оптимизации игры для фермы
   if (isEcoOptimizer) {
     try { localStorage.setItem('lgCityR', 'svg'); } catch (e) {}
@@ -182,7 +198,7 @@
       return origRAF(cb);
     }
     const id = ++bgRafIdCounter;
-    const delay = isEcoOptimizer ? 90 : 40; // В эко-режиме снижаем фоновый FPS до ~11 для сбережения RAM и CPU
+    const delay = isEcoOptimizer ? 150 : 40; // В эко-режиме снижаем фоновый FPS до ~6-7 для глубокого сбережения RAM и CPU
     const t = setTimeout(() => {
       bgRafCallbacks.delete(id);
       try {
@@ -228,11 +244,15 @@
         }
       });
 
-      // 2. В шахте удаляем из DOM чужих героев, если активно скрытие
+      // 2. В шахте скрываем других игроков (если включен эко-режим)
       if (isEcoOptimizer) {
+        const hb = document.querySelector('[data-mn-hide]');
+        if (hb && hb.getAttribute('aria-pressed') !== 'true') {
+          try { hb.click(); } catch (e) {}
+        }
         const heroesContainer = document.querySelector('.mn-heroes');
         if (heroesContainer) {
-          heroesContainer.querySelectorAll('.mn-h:not([data-k="me"])').forEach(h => h.remove());
+          heroesContainer.querySelectorAll('.mn-h:not(.me):not([data-k="me"])').forEach(h => h.remove());
         }
       }
 
@@ -245,6 +265,8 @@
           } catch (e) {}
         }
       });
+
+      updateBackgroundSleepState();
     } catch (e) {}
   }
 
@@ -378,7 +400,12 @@
   }
 
   function onBackgroundHeartbeat() {
-    if (!G.__mineBotRunning || isPaused) return;
+    if (!G.__mineBotRunning) return;
+
+    // 0. Обновляем статус сна графики (если вкладка в фоне)
+    updateBackgroundSleepState();
+
+    if (isPaused) return;
 
     // 1. Мгновенно проталкиваем отправку /api/mineDig, если персонаж завис на шаге к камню
     resolveBackgroundWalking();
@@ -2206,6 +2233,13 @@
         #b-prio-reset:hover { color: #fff !important; }
         a.lg-bot-author-link:hover { text-decoration: underline !important; }
         .b-ore-slot:hover { background: rgba(30,26,50,0.95) !important; filter: brightness(1.25); }
+        /* 🚀 Эко-режим: глубокий сон графики в фоновых вкладках (Anti-OOM) */
+        .lg-bg-sleep .mn-dfx { display: none !important; }
+        .lg-bg-sleep .mn-heroes .mn-h:not(.me):not([data-k="me"]) { display: none !important; }
+        .lg-bg-sleep .mn-view { will-change: auto !important; }
+        .lg-bg-sleep .mn-bg { filter: none !important; }
+        .lg-bg-sleep .cy-street { display: none !important; }
+        .lg-bg-sleep * { animation-play-state: paused !important; }
       `;
       (document.head || document.documentElement).appendChild(style);
     } catch (e) {}
@@ -2253,7 +2287,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">Шамиль Клиент v9.1.4</span>
+        <span style="flex-shrink:0;">Шамиль Клиент v9.1.5</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -2265,7 +2299,7 @@
     </div>
     <div id="b-body" style="margin-top:8px;">
       <!-- Вкладки: Шахта, Рынок, Игроки, Рассылка, Город, Поход, Руда и Настройки (Строго сетка 4x2 одинакового размера) -->
-      <div id="b-tabs" style="display:grid;grid-template-columns:repeat(4, minmax(0, 1fr));gap:4px;margin-bottom:8px;border-bottom:1px solid #3d3759;padding-bottom:6px;">
+      <div id="b-tabs" style="display:grid;grid-template-columns:repeat(4, 1fr);gap:4px;margin-bottom:8px;border-bottom:1px solid #3d3759;padding-bottom:6px;">
         <button id="b-tab-btn-mine" style="height:26px;box-sizing:border-box;padding:0 2px;background:#28a745;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;white-space:nowrap;overflow:hidden;" title="Авто-шахта">⛏️ Шахта</button>
         <button id="b-tab-btn-market" style="height:26px;box-sizing:border-box;padding:0 2px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;white-space:nowrap;overflow:hidden;" title="Аукцион и снайпер">
           <span style="white-space:nowrap;">🏛️ Рынок</span>
@@ -2822,7 +2856,7 @@
       <div id="b-tab-settings" style="display:none;width:100%;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #3d3759;">
           <b style="color:#38bdf8;font-size:11.5px;">⚙️ Системные настройки</b>
-          <span style="font-size:9.5px;color:#94a3b8;">v9.1.0</span>
+          <span style="font-size:9.5px;color:#94a3b8;">v9.1.5</span>
         </div>
 
         <!-- Карточка: Оптимизация для фермы и Firefox -->
@@ -2843,7 +2877,8 @@
             <div style="margin-bottom:3px;font-weight:bold;color:#38bdf8;">Что делает эта оптимизация:</div>
             <div>• 🛑 <b>Отключение WebGL/Pixi:</b> город в SVG режиме (нет утечек видеопамяти)</div>
             <div>• 👥 <b>Скрытие других игроков:</b> не строит тяжелые SVG аватары толпы</div>
-            <div>• 💤 <b>Спящий режим в фоне:</b> фоновые вкладки не тратят GPU/CPU</div>
+            <div>• 💤 <b>Глубокий Headless-сон графики:</b> в фоне GPU полностью засыпает, анимации стопятся</div>
+            <div>• ⚔️ <b>Автобой и авто-шахта активны:</b> вся логика и таймеры работают на 100%</div>
             <div>• 🧹 <b>Авто-очистка DOM:</b> чат и журнал удерживаются до 30 записей</div>
             <div>• 🔇 <b>Глушение звука:</b> выгружает фоновые аудио-потоки браузера</div>
           </div>
@@ -3402,17 +3437,8 @@
     [tabMine, tabMarket, tabPlayers, tabBroadcast, tabCity, tabQuest, tabPriority, tabSettings].forEach(t => {
       if (t) t.style.display = 'none';
     });
-
-    const isMine = activeTab === 'mine';
-    const isBroadcast = activeTab === 'broadcast';
-    const targetWidth = isMine ? '260px' : (isBroadcast ? '340px' : '310px');
-    const targetMinWidth = isMine ? '250px' : (isBroadcast ? '310px' : '300px');
-    const targetMaxWidth = isMine ? '275px' : (isBroadcast ? '350px' : '325px');
-
     if (!isMinimized && !isSquare) {
-      w.style.width = targetWidth;
-      w.style.minWidth = targetMinWidth;
-      w.style.maxWidth = targetMaxWidth;
+      w.style.maxWidth = (activeTab === 'broadcast' ? '370px' : 'none');
     }
 
     if (activeTab === 'market') {
@@ -3420,18 +3446,24 @@
       tabBtnMarket.style.color = '#fff';
       tabBtnMarket.style.border = 'none';
       tabMarket.style.display = 'block';
+      if (!isMinimized && !isSquare) w.style.minWidth = '310px';
       fetchAuctionData();
     } else if (activeTab === 'players') {
       tabBtnPlayers.style.background = '#9b59b6';
       tabBtnPlayers.style.color = '#fff';
       tabBtnPlayers.style.border = 'none';
       tabPlayers.style.display = 'block';
+      if (!isMinimized && !isSquare) w.style.minWidth = '310px';
       if (typeof scanPlayers === 'function') scanPlayers();
     } else if (activeTab === 'broadcast') {
       tabBtnBroadcast.style.background = '#d946ef';
       tabBtnBroadcast.style.color = '#fff';
       tabBtnBroadcast.style.border = 'none';
       tabBroadcast.style.display = 'block';
+      if (!isMinimized && !isSquare) {
+        w.style.minWidth = '310px';
+        w.style.maxWidth = '350px';
+      }
       if (typeof scanPlayers === 'function') scanPlayers(true);
       if (typeof updateBroadcastRecipientsCount === 'function') updateBroadcastRecipientsCount();
     } else if (activeTab === 'city') {
@@ -3439,12 +3471,14 @@
       tabBtnCity.style.color = '#000';
       tabBtnCity.style.border = 'none';
       tabCity.style.display = 'block';
+      if (!isMinimized && !isSquare) w.style.minWidth = '310px';
       if (typeof initPocketCity === 'function') initPocketCity();
     } else if (activeTab === 'quest') {
       tabBtnQuest.style.background = '#e11d48';
       tabBtnQuest.style.color = '#fff';
       tabBtnQuest.style.border = 'none';
       tabQuest.style.display = 'block';
+      if (!isMinimized && !isSquare) w.style.minWidth = '310px';
       if (typeof refreshQuestUI === 'function') refreshQuestUI();
     } else if (activeTab === 'priority') {
       if (tabBtnPriority) {
@@ -3453,6 +3487,10 @@
         tabBtnPriority.style.border = 'none';
       }
       if (tabPriority) tabPriority.style.display = 'block';
+      if (!isMinimized && !isSquare) {
+        w.style.minWidth = '310px';
+        w.style.maxWidth = '350px';
+      }
       renderPriorityListUI();
     } else if (activeTab === 'settings') {
       if (tabBtnSettings) {
@@ -3461,6 +3499,10 @@
         tabBtnSettings.style.border = 'none';
       }
       if (tabSettings) tabSettings.style.display = 'block';
+      if (!isMinimized && !isSquare) {
+        w.style.minWidth = '310px';
+        w.style.maxWidth = '350px';
+      }
       updateEcoOptimizerUI();
     } else {
       activeTab = 'mine';
@@ -3468,6 +3510,7 @@
       tabBtnMine.style.color = '#fff';
       tabBtnMine.style.border = 'none';
       tabMine.style.display = 'block';
+      if (!isMinimized && !isSquare) w.style.minWidth = '250px';
     }
     localStorage.setItem('lg_bot_tab', activeTab);
   }
@@ -3493,6 +3536,13 @@
       if (isEcoOptimizer) {
         try { localStorage.setItem('lgCityR', 'svg'); } catch (e) {}
         try { localStorage.setItem('lgMineHide', '1'); } catch (e) {}
+        // Автоматически нажимаем кнопку скрытия толпы в шахте (если они видны)
+        try {
+          const hb = document.querySelector('[data-mn-hide]');
+          if (hb && hb.getAttribute('aria-pressed') !== 'true') {
+            hb.click();
+          }
+        } catch (e) {}
         if (bgAudioCtx) {
           try {
             bgAudioCtx.close().catch(() => {});
@@ -3502,6 +3552,7 @@
         purgeMemoryNow();
       } else {
         try { localStorage.removeItem('lgCityR'); } catch (e) {}
+        updateBackgroundSleepState();
       }
       updateEcoOptimizerUI();
     };
@@ -8168,15 +8219,9 @@
         bSquareBtn.title = 'Свернуть в квадратик';
       }
 
-      const isMine = activeTab === 'mine';
-      const isBroadcast = activeTab === 'broadcast';
-      const targetWidth = isMine ? '260px' : (isBroadcast ? '340px' : '310px');
-      const targetMinWidth = isMine ? '250px' : (isBroadcast ? '310px' : '300px');
-      const targetMaxWidth = isMine ? '275px' : (isBroadcast ? '350px' : '325px');
-
-      w.style.width = targetWidth;
-      w.style.minWidth = targetMinWidth;
-      w.style.maxWidth = targetMaxWidth;
+      w.style.minWidth = (activeTab === 'market' || activeTab === 'players' || activeTab === 'broadcast' || activeTab === 'city' || activeTab === 'quest' ? '310px' : '250px');
+      w.style.maxWidth = (activeTab === 'broadcast' ? '370px' : 'none');
+      w.style.width = 'auto';
       w.style.height = 'auto';
       w.style.minHeight = 'auto';
       w.style.padding = '10px 14px';
@@ -8186,7 +8231,6 @@
       w.style.boxShadow = '0 4px 20px rgba(0,0,0,0.6)';
 
       if (bMiniSummary) bMiniSummary.style.display = 'none';
-      if (typeof applyActiveTab === 'function') applyActiveTab();
     }
 
     updateMiniDealUI();
