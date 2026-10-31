@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
+// @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      8.9.27
+// @version      8.9.31
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -2200,7 +2200,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">⛏️ Майнер v8.9.27</span>
+        <span style="flex-shrink:0;">Шамиль Клиент v8.9.31</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -2599,6 +2599,17 @@
             <span>Автоматизация & Защита</span>
           </div>
           <div style="display:flex;flex-direction:column;gap:5px;">
+            <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:10.5px;color:#e2e8f0;background:rgba(244,63,94,0.12);padding:4px 6px;border-radius:5px;border:1px solid rgba(244,63,94,0.3);">
+              <span style="font-weight:bold;color:#fca5a5;">🤝 Автопоход (авто-вход & сбор)</span>
+              <input type="checkbox" id="b-quest-opt-autojoin" style="cursor:pointer;accent-color:#f43f5e;" />
+            </label>
+            <div style="font-size:9px;color:#fda4af;margin-top:-3px;margin-bottom:2px;padding-left:6px;">Сам записывается в поход («поход»/«портал»), ставит шахту на авто-паузу и возвращает после похода</div>
+
+            <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:10.5px;color:#e2e8f0;">
+              <span>🚪 Авто-голосование за двери в Данже</span>
+              <input type="checkbox" id="b-quest-opt-dgnvote" style="cursor:pointer;accent-color:#38bdf8;" />
+            </label>
+            <div style="font-size:9px;color:#8899aa;margin-top:-3px;margin-bottom:2px;">Автоматически голосует за верную дверь по подсказке радара или большинству</div>
             <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:10.5px;color:#e2e8f0;">
               <span>⚡ Стрим без задержки (dl: 0)</span>
               <input type="checkbox" id="b-quest-opt-fastforward" style="cursor:pointer;accent-color:#f59e0b;" />
@@ -2616,6 +2627,12 @@
               <input type="checkbox" id="b-quest-opt-dgn" style="cursor:pointer;accent-color:#38bdf8;" />
             </label>
             <div style="font-size:9px;color:#8899aa;margin-top:-3px;margin-bottom:2px;">Расчёт плит, порядка рун, глифов и подсветка верных дверей</div>
+
+            <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:10.5px;color:#e2e8f0;">
+              <span>🔮 Декодер кода сокровищницы (при ≤2 неразгаданных)</span>
+              <input type="checkbox" id="b-quest-opt-solve-code" style="cursor:pointer;accent-color:#a855f7;" />
+            </label>
+            <div style="font-size:9px;color:#8899aa;margin-top:-3px;margin-bottom:2px;">Взлом шифра двери: ввод кода, когда осталось ≤2 неизвестных цифр</div>
 
             <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:10.5px;color:#e2e8f0;">
               <span>🪵 Авто-Переправа (безопасные кочки)</span>
@@ -5642,9 +5659,10 @@
     let attempts = 0;
     const interval = setInterval(() => {
       attempts++;
-      if (G.LGCity && typeof G.LGCity.panel === 'function') {
+      if (G.LGCity && (typeof G.LGCity.room === 'function' || typeof G.LGCity.panel === 'function')) {
         try {
-          G.LGCity.panel(roomId);
+          const fn = G.LGCity.room || G.LGCity.panel;
+          fn(roomId);
           clearInterval(interval);
         } catch (err) {
         }
@@ -5743,9 +5761,12 @@
   const qLogList = w.querySelector('#b-quest-log-list');
 
   // Тумблеры настроек Похода
+  const optAutoJoin = w.querySelector('#b-quest-opt-autojoin');
+  const optDgnVote = w.querySelector('#b-quest-opt-dgnvote');
   const optFastForward = w.querySelector('#b-quest-opt-fastforward');
   const optAutoParry = w.querySelector('#b-quest-opt-autoparry');
   const optDgnSolver = w.querySelector('#b-quest-opt-dgn');
+  const optSolveCode = w.querySelector('#b-quest-opt-solve-code');
   const optCombat = w.querySelector('#b-quest-opt-combat');
   const optQaMode = w.querySelector('#b-quest-opt-qa');
   const optCrossing = w.querySelector('#b-quest-opt-crossing');
@@ -5765,15 +5786,116 @@
 
   // Настройки и состояние Похода
   const questSettings = {
+    autoJoin: localStorage.getItem('lg_quest_autojoin') !== '0',       // Вкл по умолчанию (100% автопоход: авто-запись)
+    autoCombat: localStorage.getItem('lg_quest_combat') !== '0',       // Вкл по умолчанию (100% умный авто-бой)
+    dungeonAutoVote: localStorage.getItem('lg_quest_dgnvote') !== '0',  // Вкл по умолчанию (авто-выбор дверей)
     fastForward: localStorage.getItem('lg_quest_fastforward') !== '0', // Вкл по умолчанию (100% стрим без задержки)
     autoParry: localStorage.getItem('lg_quest_autoparry') !== '0',     // Вкл по умолчанию (100% авто-блок телеграфа)
     dungeonSolver: localStorage.getItem('lg_quest_solver') !== '0',    // Вкл по умолчанию (радар тайников)
-    autoCombat: localStorage.getItem('lg_quest_combat') === '1',       // Авто-бой (по умолчанию выкл для безопасности)
+    autoSolveCode: localStorage.getItem('lg_quest_autosolve_code') !== '0', // Вкл по умолчанию (декодер кода сокровищницы при <=2 неразгаданных)
     qaMode: localStorage.getItem('lg_quest_qamode') !== '0',           // Разблокировка QA-кнопок игры
     autoCrossing: localStorage.getItem('lg_quest_autocrossing') !== '0', // Вкл по умолчанию (авто-выбор безопасной кочки)
     autoBog: localStorage.getItem('lg_quest_autobog') !== '0',           // Вкл по умолчанию (авто-тянем и авто-руби в трясине)
     autoHwEvents: localStorage.getItem('lg_quest_autohwevents') !== '0'  // Вкл по умолчанию (авто-котёл и сладость/гадость)
   };
+
+  let questAutoPausedMiner = false;
+  let lastAutoJoinTime = 0;
+  let lastAutoJoinKey = null;
+  let lastDgnVoteId = null;
+
+  function checkAutoJoinSquad(v) {
+    if (!questSettings.autoJoin || !v || !v.on) return;
+    const party = v.party || 'out';
+    if (party === 'in' || party === 'q' || party === 'ghost') return;
+
+    const isGather = !!v.gather;
+    const isHw = isGather && !!v.gather.hw;
+    const now = Date.now();
+
+    const gatherKey = `${v.id || 'q'}:${isGather ? (v.gather.until || 1) : 0}:${isHw ? 'hw' : 'reg'}`;
+    if (lastAutoJoinKey === gatherKey && now - lastAutoJoinTime < 7000) return;
+
+    if (isGather) {
+      lastAutoJoinKey = gatherKey;
+      lastAutoJoinTime = now;
+
+      sendQuestAct({ k: 'join' }).then(res => {
+        if (res && res.ok !== false) {
+          addQuestLog('speed', isHw ? '🎃 Автопоход: шаг в портал Изнанки!' : '🤝 Автопоход: отправлена запись в отряд!');
+        }
+        if (isHw) {
+          sendQuestSay('портал');
+        } else {
+          sendQuestSay('поход');
+        }
+        refreshQuestUI();
+      }).catch(() => {
+        if (isHw) sendQuestSay('портал'); else sendQuestSay('поход');
+      });
+    }
+  }
+
+  function checkQuestMinerCoordination(v) {
+    if (!questSettings.autoJoin) return;
+    const inQuest = !!(v && v.on && (v.party === 'in' || v.party === 'ghost'));
+
+    if (inQuest) {
+      if (!questAutoPausedMiner) {
+        questAutoPausedMiner = true;
+        st.textContent = '⚔️ В походе с отрядом (шахта на авто-паузе)';
+        st.style.color = '#f43f5e';
+        addQuestLog('info', '⏸️ Авто-пауза майнера на время похода');
+        showToast('⚔️ Герой в походе! Шахта временно поставлена на паузу.');
+      }
+    } else {
+      if (questAutoPausedMiner) {
+        questAutoPausedMiner = false;
+        st.textContent = '⛏️ Возврат в шахту после похода...';
+        st.style.color = '#38bdf8';
+        addQuestLog('info', '▶️ Поход окончен, возобновление авто-добычи');
+        showToast('🎉 Поход завершен! Возобновляем авто-копание в шахте.');
+        setTimeout(() => {
+          tryOpenMineOnScreen(currentMineId, true);
+        }, 1200);
+      }
+    }
+  }
+
+  function checkAutoDungeonVote(dgn, q) {
+    if (!questSettings.dungeonAutoVote || !dgn || !dgn.vote) return;
+    const V = dgn.vote;
+    if (V.done || V.my != null || !Array.isArray(V.opts) || V.opts.length === 0) return;
+
+    const party = q?.party || (lastQuestData && lastQuestData.party);
+    if (party !== 'in') return;
+
+    const voteId = String(V.id || `${dgn.room?.seed || 'rm'}:${V.opts.length}`);
+    if (lastDgnVoteId === voteId) return;
+    lastDgnVoteId = voteId;
+
+    let bestOpt = V.opts[0];
+    let maxVotes = -1;
+    for (const opt of V.opts) {
+      const votes = typeof opt[3] === 'number' ? opt[3] : 0;
+      if (votes > maxVotes) {
+        maxVotes = votes;
+        bestOpt = opt;
+      }
+    }
+
+    const chosenNum = bestOpt[0];
+    const chosenName = bestOpt[1] || `Дверь №${chosenNum}`;
+
+    setTimeout(() => {
+      sendQuestVote(V.id, chosenNum).then(res => {
+        if (res && res.ok !== false) {
+          addQuestLog('puzzle', `🚪 Данж: авто-выбор «${chosenName}» (вариант ${chosenNum})`);
+        }
+        refreshQuestUI();
+      });
+    }, 1200);
+  }
 
   let manualTargetLead = false; // Приоритет цели при ручных действиях (Вожак vs Рядовые)
   let lastQuestData = null;
@@ -5975,66 +6097,96 @@
     skel:       { icon: '☠️', name: 'Скелеты', kind: 'atk' },
   };
 
-  const CLASS_DEFAULT_SKILLS = {
-    archer: [
-      { key: 'grad', name: 'Град', icon: '🏹', kind: 'atk' },
-      { key: 'pricel', name: 'Прицел', icon: '🎯', kind: 'atk' },
-    ],
-    mage: [
-      { key: 'vspyshka', name: 'Вспышка', icon: '✨', kind: 'atk' },
-      { key: 'oznob', name: 'Озноб', icon: '❄️', kind: 'atk' },
-    ],
-    legionary: [
-      { key: 'natisk', name: 'Натиск', icon: '⚔️', kind: 'atk' },
-      { key: 'stoyka', name: 'Стойка', icon: '🛡️', kind: 'def' },
-    ],
-    priest: [
-      { key: 'dlan', name: 'Длань', icon: '🤲', kind: 'heal' },
-      { key: 'siyanie', name: 'Сияние', icon: '🌟', kind: 'heal' },
-      { key: 'obereg', name: 'Оберег', icon: '🔰', kind: 'heal' },
-      { key: 'svet', name: 'Свет', icon: '☀️', kind: 'atk' },
-    ],
-    rogue: [
-      { key: 'yad', name: 'Яд', icon: '🧪', kind: 'atk' },
-      { key: 'vspinu', name: 'В спину', icon: '🗡️', kind: 'atk' },
-      { key: 'obchistit', name: 'Обчистить', icon: '💰', kind: 'atk' },
-    ],
-    necromancer: [
-      { key: 'proklyat', name: 'Проклясть', icon: '💀', kind: 'atk' },
-      { key: 'vytyanut', name: 'Вытянуть', icon: '🩸', kind: 'atk' },
-      { key: 'podnyat', name: 'Поднять', icon: '🦴', kind: 'atk' },
-      { key: 'skel', name: 'Скелеты', icon: '☠️', kind: 'atk' },
-    ],
-    paladin: [
-      { key: 'natisk', name: 'Натиск', icon: '⚔️', kind: 'atk' },
-      { key: 'svet', name: 'Свет', icon: '☀️', kind: 'atk' },
-      { key: 'dlan_light', name: 'Свет длани', icon: '☀️', kind: 'atk' },
-      { key: 'aura', name: 'Аура', icon: '💛', kind: 'buff' },
-    ],
-    recruit: [
-      { key: 'natisk', name: 'Натиск', icon: '⚔️', kind: 'atk' },
-    ]
+  // Единственные гарантированные базовые врождённые навыки 1-го уровня (без прокачки веток)
+  const CLASS_INNATE_SKILLS = {
+    legionary:   ['natisk'],
+    archer:      ['pricel'],
+    mage:        ['vspyshka'],
+    priest:      ['dlan'],
+    rogue:       ['yad'],
+    necromancer: ['proklyat'],
+    paladin:     ['natisk'],
+    recruit:     ['natisk']
   };
 
   function getSkillInfo(w, fallbackKind) {
-    if (window.QBattleCrowd?.SK) {
-      const S = window.QBattleCrowd.SK;
-      for (const k of Object.keys(S)) {
-        if (k.toLowerCase() === String(w).toLowerCase() || S[k].name?.toLowerCase() === String(w).toLowerCase()) {
-          return { icon: S[k].icon || '⚡', name: S[k].name || w, key: k, kind: fallbackKind || 'atk' };
+    const cleanKey = String(w || '').toLowerCase().trim();
+    let meta = SKILL_METADATA[cleanKey];
+    if (!meta) {
+      for (const [k, m] of Object.entries(SKILL_METADATA)) {
+        if (m.name.toLowerCase() === cleanKey) {
+          meta = m;
+          break;
         }
       }
     }
-    const cleanKey = String(w || '').toLowerCase().trim();
-    if (SKILL_METADATA[cleanKey]) {
-      return { ...SKILL_METADATA[cleanKey], key: cleanKey };
-    }
-    for (const [k, meta] of Object.entries(SKILL_METADATA)) {
-      if (meta.name.toLowerCase() === cleanKey) {
-        return { ...meta, key: k };
+    let icon = meta?.icon || (fallbackKind === 'heal' ? '✚' : '⚡');
+    let name = meta?.name || w;
+    let kind = fallbackKind || meta?.kind || 'atk';
+
+    if (window.QBattleCrowd?.SK) {
+      const S = window.QBattleCrowd.SK;
+      for (const k of Object.keys(S)) {
+        if (k.toLowerCase() === cleanKey || S[k].name?.toLowerCase() === cleanKey) {
+          icon = S[k].icon || icon;
+          name = S[k].name || name;
+          break;
+        }
       }
     }
-    return { icon: fallbackKind === 'heal' ? '✚' : '⚡', name: w, key: w, kind: fallbackKind || 'atk' };
+    return { icon, name, key: cleanKey, kind };
+  }
+
+  function getHeroKnownSkills(role) {
+    const innateKeys = CLASS_INNATE_SKILLS[role] || CLASS_INNATE_SKILLS.recruit;
+
+    // 1. Проверяем кеш подтвержденных сервером навыков из реального боя (v.b.sk)
+    try {
+      const cached = localStorage.getItem('lg_unlocked_sk_' + role);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(k => getSkillInfo(k));
+        }
+      }
+    } catch (e) {}
+
+    // 2. Проверяем прокачанные узлы дерева навыков из профиля героя (/api/me -> hero.sk.t)
+    try {
+      const hero = G.ME?.hero || G.__lgHero;
+      const sk = hero?.sk;
+      if (sk && sk.t && sk.t[role]) {
+        const list = [...innateKeys];
+        const knownSet = new Set(list);
+        const t = sk.t[role];
+        if (role === 'legionary' && (t.stoyka > 0 || t.a_stoyka > 0) && !knownSet.has('stoyka')) list.push('stoyka');
+        if (role === 'archer' && (t.grad > 0 || t.a_grad > 0) && !knownSet.has('grad')) list.push('grad');
+        if (role === 'mage' && (t.oznob > 0 || t.a_oznob > 0) && !knownSet.has('oznob')) list.push('oznob');
+        if (role === 'priest') {
+          if ((t.siyanie > 0 || t.a_siyanie > 0) && !knownSet.has('siyanie')) list.push('siyanie');
+          if ((t.obereg > 0 || t.a_obereg > 0) && !knownSet.has('obereg')) list.push('obereg');
+          if ((t.svet > 0 || t.a_svet > 0) && !knownSet.has('svet')) list.push('svet');
+        }
+        if (role === 'rogue') {
+          if ((t.vspinu > 0 || t.a_vspinu > 0) && !knownSet.has('vspinu')) list.push('vspinu');
+          if ((t.obchistit > 0 || t.a_obchistit > 0) && !knownSet.has('obchistit')) list.push('obchistit');
+        }
+        if (role === 'necromancer') {
+          if ((t.vytyanut > 0 || t.a_vytyanut > 0) && !knownSet.has('vytyanut')) list.push('vytyanut');
+          if ((t.podnyat > 0 || t.a_podnyat > 0) && !knownSet.has('podnyat')) list.push('podnyat');
+          if ((t.skel > 0 || t.a_skel > 0) && !knownSet.has('skel')) list.push('skel');
+        }
+        if (role === 'paladin') {
+          if ((t.svet > 0 || t.a_svet > 0) && !knownSet.has('svet')) list.push('svet');
+          if ((t.dlan_light > 0 || t.a_dlan_light > 0) && !knownSet.has('dlan_light')) list.push('dlan_light');
+          if ((t.aura > 0 || t.a_aura > 0) && !knownSet.has('aura')) list.push('aura');
+        }
+        return list.map(k => getSkillInfo(k));
+      }
+    } catch (e) {}
+
+    // 3. Единственный гарантированный базовый навык
+    return innateKeys.map(k => getSkillInfo(k));
   }
 
   function pluralRounds(n) {
@@ -6043,6 +6195,14 @@
     if (mod10 === 1) return `${n} ход`;
     if (mod10 >= 2 && mod10 <= 4) return `${n} хода`;
     return `${n} ходов`;
+  }
+
+  function pluralDigits(n) {
+    const mod10 = n % 10, mod100 = n % 100;
+    if (mod100 >= 11 && mod100 <= 19) return `${n} цифр`;
+    if (mod10 === 1) return `${n} цифра`;
+    if (mod10 >= 2 && mod10 <= 4) return `${n} цифры`;
+    return `${n} цифр`;
   }
 
   async function sendQuestSay(line) {
@@ -6410,20 +6570,29 @@
 
     if (st === 'dead' || st === 'fled' || st === 'out') return;
 
-    const isHealer = !!ROLE_HEALERS[role] || (G.LGGameData?.classes?.()?.some(c => c.id === role && c.kind === 'heal'));
+    // Кешируем реальные скиллы персонажа, подтверждённые сервером в b.sk
+    if (Array.isArray(b.sk) && b.sk.length > 0) {
+      try {
+        localStorage.setItem('lg_unlocked_sk_' + role, JSON.stringify(b.sk.map(x => x[0])));
+      } catch (e) {}
+    }
 
-    // 1. Приоритет лекаря: союзник < 35% HP
+    const isHealer = !!ROLE_HEALERS[role] || (G.LGGameData?.classes?.()?.some(c => c.id === role && c.kind === 'heal'));
+    const myHpPct = (b.mine?.me?.hpPct != null ? b.mine.me.hpPct : (typeof b.hp === 'number' ? b.hp / 100 : 1));
+
+    // 1. Приоритет лекаря: исцеление союзника или себя при низком HP (< 35%)
     const wounded = (b.low || [])
       .filter(x => x[0] !== myNick && typeof x[2] === 'number' && x[2] < 0.35)
       .sort((a, b) => a[2] - b[2]);
+    const needSelfHeal = myHpPct < 0.35;
 
-    if (isHealer && wounded.length > 0) {
-      const target = wounded[0];
-      const targetNick = target[0];
-      const targetName = target[1] || targetNick;
-      const targetHpPct = Math.round(target[2] * 100);
+    if (isHealer && (wounded.length > 0 || needSelfHeal)) {
+      const target = wounded.length > 0 ? wounded[0] : null;
+      const targetNick = target ? target[0] : myNick;
+      const targetName = target ? (target[1] || targetNick) : 'Себя';
+      const targetHpPct = Math.round((target ? target[2] : myHpPct) * 100);
 
-      const healSk = (b.sk || []).find(x => x[2] === 'heal' && !x[1]);
+      const healSk = (b.sk || []).find(x => (x[2] === 'heal' || getSkillInfo(x[0]).kind === 'heal') && !x[1]);
       let actionObj = null;
       let actionLabel = '';
 
@@ -6446,16 +6615,54 @@
     const leadSide = hasLeader ? leadFoes[0][0] : '';
     const chosenSide = leadSide || side || '';
 
-    // 3. Скиллы атаки без перезарядки
-    const atkSkills = (b.sk || []).filter(x => x[2] !== 'heal' && !x[1]);
-    if (atkSkills.length > 0) {
-      const sk = atkSkills[0];
-      const skInfo = getSkillInfo(sk[0], sk[2]);
+    // Разделяем скиллы по категориям строго по b.sk от сервера
+    const readySkills = (b.sk || []).filter(x => !x[1]); // cd === 0
+
+    // Защитные умения (Стойка легионера) — активируются при угрозе (< 75% HP или бой с боссом/вожаком)
+    const defSkills = readySkills.filter(x => x[2] === 'def' || x[0] === 'stoyka' || getSkillInfo(x[0]).kind === 'def');
+    if (defSkills.length > 0 && (myHpPct <= 0.75 || b.gb || hasLeader)) {
+      const sk = defSkills[0];
+      const skInfo = getSkillInfo(sk[0], 'def');
       const actionObj = {
         k: 'b',
         a: 'sk',
         w: sk[0],
-        ...(hasLeader ? { t: 'lead' } : {}),
+        ...(chosenSide ? { s: chosenSide } : {})
+      };
+      const actionLabel = `${skInfo.icon} Защитный скилл "${skInfo.name}" (${Math.round(myHpPct * 100)}% HP)`;
+      executeCombatAction(actionObj, actionLabel, turnKey);
+      return;
+    }
+
+    // Баффы (например, Аура паладина)
+    const buffSkills = readySkills.filter(x => x[2] === 'buff' || x[0] === 'aura' || getSkillInfo(x[0]).kind === 'buff');
+    if (buffSkills.length > 0) {
+      const sk = buffSkills[0];
+      const skInfo = getSkillInfo(sk[0], 'buff');
+      const actionObj = {
+        k: 'b',
+        a: 'sk',
+        w: sk[0],
+        ...(chosenSide ? { s: chosenSide } : {})
+      };
+      const actionLabel = `${skInfo.icon} Бафф "${skInfo.name}"`;
+      executeCombatAction(actionObj, actionLabel, turnKey);
+      return;
+    }
+
+    // 3. Атакующие скиллы без перезарядки
+    const atkSkills = readySkills.filter(x => {
+      const kind = x[2] || getSkillInfo(x[0]).kind;
+      return kind !== 'heal' && kind !== 'def' && kind !== 'buff' && x[0] !== 'stoyka' && x[0] !== 'aura';
+    });
+
+    if (atkSkills.length > 0) {
+      const sk = atkSkills[0];
+      const skInfo = getSkillInfo(sk[0], 'atk');
+      const actionObj = {
+        k: 'b',
+        a: 'sk',
+        w: sk[0],
         ...(chosenSide ? { s: chosenSide } : {})
       };
       const actionLabel = `${skInfo.icon} Скилл "${skInfo.name}"${hasLeader ? ' → Вожак' : ''}${chosenSide ? ` (${chosenSide})` : ''}`;
@@ -6549,10 +6756,184 @@
     return info;
   }
 
+  /* ---------- 31.10: Декодер шифра сокровищницы (Mastermind) ---------- */
+  function scoreGuess(code, guess, allowRepeat) {
+    const n = code.length;
+    const res = Array(n).fill('r');
+    const codeUsed = Array(n).fill(false);
+    const guessUsed = Array(n).fill(false);
+
+    for (let i = 0; i < n; i++) {
+      if (guess[i] === code[i]) {
+        res[i] = 'g';
+        codeUsed[i] = true;
+        guessUsed[i] = true;
+      }
+    }
+
+    for (let i = 0; i < n; i++) {
+      if (guessUsed[i]) continue;
+      for (let j = 0; j < n; j++) {
+        if (!codeUsed[j] && guess[i] === code[j]) {
+          res[i] = 'y';
+          codeUsed[j] = true;
+          break;
+        }
+      }
+    }
+    return res.join('');
+  }
+
+  function solveRuneCode(len, maxDigit, bestList, allowRepeat) {
+    const n = len || 4;
+    const max = maxDigit || 9;
+    const digits = Array.from({ length: max }, (_, i) => String(i + 1));
+
+    const greenMask = Array(n).fill(null);
+    const redDigits = new Set();
+    const yellowDigits = new Set();
+
+    const validAttempts = (bestList || []).filter(item => !item[3]); // игнорируем устаревшие попытки до смены рун
+
+    for (const [g, m] of validAttempts) {
+      const matchStr = Array.isArray(m) ? m.join('') : String(m);
+      for (let i = 0; i < n && i < g.length; i++) {
+        const char = g[i];
+        const match = matchStr[i] || 'r';
+        if (match === 'g') {
+          greenMask[i] = char;
+        } else if (match === 'y') {
+          yellowDigits.add(char);
+        } else if (match === 'r') {
+          let appearedElsewhereAsGy = false;
+          for (let j = 0; j < n; j++) {
+            if (j !== i && g[j] === char && (matchStr[j] === 'g' || matchStr[j] === 'y')) {
+              appearedElsewhereAsGy = true;
+            }
+          }
+          if (!appearedElsewhereAsGy && !yellowDigits.has(char)) {
+            if (!allowRepeat) redDigits.add(char);
+          }
+        }
+      }
+    }
+
+    const greenCount = greenMask.filter(x => x !== null).length;
+    const unrevealedCount = n - greenCount;
+
+    if (validAttempts.length === 0) {
+      return {
+        len: n,
+        maxDigit: max,
+        greenMask,
+        greenCount: 0,
+        unrevealedCount: n,
+        candidates: [],
+        bestGuess: null,
+        readyToSend: false
+      };
+    }
+
+    const candidates = [];
+    function generate(pos, currentArr, usedSet) {
+      if (pos === n) {
+        candidates.push(currentArr.join(''));
+        return;
+      }
+      if (greenMask[pos] !== null) {
+        currentArr.push(greenMask[pos]);
+        generate(pos + 1, currentArr, usedSet);
+        currentArr.pop();
+        return;
+      }
+      for (const d of digits) {
+        if (!allowRepeat && usedSet.has(d)) continue;
+        if (redDigits.has(d)) continue;
+        currentArr.push(d);
+        if (!allowRepeat) usedSet.add(d);
+        generate(pos + 1, currentArr, usedSet);
+        if (!allowRepeat) usedSet.delete(d);
+        currentArr.pop();
+      }
+    }
+
+    generate(0, [], new Set(greenMask.filter(x => x !== null)));
+
+    const filtered = candidates.filter(cand => {
+      for (const [g, m] of validAttempts) {
+        const expectedMatch = Array.isArray(m) ? m.join('') : String(m);
+        const actualMatch = scoreGuess(cand, g, allowRepeat);
+        if (actualMatch !== expectedMatch) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    return {
+      len: n,
+      maxDigit: max,
+      greenMask,
+      greenCount,
+      unrevealedCount,
+      candidates: filtered,
+      bestGuess: filtered[0] || null,
+      readyToSend: (unrevealedCount <= 2 || filtered.length <= 4) && filtered.length > 0
+    };
+  }
+
+  let lastAutoCodeSentAt = 0;
+  let lastAutoCodeSent = null;
+
+  function checkAutoSolveCode(T, v) {
+    if (!questSettings.autoSolveCode || !T || T.type !== 'code') return;
+    const vObj = v || getQuestView();
+    if (!vObj || vObj.party !== 'in') return;
+    if (T.res || (T.st !== 'act' && T.st !== 'wait')) return;
+    const R = T.rd2;
+    if (R && R.ph === 'vote') return; // не вводим во время голосования
+
+    const leftAttempts = R ? (+R.left || 0) : (T.acted ? 0 : 1);
+    if (leftAttempts <= 0) return;
+
+    const solver = solveRuneCode(T.len || 4, T.max || 9, T.best || [], !!R);
+    if (!solver.readyToSend || !solver.bestGuess) return;
+
+    // Условие: отправляем, когда осталось не более 2 неразгаданных цифр (или кандидатов <= 3)
+    if (solver.unrevealedCount > 2 && solver.candidates.length > 3) return;
+
+    const now = Date.now();
+    const myNick = (G.ME?.user?.login || G.__lgMineMe?.name || getMyNick() || '').toLowerCase();
+    const lastAttempt = (T.best && T.best.length > 0) ? T.best[0] : null;
+    const lastAttemptByMe = lastAttempt && String(lastAttempt[2] || '').toLowerCase() === myNick;
+
+    // Защита от спама и повторов (пауза 3.5 секунды)
+    if (now - lastAutoCodeSentAt < 3500) return;
+    if (lastAttemptByMe && lastAutoCodeSent === solver.bestGuess) return;
+    if (lastAutoCodeSent === solver.bestGuess && now - lastAutoCodeSentAt < 8000) return;
+
+    lastAutoCodeSentAt = now;
+    lastAutoCodeSent = solver.bestGuess;
+
+    sendQuestAct({ k: 'tr', a: 'code', s: solver.bestGuess }).then(res => {
+      if (res && res.ok !== false) {
+        addQuestLog('puzzle', `🔮 Декодер сокровищницы: отправлен код "${solver.bestGuess}" (неразгадано: ${solver.unrevealedCount} цифр, вариантов: ${solver.candidates.length})`);
+        showToast(`🔮 Декодер сокровищницы: отправлен код ${solver.bestGuess}`);
+      } else {
+        addQuestLog('warn', `⚠️ Код "${solver.bestGuess}" не принят: ${res?.error || 'ошибка'}`);
+      }
+      refreshQuestUI();
+    }).catch(err => {
+      addQuestLog('warn', `⚠️ Ошибка отправки кода: ${err?.message || err}`);
+    });
+  }
+
   function onQuestDataReceived(q) {
     if (!q) return;
     lastQuestData = q;
 
+    checkAutoJoinSquad(q);
+    checkQuestMinerCoordination(q);
     if (q.b) checkAutoParry(q.b, q);
     if (q.lair) checkAutoParryLair(q.lair, q);
     if (q.b) checkAutoCombat(q.b, q);
@@ -6563,7 +6944,9 @@
     const evData = q.ev || (G.LGQuest && G.LGQuest._view && G.LGQuest._view()?.ev);
     if (trData && trData.cx) checkAutoCrossing(trData, q);
     if (trData && trData.bog) checkAutoBog(trData, q);
+    if (trData && trData.type === 'code') checkAutoSolveCode(trData, q);
     if (evData) checkAutoHwEvents(evData, q);
+    if (q.dgn) checkAutoDungeonVote(q.dgn, q);
 
     if (q.dgn && q.dgn.room) {
       const seed = q.dgn.room.seed;
@@ -6704,12 +7087,13 @@
             qAlertTitle.textContent = `⛔ ВНИМАНИЕ: ${hush.toUpperCase()}`;
             qAlertMsg.textContent = 'Ничего не пишите в чат и не нажимайте удары, пока эффект не рассеется!';
           }
-        } else if (v.tr && v.tr.type === 'code' && v.tr.rd2) {
-          const R = v.tr.rd2;
-          const mx = +v.tr.per || 3;
+        } else if (v.tr && v.tr.type === 'code') {
+          const T = v.tr;
+          const R = T.rd2;
+          const mx = +T.per || 3;
           if (qAlert) {
             qAlert.style.display = 'block';
-            if (R.ph === 'vote') {
+            if (R && R.ph === 'vote') {
               const V = R.vote || { take: 0, next: 0 };
               qAlertTitle.textContent = `🚪 Дверь с рунами 2: Голосование!`;
               qAlertMsg.innerHTML = `
@@ -6730,17 +7114,94 @@
                 addQuestLog('warn', '🚪 Отдан голос: «Идти дальше (награда ×2)»');
               };
             } else {
-              const angLeftSec = R.ang && R.ang.at > Date.now() ? Math.max(0, Math.ceil((R.ang.at - Date.now()) / 1000)) : 0;
-              const angStr = angLeftSec > 0 ? ` | ⏱️ Смена рун через ${angLeftSec}с` : (R.ang ? ' | ⚠️ Злая дверь (меняет руны!)' : '');
-              qAlertTitle.textContent = `🔮 Дверь с рунами ${R.door === 2 ? '(Вторая дверь)' : '(Первая дверь)'}${angStr}`;
+              const angLeftSec = R && R.ang && R.ang.at > Date.now() ? Math.max(0, Math.ceil((R.ang.at - Date.now()) / 1000)) : 0;
+              const angStr = angLeftSec > 0 ? ` | ⏱️ Смена рун через ${angLeftSec}с` : (R && R.ang ? ' | ⚠️ Злая дверь (меняет руны!)' : '');
+              const doorTitle = R ? `🔮 Дверь с рунами ${R.door === 2 ? '(Вторая дверь)' : '(Первая дверь)'}` : `🗝️ Кодовый замок сокровищницы`;
+              qAlertTitle.textContent = `${doorTitle}${angStr}`;
+
+              const leftAttempts = R ? (R.left || 0) : (T.acted ? 0 : 1);
+              const solver = solveRuneCode(T.len || 4, T.max || 9, T.best || [], !!R);
+
+              // 1. Рисуем плашки разгаданных позиций: [ 1 ] [ 2 ] [ ? ] [ ? ]
+              const slotsHtml = solver.greenMask.map(m => {
+                if (m !== null) {
+                  return `<span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:26px;background:#065f46;border:1px solid #10b981;border-radius:4px;font-size:13px;font-weight:bold;color:#34d399;">${m}</span>`;
+                } else {
+                  return `<span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:26px;background:#1e1b33;border:1px dashed #64748b;border-radius:4px;font-size:13px;font-weight:bold;color:#94a3b8;">?</span>`;
+                }
+              }).join('');
+
+              // 2. Статус и кандидаты
+              let statusText = '';
+              if (solver.unrevealedCount === 0) {
+                statusText = `<span style="color:#10b981;font-weight:bold;">🎉 Код полностью разгадан: ${solver.bestGuess}!</span>`;
+              } else if (solver.unrevealedCount <= 2) {
+                statusText = `<span style="color:#fbbf24;font-weight:bold;">⚡ Осталось неразгадано: ${solver.unrevealedCount} ${pluralDigits(solver.unrevealedCount)}!</span>`;
+              } else {
+                statusText = `<span style="color:#94a3b8;">⏳ Неразгадано: ${solver.unrevealedCount} ${pluralDigits(solver.unrevealedCount)} (ждём подсказок отряда)</span>`;
+              }
+
+              let candText = '';
+              if (solver.candidates.length > 0 && solver.candidates.length <= 6) {
+                candText = `<div style="font-size:9.5px;color:#cbd5e1;margin-top:2px;">Варианты (${solver.candidates.length}): <b style="color:#60a5fa;">${solver.candidates.join(' · ')}</b></div>`;
+              } else if (solver.candidates.length > 6) {
+                candText = `<div style="font-size:9.5px;color:#94a3b8;margin-top:2px;">Кандидатов отсеяно: <b>${solver.candidates.length}</b></div>`;
+              }
+
+              // 3. Кнопка ручного ввода найденного лучшего кода
+              let btnActionHtml = '';
+              if (solver.bestGuess && leftAttempts > 0) {
+                btnActionHtml = `
+                  <button id="b-q-solve-code-btn" style="margin-top:5px;width:100%;padding:4px 8px;background:#7c3aed;color:#ffffff;border:1px solid #a78bfa;border-radius:4px;cursor:pointer;font-size:10.5px;font-weight:bold;display:flex;align-items:center;justify-content:center;gap:5px;">
+                    <span>⚡ Ввести код:</span>
+                    <span style="letter-spacing:1px;font-family:monospace;font-size:12px;color:#fef08a;">${solver.bestGuess}</span>
+                  </button>
+                `;
+              }
+
+              // 4. История лучших попыток отряда с индикаторами
               let bestHtml = '';
-              if (Array.isArray(v.tr.best) && v.tr.best.length > 0) {
-                bestHtml = `<div style="margin-top:4px;padding:3px 6px;background:rgba(0,0,0,0.35);border-radius:4px;font-size:9.5px;">
+              if (Array.isArray(T.best) && T.best.length > 0) {
+                bestHtml = `<div style="margin-top:5px;padding:3px 6px;background:rgba(0,0,0,0.35);border-radius:4px;font-size:9.5px;">
                   <div style="color:#a78bfa;font-weight:bold;margin-bottom:2px;">Попытки отряда:</div>
-                  ${v.tr.best.slice(0, 3).map(([guess, match, author, old]) => `<div><b>${guess}</b>: ${match} (${author})${old ? ' <span style="opacity:0.6;">(до смены)</span>' : ''}</div>`).join('')}
+                  ${T.best.slice(0, 3).map(([guess, match, author, old]) => {
+                    const matchStr = Array.isArray(match) ? match.join('') : String(match);
+                    const formattedIcons = guess.split('').map((char, i) => {
+                      const icon = matchStr[i] === 'g' ? '🟢' : matchStr[i] === 'y' ? '🟡' : '🔴';
+                      return `${char}${icon}`;
+                    }).join(' ');
+                    return `<div><b>${formattedIcons}</b> (${author})${old ? ' <span style="opacity:0.6;">(до смены)</span>' : ''}</div>`;
+                  }).join('')}
                 </div>`;
               }
-              qAlertMsg.innerHTML = `<div>Осталось попыток: <b>${R.left || 0}</b> из ${mx}. Код: <b>${v.tr.len || 4}</b> цифр (1–${v.tr.max || 9}). Руны могут повторяться!</div>${bestHtml}`;
+
+              qAlertMsg.innerHTML = `
+                <div style="font-size:10px;margin-bottom:4px;">
+                  Попыток: <b>${leftAttempts}</b>${R ? ` из ${mx}` : ''} · Длина: <b>${T.len || 4}</b> цифр (1–${T.max || 9})${R ? ' · Руны могут повторяться' : ''}
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;margin:4px 0;">
+                  <div style="display:flex;gap:4px;">${slotsHtml}</div>
+                  <div style="font-size:10px;">${statusText}</div>
+                </div>
+                ${candText}
+                ${btnActionHtml}
+                ${bestHtml}
+              `;
+
+              const btnSolve = qAlertMsg.querySelector('#b-q-solve-code-btn');
+              if (btnSolve) {
+                btnSolve.onclick = () => {
+                  sendQuestAct({ k: 'tr', a: 'code', s: solver.bestGuess }).then(res => {
+                    if (res && res.ok !== false) {
+                      addQuestLog('puzzle', `🔮 Декодер: отправлен код "${solver.bestGuess}"`);
+                      showToast(`🔮 Отправлен код ${solver.bestGuess}`);
+                    } else {
+                      addQuestLog('warn', `⚠️ Код "${solver.bestGuess}" не принят: ${res?.error || 'ошибка'}`);
+                    }
+                    refreshQuestUI();
+                  });
+                };
+              }
             }
           }
         } else {
@@ -6880,7 +7341,13 @@
       const myNick = (G.ME?.user?.login || G.__lgMineMe?.name || getMyNick() || '').toLowerCase();
 
       if (v && v.b && Array.isArray(v.b.sk) && v.b.sk.length > 0) {
-        if (qSkillsCount) qSkillsCount.textContent = `${v.b.sk.length} доступно`;
+        // Кешируем реальные скиллы от сервера
+        try {
+          localStorage.setItem('lg_unlocked_sk_' + heroRole, JSON.stringify(v.b.sk.map(x => x[0])));
+        } catch (e) {}
+
+        const readyCount = v.b.sk.filter(x => !x[1]).length;
+        if (qSkillsCount) qSkillsCount.textContent = `${readyCount} доступно`;
         const turnDone = !!v.b.turn;
         const isMyTurn = v.b.st === 'party';
 
@@ -6888,16 +7355,17 @@
           const info = getSkillInfo(w, kind);
           const isReady = (cd === 0);
           const isHeal = (kind === 'heal' || info.kind === 'heal');
+          const isDef = (kind === 'def' || info.kind === 'def' || w === 'stoyka');
           const isTurnSkill = turnDone && (String(v.b.turn).toLowerCase() === String(w).toLowerCase() || String(v.b.turn).toLowerCase() === info.name.toLowerCase());
 
-          let bg = isTurnSkill ? '#059669' : isReady ? (isHeal ? '#065f46' : '#9f1239') : '#1e1b33';
-          let border = isTurnSkill ? '#10b981' : isReady ? (isHeal ? '#10b981' : '#f43f5e') : '#3d3759';
+          let bg = isTurnSkill ? '#059669' : isReady ? (isHeal ? '#065f46' : isDef ? '#1e3a8a' : '#9f1239') : '#1e1b33';
+          let border = isTurnSkill ? '#10b981' : isReady ? (isHeal ? '#10b981' : isDef ? '#3b82f6' : '#f43f5e') : '#3d3759';
           let textColor = isReady ? '#ffffff' : '#94a3b8';
           let badgeText = isTurnSkill ? 'Ход сделан ✓' : isReady ? 'Готово' : `${cd} р.`;
           let badgeBg = isTurnSkill ? 'rgba(16,185,129,0.3)' : isReady ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.08)';
 
           return `
-            <button type="button" class="b-qsk-btn" data-qsk="${w}" data-qkind="${kind || 'atk'}" data-qcd="${cd}" style="flex:1;min-width:105px;padding:5px 8px;background:${bg};color:${textColor};border:1px solid ${border};border-radius:5px;cursor:${isReady && isMyTurn && !turnDone ? 'pointer' : 'default'};font-size:10px;font-weight:bold;display:flex;justify-content:space-between;align-items:center;transition:all 0.15s ease;" title="${info.name} (${isReady ? 'Готово к использованию' : 'Перезарядка: ' + cd + ' ходов'})">
+            <button type="button" class="b-qsk-btn" data-qsk="${w}" data-qkind="${kind || info.kind || 'atk'}" data-qcd="${cd}" style="flex:1;min-width:105px;padding:5px 8px;background:${bg};color:${textColor};border:1px solid ${border};border-radius:5px;cursor:${isReady && isMyTurn && !turnDone ? 'pointer' : 'default'};font-size:10px;font-weight:bold;display:flex;justify-content:space-between;align-items:center;transition:all 0.15s ease;" title="${info.name} (${isReady ? 'Готово к использованию' : 'Перезарядка: ' + cd + ' ходов'})">
               <span style="display:flex;align-items:center;gap:4px;">
                 <span>${info.icon}</span>
                 <span>${info.name}</span>
@@ -6928,6 +7396,8 @@
             }
 
             const isHeal = (kind === 'heal' || info.kind === 'heal');
+            const isDef = (kind === 'def' || info.kind === 'def' || skKey === 'stoyka');
+            const isBuff = (kind === 'buff' || info.kind === 'buff' || skKey === 'aura');
             const wounded = (v.b.low || []).filter(x => x[0] !== myNick && x[2] < 0.9).sort((a,b) => a[2] - b[2]);
             const targetNick = isHeal && wounded.length ? wounded[0][0] : null;
             const targetName = isHeal && wounded.length ? (wounded[0][1] || targetNick) : '';
@@ -6936,12 +7406,13 @@
               k: 'b',
               a: 'sk',
               w: skKey,
-              ...(targetNick ? { t: targetNick } : (manualTargetLead && hasLeader ? { t: 'lead' } : {}))
+              ...(targetNick ? { t: targetNick } : (isDef || isBuff ? {} : (manualTargetLead && hasLeader ? { t: 'lead' } : {}))),
+              ...(manualSide ? { s: manualSide } : {})
             };
 
             sendQuestAct(actionObj).then(res => {
               if (res && res.ok !== false) {
-                addQuestLog('sword', `${info.icon} Скилл "${info.name}"${targetName ? ' → ' + targetName : (manualTargetLead && hasLeader ? ' → Вожак' : '')}`);
+                addQuestLog('sword', `${info.icon} Скилл "${info.name}"${targetName ? ' → ' + targetName : (manualTargetLead && hasLeader && !isDef && !isBuff ? ' → Вожак' : '')}`);
               } else {
                 addQuestLog('warn', `⚠️ Скилл "${info.name}" не принят: ${res?.error || 'ошибка'}`);
               }
@@ -6950,15 +7421,16 @@
           };
         });
       } else {
-        const defaultList = CLASS_DEFAULT_SKILLS[heroRole] || CLASS_DEFAULT_SKILLS.archer || [];
-        if (qSkillsCount) qSkillsCount.textContent = `${defaultList.length} доступно`;
-        qSkillsList.innerHTML = defaultList.map(s => `
-          <button type="button" class="b-qsk-btn" data-qsk="${s.key}" data-qkind="${s.kind}" style="flex:1;min-width:105px;padding:5px 8px;background:#262238;color:#ffd700;border:1px solid #4a3e72;border-radius:5px;cursor:pointer;font-size:10px;font-weight:bold;display:flex;justify-content:space-between;align-items:center;transition:all 0.15s ease;" title="${s.name} — боевой скилл класса (${classAtk.name})">
+        // Вне боя: отображаем только действительно изученные персонажем скиллы
+        const knownList = getHeroKnownSkills(heroRole);
+        if (qSkillsCount) qSkillsCount.textContent = `${knownList.length} изучено (вне боя)`;
+        qSkillsList.innerHTML = knownList.map(s => `
+          <button type="button" class="b-qsk-btn" data-qsk="${s.key}" data-qkind="${s.kind}" style="flex:1;min-width:105px;padding:5px 8px;background:#1e1b33;color:#94a3b8;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:10px;font-weight:bold;display:flex;justify-content:space-between;align-items:center;transition:all 0.15s ease;" title="${s.name} — боевой скилл класса (${classAtk.name}), применяется в бою">
             <span style="display:flex;align-items:center;gap:4px;">
               <span>${s.icon}</span>
               <span>${s.name}</span>
             </span>
-            <span style="background:rgba(255,215,0,0.15);color:#ffd700;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:normal;">Готово</span>
+            <span style="background:rgba(148,163,184,0.15);color:#94a3b8;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:normal;">Вне боя</span>
           </button>
         `).join('');
 
@@ -6967,7 +7439,7 @@
             const skKey = btn.dataset.qsk;
             const kind = btn.dataset.qkind;
             const info = getSkillInfo(skKey, kind);
-            showToast(`${info.icon} Умение «${info.name}» готово. Дождитесь начала боя!`);
+            showToast(`${info.icon} Боевой скилл «${info.name}». Дождитесь начала боя для использования!`, 'info');
           };
         });
       }
@@ -7013,6 +7485,25 @@
     }
 
     // Слушатели тумблеров
+    if (optAutoJoin) {
+      optAutoJoin.checked = questSettings.autoJoin;
+      optAutoJoin.onchange = () => {
+        questSettings.autoJoin = optAutoJoin.checked;
+        localStorage.setItem('lg_quest_autojoin', questSettings.autoJoin ? '1' : '0');
+        addQuestLog(questSettings.autoJoin ? 'speed' : 'info', `🤝 Автопоход ${questSettings.autoJoin ? 'включен' : 'выключен'}`);
+        refreshQuestUI();
+      };
+    }
+
+    if (optDgnVote) {
+      optDgnVote.checked = questSettings.dungeonAutoVote;
+      optDgnVote.onchange = () => {
+        questSettings.dungeonAutoVote = optDgnVote.checked;
+        localStorage.setItem('lg_quest_dgnvote', questSettings.dungeonAutoVote ? '1' : '0');
+        addQuestLog(questSettings.dungeonAutoVote ? 'puzzle' : 'info', `🚪 Авто-двери данжа ${questSettings.dungeonAutoVote ? 'включены' : 'выключены'}`);
+      };
+    }
+
     if (optFastForward) {
       optFastForward.checked = questSettings.fastForward;
       optFastForward.onchange = () => {
@@ -7042,6 +7533,16 @@
         questSettings.dungeonSolver = optDgnSolver.checked;
         localStorage.setItem('lg_quest_solver', questSettings.dungeonSolver ? '1' : '0');
         addQuestLog(questSettings.dungeonSolver ? 'puzzle' : 'info', `🧩 Радар данжа ${questSettings.dungeonSolver ? 'включен' : 'выключен'}`);
+        refreshQuestUI();
+      };
+    }
+
+    if (optSolveCode) {
+      optSolveCode.checked = questSettings.autoSolveCode;
+      optSolveCode.onchange = () => {
+        questSettings.autoSolveCode = optSolveCode.checked;
+        localStorage.setItem('lg_quest_autosolve_code', questSettings.autoSolveCode ? '1' : '0');
+        addQuestLog(questSettings.autoSolveCode ? 'puzzle' : 'info', `🔮 Декодер сокровищницы ${questSettings.autoSolveCode ? 'включен' : 'выключен'}`);
         refreshQuestUI();
       };
     }
@@ -7213,23 +7714,34 @@
     renderQuestLog();
     refreshQuestUI();
 
-    // Фоновый тикер похода: проверяет QA-режим, бой, телеграфы и таймеры каждую секунду
+    // Фоновый тикер похода: проверяет авто-вход, паузу майнера, бой, телеграфы и таймеры каждую секунду
     setInterval(() => {
       if (!G.__mineBotRunning) return;
       ensureQaMode();
       const v = getQuestView();
       if (v && v.on) {
+        checkAutoJoinSquad(v);
+        checkQuestMinerCoordination(v);
         if (v.b) {
           if (v.b.st === 'tele') checkAutoParry(v.b, v);
           if (v.b.st === 'party') checkAutoCombat(v.b, v);
         }
         if (v.lair && v.lair.tele) checkAutoParryLair(v.lair, v);
         checkHotPumpkin(v);
+        const trData = v.tr || (G.LGQuest && G.LGQuest._view && G.LGQuest._view()?.tr);
+        const evData = v.ev || (G.LGQuest && G.LGQuest._view && G.LGQuest._view()?.ev);
+        if (trData && trData.cx) checkAutoCrossing(trData, v);
+        if (trData && trData.bog) checkAutoBog(trData, v);
+        if (trData && trData.type === 'code') checkAutoSolveCode(trData, v);
+        if (evData) checkAutoHwEvents(evData, v);
+        if (v.dgn) checkAutoDungeonVote(v.dgn, v);
+      } else if (v) {
+        checkQuestMinerCoordination(v);
       }
       if (activeTab === 'quest') {
         refreshQuestUI();
       }
-      if (!isPaused && isDrillBuild && !isRidingLift) {
+      if (!isPaused && !questAutoPausedMiner && isDrillBuild && !isRidingLift) {
         processDrillAutoFund();
       }
     }, 1000);
@@ -9952,6 +10464,23 @@
   async function step() {
     if (!G.__mineBotRunning) return;
     closeNewsModal();
+
+    // 🔒 Защита: если персонаж находится в тюрьме канала
+    if (G.ME?.jail) {
+      st.textContent = `🔒 В тюрьме канала (${G.ME.jail.reason || 'штрафной изолятор'})`;
+      st.style.color = '#f59e0b';
+      timer = setTimeout(step, 10000);
+      return;
+    }
+
+    // ⚔️ Защита: если персонаж находится в походе с отрядом, майнер стоит на паузе
+    if (questAutoPausedMiner) {
+      st.textContent = '⚔️ В походе с отрядом (шахта на авто-паузе)';
+      st.style.color = '#f43f5e';
+      timer = setTimeout(step, 3000);
+      return;
+    }
+
     if (isRidingLift) return;
 
     if (!isPaused && autoLiftBestFloor) {
