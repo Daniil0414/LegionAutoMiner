@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.0.1
+// @version      9.1.1
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -161,6 +161,17 @@
   // S.then не вызывается, /api/mineDig не отправляется).
   // Полифил гарантирует выполнение очередей кадров в фоне через быстрый таймер!
   // =========================================================================
+  let isEcoOptimizer = false;
+  try {
+    isEcoOptimizer = localStorage.getItem('lg_bot_eco_optimizer') === '1';
+  } catch (e) {}
+
+  // Предварительное применение системных флагов оптимизации игры для фермы
+  if (isEcoOptimizer) {
+    try { localStorage.setItem('lgCityR', 'svg'); } catch (e) {}
+    try { localStorage.setItem('lgMineHide', '1'); } catch (e) {}
+  }
+
   const origRAF = (G.requestAnimationFrame || window.requestAnimationFrame)?.bind(G) || null;
   const origCAF = (G.cancelAnimationFrame || window.cancelAnimationFrame)?.bind(G) || null;
   const bgRafCallbacks = new Map();
@@ -171,12 +182,13 @@
       return origRAF(cb);
     }
     const id = ++bgRafIdCounter;
+    const delay = isEcoOptimizer ? 90 : 40; // В эко-режиме снижаем фоновый FPS до ~11 для сбережения RAM и CPU
     const t = setTimeout(() => {
       bgRafCallbacks.delete(id);
       try {
         cb(performance.now());
       } catch (e) {}
-    }, 40);
+    }, delay);
     bgRafCallbacks.set(id, t);
     return id;
   }
@@ -203,6 +215,47 @@
   } catch (e) {}
 
   // =========================================================================
+  // 🧹 ГЛУБОКАЯ ОЧИСТКА ПАМЯТИ (DOM TRIMMING, CANVAS PURGE & ANTI-OOM)
+  // =========================================================================
+  function purgeMemoryNow() {
+    try {
+      // 1. Очистка переполненных лент чата и журнала событий (оставляем не более 30 узлов)
+      const feeds = document.querySelectorAll('.cy-chat-msgs, .cy-chat-feed, [data-cy-feed], .mn-log, .cy-feed');
+      feeds.forEach(feed => {
+        while (feed.children && feed.children.length > 30) {
+          if (feed.firstElementChild) feed.firstElementChild.remove();
+          else break;
+        }
+      });
+
+      // 2. В шахте удаляем из DOM чужих героев, если активно скрытие
+      if (isEcoOptimizer) {
+        const heroesContainer = document.querySelector('.mn-heroes');
+        if (heroesContainer) {
+          heroesContainer.querySelectorAll('.mn-h:not([data-k="me"])').forEach(h => h.remove());
+        }
+      }
+
+      // 3. Сжатие буферов неиспользуемых canvas элементов
+      document.querySelectorAll('canvas').forEach(c => {
+        if (!c.isConnected || c.style.display === 'none' || c.hidden || (c.offsetWidth === 0 && c.offsetHeight === 0)) {
+          try {
+            c.width = 1;
+            c.height = 1;
+          } catch (e) {}
+        }
+      });
+    } catch (e) {}
+  }
+
+  // Периодическая фоновая очистка памяти при активном эко-режиме (раз в 20 секунд)
+  setInterval(() => {
+    if (isEcoOptimizer) {
+      purgeMemoryNow();
+    }
+  }, 20000);
+
+  // =========================================================================
   // 🎵 БЕСШУМНЫЙ WEB AUDIO KEEP-ALIVE (ОБХОД СНА ВКЛАДОК И MEMORY SAVER)
   // Активный AudioContext с нулевой громкостью (gain = 0) сигнализирует Chromium/Edge,
   // что вкладка воспроизводит аудио. Это полностью исключает:
@@ -213,6 +266,7 @@
   // =========================================================================
   let bgAudioCtx = null;
   function initBackgroundAudioKeepAlive() {
+    if (isEcoOptimizer) return; // В эко-режиме (особенно для Firefox) не создаем Web Audio контекстов
     if (bgAudioCtx) return;
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext || G.AudioContext || G.webkitAudioContext;
@@ -2199,7 +2253,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">Шамиль Клиент v9.0.1</span>
+        <span style="flex-shrink:0;">Шамиль Клиент v9.1.1</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -2210,29 +2264,32 @@
       </div>
     </div>
     <div id="b-body" style="margin-top:8px;">
-      <!-- Вкладки: Шахта, Рынок, Игроки, Рассылка, Город и Поход -->
-      <div id="b-tabs" style="display:flex;gap:2px;margin-bottom:8px;border-bottom:1px solid #3d3759;padding-bottom:6px;">
-        <button id="b-tab-btn-mine" style="flex:1;padding:5px 1px;background:#28a745;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Авто-шахта">⛏️ Шахта</button>
-        <button id="b-tab-btn-market" style="flex:1;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Аукцион и снайпер">
+      <!-- Вкладки: Шахта, Рынок, Игроки, Рассылка, Город, Поход, Руда и Настройки -->
+      <div id="b-tabs" style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:8px;border-bottom:1px solid #3d3759;padding-bottom:6px;">
+        <button id="b-tab-btn-mine" style="flex:1 1 calc(25% - 4px);min-width:55px;padding:5px 1px;background:#28a745;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Авто-шахта">⛏️ Шахта</button>
+        <button id="b-tab-btn-market" style="flex:1 1 calc(25% - 4px);min-width:55px;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Аукцион и снайпер">
           <span>🏛️ Рынок</span>
           <span id="b-auc-badge" style="display:none;background:#ff3366;color:#fff;border-radius:8px;padding:0 3px;font-size:8px;font-weight:bold;line-height:12px;">0</span>
         </button>
-        <button id="b-tab-btn-players" style="flex:1;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Разведка игроков">
+        <button id="b-tab-btn-players" style="flex:1 1 calc(25% - 4px);min-width:55px;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Разведка игроков">
           <span>👥 Игроки</span>
           <span id="b-players-badge" style="background:#3d3759;color:#66ccff;border-radius:8px;padding:0 3px;font-size:8px;font-weight:bold;line-height:12px;">0</span>
         </button>
-        <button id="b-tab-btn-broadcast" style="flex:1;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Массовая рассылка сообщений в ЛС игрокам">
+        <button id="b-tab-btn-broadcast" style="flex:1 1 calc(25% - 4px);min-width:55px;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Массовая рассылка сообщений в ЛС игрокам">
           <span>📢 Рассылка</span>
         </button>
-        <button id="b-tab-btn-city" style="flex:1;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Карманный город: лавка, когтекузня, тренер, склад из любой точки">
+        <button id="b-tab-btn-city" style="flex:1 1 calc(25% - 4px);min-width:55px;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Карманный город: лавка, когтекузня, тренер, склад из любой точки">
           <span>🏰 Город</span>
         </button>
-        <button id="b-tab-btn-quest" style="flex:1;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Поход / Данж: Авто-блок босса, радар тайников, авто-бой, стрим без задержки">
+        <button id="b-tab-btn-quest" style="flex:1 1 calc(25% - 4px);min-width:55px;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Поход / Данж: Авто-блок босса, радар тайников, авто-бой, стрим без задержки">
           <span>⚔️ Поход</span>
           <span id="b-quest-badge" style="display:none;background:#e11d48;color:#fff;border-radius:8px;padding:0 3px;font-size:8px;font-weight:bold;line-height:12px;">!</span>
         </button>
-        <button id="b-tab-btn-priority" style="flex:1;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Приоритеты добычи руды, самоцветов и сундуков (Drag & Drop перетаскивание)">
+        <button id="b-tab-btn-priority" style="flex:1 1 calc(25% - 4px);min-width:55px;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Приоритеты добычи руды, самоцветов и сундуков (Drag & Drop перетаскивание)">
           <span>🎯 Руда</span>
+        </button>
+        <button id="b-tab-btn-settings" style="flex:1 1 calc(25% - 4px);min-width:55px;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Системные настройки, режим фермы и защита от вылетов Firefox (Anti-OOM)">
+          <span>⚙️ Настр.</span>
         </button>
       </div>
 
@@ -2761,6 +2818,48 @@
         </div>
       </div>
 
+      <!-- Контейнер вкладки: Настройки -->
+      <div id="b-tab-settings" style="display:none;width:100%;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #3d3759;">
+          <b style="color:#38bdf8;font-size:11.5px;">⚙️ Системные настройки</b>
+          <span style="font-size:9.5px;color:#94a3b8;">v9.1.0</span>
+        </div>
+
+        <!-- Карточка: Оптимизация для фермы и Firefox -->
+        <div style="background:#201c33;padding:8px 9px;border-radius:6px;border:1px solid #3d3759;margin-bottom:8px;">
+          <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;margin-bottom:4px;">
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <span style="color:#38bdf8;font-size:11.5px;font-weight:bold;">🚀 Режим фермы (Firefox OOM Fix)</span>
+              <span style="color:#94a3b8;font-size:9.5px;">Снижает потребление RAM в 3-5 раз</span>
+            </div>
+            <input type="checkbox" id="b-opt-eco" ${isEcoOptimizer ? 'checked' : ''} style="accent-color:#38bdf8;width:16px;height:16px;cursor:pointer;">
+          </label>
+
+          <div id="b-eco-status" style="margin-top:6px;margin-bottom:8px;font-size:9.5px;padding:4px 7px;border-radius:4px;background:${isEcoOptimizer ? 'rgba(0,255,102,0.12)' : 'rgba(255,255,255,0.05)'};color:${isEcoOptimizer ? '#00ff66' : '#888'};border:1px solid ${isEcoOptimizer ? 'rgba(0,255,102,0.3)' : 'rgba(255,255,255,0.1)'};">
+            <span>${isEcoOptimizer ? '✅ Активно: WebGL отключен · Игроки скрыты · DOM очищается' : '⚪ Выключено (стандартный режим рендера)'}</span>
+          </div>
+
+          <div style="font-size:9.5px;color:#cbd5e1;line-height:1.45;background:rgba(56,189,248,0.05);border:1px solid rgba(56,189,248,0.15);border-radius:5px;padding:6px 8px;margin-bottom:8px;">
+            <div style="margin-bottom:3px;font-weight:bold;color:#38bdf8;">Что делает эта оптимизация:</div>
+            <div>• 🛑 <b>Отключение WebGL/Pixi:</b> город в SVG режиме (нет утечек видеопамяти)</div>
+            <div>• 👥 <b>Скрытие других игроков:</b> не строит тяжелые SVG аватары толпы</div>
+            <div>• 💤 <b>Спящий режим в фоне:</b> фоновые вкладки не тратят GPU/CPU</div>
+            <div>• 🧹 <b>Авто-очистка DOM:</b> чат и журнал удерживаются до 30 записей</div>
+            <div>• 🔇 <b>Глушение звука:</b> выгружает фоновые аудио-потоки браузера</div>
+          </div>
+
+          <button id="b-btn-purge-ram" style="width:100%;padding:5px 8px;background:#262238;color:#38bdf8;border:1px solid #0284c7;border-radius:5px;cursor:pointer;font-size:10.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:5px;transition:all 0.2s;" title="Немедленно обрезать разросшийся DOM чата и сбросить буферы Canvas">
+            <span>🧹 Очистить RAM сейчас</span>
+          </button>
+        </div>
+
+        <!-- Карточка: Совет по Firefox -->
+        <div style="background:#181528;padding:7px 9px;border-radius:6px;border:1px dashed #3d3759;font-size:9.5px;color:#94a3b8;line-height:1.4;">
+          <b style="color:#fbbf24;">💡 Совет для ферм в Firefox:</b><br>
+          В адресной строке введите <code style="color:#fff;background:rgba(255,255,255,0.1);padding:1px 3px;border-radius:3px;">about:config</code>, найдите параметр <code style="color:#fff;background:rgba(255,255,255,0.1);padding:1px 3px;border-radius:3px;">dom.ipc.processCount</code> и установите <b>16</b> или <b>32</b>. Это разделит вкладки по разным системным процессам.
+        </div>
+      </div>
+
       <!-- Контакты / Подвал -->
       <div id="b-footer" style="margin-top:8px;padding-top:6px;border-top:1px solid #3d3759;display:flex;justify-content:center;align-items:center;gap:5px;font-size:10px;color:#8899aa;user-select:text;">
         <span>Связь:</span>
@@ -3244,9 +3343,12 @@
   // Элементы вкладок
   const tabBtnMine = w.querySelector('#b-tab-btn-mine'), tabBtnMarket = w.querySelector('#b-tab-btn-market');
   const mineClaimBtn = w.querySelector('#b-mine-claim-btn');
-  const tabBtnPlayers = w.querySelector('#b-tab-btn-players'), tabBtnBroadcast = w.querySelector('#b-tab-btn-broadcast'), tabBtnCity = w.querySelector('#b-tab-btn-city'), tabBtnQuest = w.querySelector('#b-tab-btn-quest'), tabBtnPriority = w.querySelector('#b-tab-btn-priority');
+  const tabBtnPlayers = w.querySelector('#b-tab-btn-players'), tabBtnBroadcast = w.querySelector('#b-tab-btn-broadcast'), tabBtnCity = w.querySelector('#b-tab-btn-city'), tabBtnQuest = w.querySelector('#b-tab-btn-quest'), tabBtnPriority = w.querySelector('#b-tab-btn-priority'), tabBtnSettings = w.querySelector('#b-tab-btn-settings');
   const tabMine = w.querySelector('#b-tab-mine'), tabMarket = w.querySelector('#b-tab-market');
-  const tabPlayers = w.querySelector('#b-tab-players'), tabBroadcast = w.querySelector('#b-tab-broadcast'), tabCity = w.querySelector('#b-tab-city'), tabQuest = w.querySelector('#b-tab-quest'), tabPriority = w.querySelector('#b-tab-priority');
+  const tabPlayers = w.querySelector('#b-tab-players'), tabBroadcast = w.querySelector('#b-tab-broadcast'), tabCity = w.querySelector('#b-tab-city'), tabQuest = w.querySelector('#b-tab-quest'), tabPriority = w.querySelector('#b-tab-priority'), tabSettings = w.querySelector('#b-tab-settings');
+  const checkOptEco = w.querySelector('#b-opt-eco');
+  const btnPurgeRam = w.querySelector('#b-btn-purge-ram');
+  const ecoStatus = w.querySelector('#b-eco-status');
   const aucBadge = w.querySelector('#b-auc-badge'), aucList = w.querySelector('#b-auc-list');
   const questBadge = w.querySelector('#b-quest-badge');
   const aucRefresh = w.querySelector('#b-auc-refresh'), aucFilter = w.querySelector('#b-auc-filter');
@@ -3290,14 +3392,14 @@
   let activeTab = localStorage.getItem('lg_bot_tab') || 'mine';
 
   function applyActiveTab() {
-    [tabBtnMine, tabBtnMarket, tabBtnPlayers, tabBtnBroadcast, tabBtnCity, tabBtnQuest, tabBtnPriority].forEach(btn => {
+    [tabBtnMine, tabBtnMarket, tabBtnPlayers, tabBtnBroadcast, tabBtnCity, tabBtnQuest, tabBtnPriority, tabBtnSettings].forEach(btn => {
       if (btn) {
         btn.style.background = '#262238';
         btn.style.color = '#aaa';
         btn.style.border = '1px solid #3d3759';
       }
     });
-    [tabMine, tabMarket, tabPlayers, tabBroadcast, tabCity, tabQuest, tabPriority].forEach(t => {
+    [tabMine, tabMarket, tabPlayers, tabBroadcast, tabCity, tabQuest, tabPriority, tabSettings].forEach(t => {
       if (t) t.style.display = 'none';
     });
     if (!isMinimized && !isSquare) {
@@ -3355,6 +3457,18 @@
         w.style.maxWidth = '360px';
       }
       renderPriorityListUI();
+    } else if (activeTab === 'settings') {
+      if (tabBtnSettings) {
+        tabBtnSettings.style.background = '#0284c7';
+        tabBtnSettings.style.color = '#fff';
+        tabBtnSettings.style.border = 'none';
+      }
+      if (tabSettings) tabSettings.style.display = 'block';
+      if (!isMinimized && !isSquare) {
+        w.style.minWidth = '340px';
+        w.style.maxWidth = '360px';
+      }
+      updateEcoOptimizerUI();
     } else {
       activeTab = 'mine';
       tabBtnMine.style.background = '#28a745';
@@ -3366,12 +3480,63 @@
     localStorage.setItem('lg_bot_tab', activeTab);
   }
 
+  function updateEcoOptimizerUI() {
+    if (checkOptEco) checkOptEco.checked = isEcoOptimizer;
+    if (ecoStatus) {
+      ecoStatus.style.background = isEcoOptimizer ? 'rgba(0,255,102,0.12)' : 'rgba(255,255,255,0.05)';
+      ecoStatus.style.color = isEcoOptimizer ? '#00ff66' : '#888';
+      ecoStatus.style.border = '1px solid ' + (isEcoOptimizer ? 'rgba(0,255,102,0.3)' : 'rgba(255,255,255,0.1)');
+      ecoStatus.innerHTML = isEcoOptimizer
+        ? '<span>✅ Активно: WebGL отключен · Игроки скрыты · DOM очищается</span>'
+        : '<span>⚪ Выключено (стандартный режим рендера)</span>';
+    }
+  }
+
+  if (checkOptEco) {
+    checkOptEco.onchange = () => {
+      isEcoOptimizer = checkOptEco.checked;
+      try {
+        localStorage.setItem('lg_bot_eco_optimizer', isEcoOptimizer ? '1' : '0');
+      } catch (e) {}
+      if (isEcoOptimizer) {
+        try { localStorage.setItem('lgCityR', 'svg'); } catch (e) {}
+        try { localStorage.setItem('lgMineHide', '1'); } catch (e) {}
+        if (bgAudioCtx) {
+          try {
+            bgAudioCtx.close().catch(() => {});
+            bgAudioCtx = null;
+          } catch (e) {}
+        }
+        purgeMemoryNow();
+      } else {
+        try { localStorage.removeItem('lgCityR'); } catch (e) {}
+      }
+      updateEcoOptimizerUI();
+    };
+  }
+
+  if (btnPurgeRam) {
+    btnPurgeRam.onclick = () => {
+      purgeMemoryNow();
+      const origText = btnPurgeRam.innerHTML;
+      btnPurgeRam.innerHTML = '<span>✅ Память очищена!</span>';
+      btnPurgeRam.style.background = '#28a745';
+      setTimeout(() => {
+        btnPurgeRam.innerHTML = origText;
+        btnPurgeRam.style.background = '#262238';
+      }, 2000);
+    };
+  }
+
   tabBtnMine.onclick = () => { activeTab = 'mine'; applyActiveTab(); };
   tabBtnMarket.onclick = () => { activeTab = 'market'; applyActiveTab(); };
   tabBtnPlayers.onclick = () => { activeTab = 'players'; applyActiveTab(); };
   tabBtnBroadcast.onclick = () => { activeTab = 'broadcast'; applyActiveTab(); };
   tabBtnCity.onclick = () => { activeTab = 'city'; applyActiveTab(); };
   tabBtnQuest.onclick = () => { activeTab = 'quest'; applyActiveTab(); };
+  if (tabBtnSettings) {
+    tabBtnSettings.onclick = () => { activeTab = 'settings'; applyActiveTab(); };
+  }
 
   if (tabBtnPriority) {
     tabBtnPriority.onclick = () => {
@@ -5836,6 +6001,7 @@
   let lastAutoJoinTime = 0;
   let lastAutoJoinKey = null;
   let lastDgnVoteId = null;
+  let lastMapVoteId = null;
 
   function checkAutoJoinSquad(v) {
     if (!questSettings.autoJoin || !v || !v.on) return;
@@ -5846,27 +6012,25 @@
     const isHw = isGather && !!v.gather.hw;
     const now = Date.now();
 
-    const gatherKey = `${v.id || 'q'}:${isGather ? (v.gather.until || 1) : 0}:${isHw ? 'hw' : 'reg'}`;
-    if (lastAutoJoinKey === gatherKey && now - lastAutoJoinTime < 7000) return;
+    const joinKey = `${v.id || 'q'}:${isGather ? (v.gather.until || 1) : (v.t || v.rn || 'move')}:${isHw ? 'hw' : 'reg'}`;
+    if (lastAutoJoinKey === joinKey && now - lastAutoJoinTime < 7000) return;
 
-    if (isGather) {
-      lastAutoJoinKey = gatherKey;
-      lastAutoJoinTime = now;
+    lastAutoJoinKey = joinKey;
+    lastAutoJoinTime = now;
 
-      sendQuestAct({ k: 'join' }).then(res => {
-        if (res && res.ok !== false) {
-          addQuestLog('speed', isHw ? '🎃 Автопоход: шаг в портал Изнанки!' : '🤝 Автопоход: отправлена запись в отряд!');
-        }
-        if (isHw) {
-          sendQuestSay('портал');
-        } else {
-          sendQuestSay('поход');
-        }
-        refreshQuestUI();
-      }).catch(() => {
+    sendQuestAct({ k: 'join' }).then(res => {
+      if (res && res.ok !== false) {
+        addQuestLog('speed', isHw ? '🎃 Автопоход: шаг в портал Изнанки!' : isGather ? '🤝 Автопоход: отправлена запись в отряд!' : '🚶 Автопоход: запись в движущийся отряд (очередь)!');
+      }
+      if (isGather) {
         if (isHw) sendQuestSay('портал'); else sendQuestSay('поход');
-      });
-    }
+      }
+      refreshQuestUI();
+    }).catch(() => {
+      if (isGather) {
+        if (isHw) sendQuestSay('портал'); else sendQuestSay('поход');
+      }
+    });
   }
 
   function checkQuestMinerCoordination(v) {
@@ -5895,61 +6059,107 @@
     }
   }
 
-  function checkAutoDungeonVote(dgn, q) {
-    if (!questSettings.dungeonAutoVote || !dgn || !dgn.vote) return;
-    const V = dgn.vote;
-    if (V.done || V.my != null || !Array.isArray(V.opts) || V.opts.length === 0) return;
-
+  function checkAutoVotes(q) {
+    if (!questSettings.dungeonAutoVote || !q) return;
     const party = q?.party || (lastQuestData && lastQuestData.party);
     if (party !== 'in') return;
 
-    const voteId = String(V.id || `${dgn.room?.seed || 'rm'}:${V.opts.length}`);
-    if (lastDgnVoteId === voteId) return;
-    lastDgnVoteId = voteId;
+    // 1. Голосование за двери в Данже (q.dgn.vote)
+    if (q.dgn && q.dgn.vote) {
+      const V = q.dgn.vote;
+      if (!V.done && V.my == null && Array.isArray(V.opts) && V.opts.length > 0) {
+        const voteId = String(V.id || `${q.dgn.room?.seed || 'rm'}:${V.opts.length}`);
+        if (lastDgnVoteId !== voteId) {
+          lastDgnVoteId = voteId;
 
-    let bestOpt = V.opts[0];
-    let maxVotes = -1;
-    for (const opt of V.opts) {
-      // В dgn.vote: opt[4] — это количество голосов (в обычном опросе — opt[3])
-      const votes = typeof opt[4] === 'number' ? opt[4] : typeof opt[3] === 'number' ? opt[3] : 0;
-      if (votes > maxVotes) {
-        maxVotes = votes;
-        bestOpt = opt;
+          // Исключаем проходы назад (opt[5] === true) при первичном выборе
+          const forwardOpts = V.opts.filter(o => !o[5]);
+          const candidateOpts = forwardOpts.length > 0 ? forwardOpts : V.opts;
+
+          let bestOpt = candidateOpts[0];
+          let maxVotes = -1;
+          for (const opt of candidateOpts) {
+            const votes = typeof opt[4] === 'number' ? opt[4] : 0;
+            if (votes > maxVotes) {
+              maxVotes = votes;
+              bestOpt = opt;
+            }
+          }
+
+          // Поиск тайника: строго по o[1] === 'secret' или слову в названии (без searchAnswer стены!)
+          const secretOpt = candidateOpts.find(o => o[1] === 'secret' || (o[2] && String(o[2]).toLowerCase().includes('тайник')));
+          // Поиск спуска на следующий этаж
+          const descentOpt = candidateOpts.find(o => /down|shaft|pit|stairs/i.test(String(o[1] || '')) || /спуск|этаж/i.test(String(o[2] || '')));
+
+          let chosenOpt = bestOpt;
+          let reason = 'большинство отряда';
+
+          if (secretOpt && maxVotes <= 1) {
+            chosenOpt = secretOpt;
+            reason = 'тайник радара ⭐';
+          } else if (descentOpt && maxVotes <= 1) {
+            chosenOpt = descentOpt;
+            reason = 'спуск на новый этаж ⬇️';
+          } else if (maxVotes > 0) {
+            chosenOpt = bestOpt;
+            reason = `большинство (${maxVotes} голосов)`;
+          }
+
+          const chosenNum = chosenOpt[0];
+          const chosenName = chosenOpt[2] || chosenOpt[1] || `Дверь №${chosenNum}`;
+
+          setTimeout(() => {
+            sendQuestVote(V.id, chosenNum).then(res => {
+              if (res && res.ok !== false) {
+                addQuestLog('puzzle', `🚪 Данж: авто-выбор «${chosenName}» (${reason}, вариант ${chosenNum})`);
+              }
+              refreshQuestUI();
+            });
+          }, 1200);
+          return;
+        }
       }
     }
 
-    // Радар тайников для текущей комнаты
-    const secInfo = dgn.room ? parseDungeonSecrets(dgn.room) : null;
-    const secretOpt = V.opts.find(o => o[1] === 'secret' || (secInfo && secInfo.searchAnswer === o[0]) || (o[2] && String(o[2]).toLowerCase().includes('тайник')));
-    const descentOpt = V.opts.find(o => /down|shaft|pit|stairs/i.test(String(o[1] || '')) || /спуск|этаж/i.test(String(o[2] || '')));
+    // 2. Голосование на развилках карты квеста (q.vote)
+    if (q.vote && !q.vote.done && q.vote.my == null && Array.isArray(q.vote.opts) && q.vote.opts.length > 0) {
+      const V = q.vote;
+      const voteId = String(V.id || `v_${V.opts.length}`);
+      if (lastMapVoteId !== voteId) {
+        lastMapVoteId = voteId;
 
-    let chosenOpt = bestOpt;
-    let reason = 'большинство отряда';
+        // В q.vote: opt[3] — голоса, opt[4] — назад
+        const forwardOpts = V.opts.filter(o => !o[4]);
+        const candidateOpts = forwardOpts.length > 0 ? forwardOpts : V.opts;
 
-    if (secretOpt && maxVotes <= 1) {
-      // Приоритет тайника по подсказке радара, если отряд ещё не сплотился за другую дверь
-      chosenOpt = secretOpt;
-      reason = 'тайник радара ⭐';
-    } else if (descentOpt && maxVotes <= 1) {
-      // Приоритет спуска на новый этаж, если тайников нет
-      chosenOpt = descentOpt;
-      reason = 'спуск на новый этаж ⬇️';
-    } else if (maxVotes > 0) {
-      chosenOpt = bestOpt;
-      reason = `большинство (${maxVotes} голосов)`;
-    }
-
-    const chosenNum = chosenOpt[0];
-    const chosenName = chosenOpt[2] || chosenOpt[1] || `Дверь №${chosenNum}`;
-
-    setTimeout(() => {
-      sendQuestVote(V.id, chosenNum).then(res => {
-        if (res && res.ok !== false) {
-          addQuestLog('puzzle', `🚪 Данж: авто-выбор «${chosenName}» (${reason}, вариант ${chosenNum})`);
+        let bestOpt = candidateOpts[0];
+        let maxVotes = -1;
+        for (const opt of candidateOpts) {
+          const votes = typeof opt[3] === 'number' ? opt[3] : 0;
+          if (votes > maxVotes) {
+            maxVotes = votes;
+            bestOpt = opt;
+          }
         }
-        refreshQuestUI();
-      });
-    }, 1200);
+
+        const chosenNum = bestOpt[0];
+        const chosenName = bestOpt[1] || `Вариант №${chosenNum}`;
+        const reason = maxVotes > 0 ? `большинство (${maxVotes} голосов)` : 'первый верный путь';
+
+        setTimeout(() => {
+          sendQuestVote(V.id, chosenNum).then(res => {
+            if (res && res.ok !== false) {
+              addQuestLog('map', `🗺️ Развилка: авто-выбор «${chosenName}» (${reason}, вариант ${chosenNum})`);
+            }
+            refreshQuestUI();
+          });
+        }, 1200);
+      }
+    }
+  }
+
+  function checkAutoDungeonVote(dgn, q) {
+    checkAutoVotes(q || { dgn });
   }
 
   let manualTargetLead = false; // Приоритет цели при ручных действиях (Вожак vs Рядовые)
@@ -6309,11 +6519,19 @@
 
   function ensureQaMode() {
     if (!questSettings.qaMode) return;
-    const h = G.ME?.hero;
-    if (h) {
-      if (!h.qa) h.qa = true;
-      if (!h.qt) h.qt = true;
-    }
+    const heroes = [
+      G.ME?.hero,
+      G.__lgHero,
+      G.__lgQuestContext?.hero?.(),
+      G.__lgCityContext?.hero?.(),
+      window.X?.hero?.()
+    ];
+    heroes.forEach(h => {
+      if (h) {
+        if (!h.qa) h.qa = true;
+        if (!h.qt) h.qt = true;
+      }
+    });
   }
 
   // 🛡️ Защита от финта босса, тишины и ядовитого газа («Ничего не пиши!»)
@@ -6358,15 +6576,7 @@
       });
     }
 
-    // 3. Из дополнительных участников строя (mf)
-    if (v.b && Array.isArray(v.b.mf)) {
-      v.b.mf.forEach(p => {
-        const login = Array.isArray(p) ? p[0] : (p?.login || p);
-        if (login && typeof login === 'string') candidateSet.add(login);
-      });
-    }
-
-    // 4. Резервный пул из активных игроков сайта
+    // 3. Резервный пул из активных игроков сайта
     if (candidateSet.size <= 1 && Array.isArray(window.__lgActivePlayers)) {
       window.__lgActivePlayers.forEach(p => {
         if (p && p.login) candidateSet.add(p.login);
@@ -6460,12 +6670,12 @@
   }
 
   // 1. Авто-Переправа: выбор безопасной кочки (исключая утонувшие)
-  let lastCrossingStepSent = -1;
+  let lastCrossingStepSent = null;
   let lastCrossingActionTime = 0;
 
   function checkAutoCrossing(tr, q) {
     if (!questSettings.autoCrossing) return;
-    if (!tr || !tr.cx) return;
+    if (!tr || !tr.cx || tr.res) return;
     const C = tr.cx;
 
     const party = q?.party || (lastQuestData && lastQuestData.party);
@@ -6475,10 +6685,11 @@
     if (C.ph !== 'pick') return;
 
     const step = C.step;
-    if (lastCrossingStepSent === step && Date.now() - lastCrossingActionTime < 4500) return;
+    const bad = Array.isArray(C.bad) ? C.bad : [];
+    const stepKey = `${step}:${bad.length}`;
+    if (lastCrossingStepSent === stepKey && Date.now() - lastCrossingActionTime < 4500) return;
 
     const k = (C.rows && C.rows[Math.min(step, (C.n || 4) - 1)]) || 2;
-    const bad = Array.isArray(C.bad) ? C.bad : [];
 
     const options = [];
     for (let i = 1; i <= k; i++) options.push(i);
@@ -6496,7 +6707,7 @@
       return;
     }
 
-    lastCrossingStepSent = step;
+    lastCrossingStepSent = stepKey;
     lastCrossingActionTime = Date.now();
 
     const choiceStr = String(chosen);
@@ -6510,7 +6721,7 @@
 
   function checkAutoBog(tr, q) {
     if (!questSettings.autoBog) return;
-    if (!tr || !tr.bog) return;
+    if (!tr || !tr.bog || tr.res) return;
     const G = tr.bog;
 
     const party = q?.party || (lastQuestData && lastQuestData.party);
@@ -6537,6 +6748,47 @@
       addQuestLog('sword', `🫧 Трясина: вязнем (${G.sink || 0}%) → «тянем»!`);
       sendQuestSay('тянем');
     }
+  }
+
+  // 2.1. Реакция на проверочные слова ловушек (T.type === 'react' && T.word)
+  let lastReactTrapTime = 0;
+  function checkAutoReactTrap(tr, q) {
+    if (!questSettings.autoParry || !tr || tr.type !== 'react' || !tr.word || tr.acted || tr.res) return;
+    const party = q?.party || (lastQuestData && lastQuestData.party);
+    if (party !== 'in') return;
+    if (isQuestHush(q || getQuestView())) return;
+    const now = Date.now();
+    if (now - lastReactTrapTime < 3000) return;
+    lastReactTrapTime = now;
+    const word = String(tr.word).toLowerCase();
+    addQuestLog('shield', `⚠️ Ловушка-реакция: отправка проверочного слова «${word}»`);
+    sendQuestSay(word);
+  }
+
+  // 2.2. Обвал потолка (T.type === 'ceiling')
+  let lastCeilingTrapTime = 0;
+  function checkAutoCeilingTrap(tr, q) {
+    if (!questSettings.autoParry || !tr || tr.type !== 'ceiling' || tr.acted || tr.res) return;
+    const party = q?.party || (lastQuestData && lastQuestData.party);
+    if (party !== 'in') return;
+    const now = Date.now();
+    if (now - lastCeilingTrapTime < 3500) return;
+    lastCeilingTrapTime = now;
+    addQuestLog('shield', '🙌 Ловушка: обвал потолка → держим свод («держу»)!');
+    sendQuestAct({ k: 'tr', a: 'hold' }).catch(() => sendQuestSay('держу'));
+  }
+
+  // 2.3. Делёж добычи (v.loot)
+  let lastLootVoteTime = 0;
+  function checkAutoLoot(loot, q) {
+    if (!questSettings.autoJoin || !loot || loot.my) return;
+    const party = q?.party || (lastQuestData && lastQuestData.party);
+    if (party !== 'in') return;
+    const now = Date.now();
+    if (now - lastLootVoteTime < 4000) return;
+    lastLootVoteTime = now;
+    addQuestLog('speed', `🎁 Делёж добычи «${loot.name || 'вещь'}»: голос «случайно»`);
+    sendQuestSay('случайно');
   }
 
   // 3. Авто-Ивенты: Котёл ведьмы и Сладость/Гадость
@@ -6580,24 +6832,25 @@
         }
       }
 
-      // Сбор ингредиентов
+      // Сбор ингредиентов (HW_ING из официального quest.js)
       if (ev.st === 'ingr') {
-        const myIngr = ev.my ? String(ev.my).split(',') : [];
-        if (myIngr.length === 0 && now - lastHwActionTime > 4000) {
+        const HW_ING = { mushroom: 'мухомор', eye: 'глаз', wing: 'крыло', pumpkin: 'тыква', tooth: 'зуб', web: 'паутина', bone: 'кость', frog: 'лягушка', candle: 'свеча', herb: 'полынь', tail: 'хвост' };
+        const myParts = ev.my ? String(ev.my).split(',') : [];
+        const hasMyIngr = Object.keys(HW_ING).some(k => myParts.includes(k));
+        if (!hasMyIngr && now - lastHwActionTime > 4000) {
           lastHwEventId = eventKey;
           lastHwActionTime = now;
-          const ingList = ['мухомор', 'тыква', 'глаз', 'крыло', 'паутина', 'полынь', 'лягушка'];
-          let chosenIng = 'мухомор';
-          if (ev.ing && typeof ev.ing === 'object') {
-            for (const ing of ingList) {
-              if (ev.ing[ing]) {
-                chosenIng = ing;
-                break;
-              }
+          let chosenKey = 'mushroom';
+          const ingObj = ev.ing || {};
+          for (const k of Object.keys(HW_ING)) {
+            if (ingObj[k]) {
+              chosenKey = k;
+              break;
             }
           }
-          addQuestLog('speed', `🧙‍♀️ Котёл ведьмы: добавляем ингредиент → «${chosenIng}»`);
-          sendQuestSay(chosenIng);
+          const chosenIngName = HW_ING[chosenKey] || 'мухомор';
+          addQuestLog('speed', `🧙‍♀️ Котёл ведьмы: добавляем ингредиент → «${chosenIngName}»`);
+          sendQuestSay(chosenIngName);
           return;
         }
       }
@@ -6633,7 +6886,7 @@
     }
 
     const isHealer = !!ROLE_HEALERS[role] || (G.LGGameData?.classes?.()?.some(c => c.id === role && c.kind === 'heal'));
-    const myHpPct = (b.mine?.me?.hpPct != null ? b.mine.me.hpPct : (typeof b.hp === 'number' ? b.hp / 100 : 1));
+    const myHpPct = (b.mine?.me?.hpPct != null ? b.mine.me.hpPct : (typeof b.hp === 'number' ? (b.hp > 1 ? b.hp / 100 : b.hp) : 1));
 
     // 1. Приоритет лекаря: исцеление союзника или себя при низком HP (< 35%)
     const wounded = (b.low || [])
@@ -6643,8 +6896,8 @@
 
     if (isHealer && (wounded.length > 0 || needSelfHeal)) {
       const target = wounded.length > 0 ? wounded[0] : null;
-      const targetNick = target ? target[0] : myNick;
-      const targetName = target ? (target[1] || targetNick) : 'Себя';
+      const targetNick = target ? target[0] : (needSelfHeal ? myNick : null);
+      const targetName = target ? (target[1] || targetNick) : (needSelfHeal ? 'Себя' : 'Союзник');
       const targetHpPct = Math.round((target ? target[2] : myHpPct) * 100);
 
       const healSk = (b.sk || []).find(x => (x[2] === 'heal' || getSkillInfo(x[0]).kind === 'heal') && !x[1]);
@@ -6653,10 +6906,10 @@
 
       if (healSk) {
         const skInfo = getSkillInfo(healSk[0], 'heal');
-        actionObj = { k: 'b', a: 'sk', w: healSk[0], t: targetNick };
+        actionObj = { k: 'b', a: 'sk', w: healSk[0], ...(targetNick ? { t: targetNick } : {}) };
         actionLabel = `${skInfo.icon} Скилл "${skInfo.name}" → ${targetName} (${targetHpPct}% HP)`;
       } else {
-        actionObj = { k: 'b', a: 'base', t: targetNick };
+        actionObj = { k: 'b', a: 'base', ...(targetNick ? { t: targetNick } : {}) };
         actionLabel = `✚ Исцеление → ${targetName} (${targetHpPct}% HP)`;
       }
 
@@ -6705,7 +6958,7 @@
       return;
     }
 
-    // 3. Атакующие скиллы без перезарядки
+    // 3. Атакующие скиллы без перезарядки (сервер принимает только w и s, t:'lead' не поддерживается скиллами)
     const atkSkills = readySkills.filter(x => {
       const kind = x[2] || getSkillInfo(x[0]).kind;
       return kind !== 'heal' && kind !== 'def' && kind !== 'buff' && x[0] !== 'stoyka' && x[0] !== 'aura';
@@ -6725,16 +6978,16 @@
       return;
     }
 
-    // 4. Базовая атака с адаптацией под класс героя
+    // 4. Базовая атака с адаптацией под класс героя (для жреца - удар 'melee', цель 'lead' только для атакующих)
     const classAtk = getClassBaseAttack(role);
     const baseAction = role === 'priest' ? 'melee' : 'base';
     const actionObj = {
       k: 'b',
       a: baseAction,
-      ...(hasLeader ? { t: 'lead' } : {}),
+      ...(role !== 'priest' && hasLeader ? { t: 'lead' } : {}),
       ...(chosenSide ? { s: chosenSide } : {})
     };
-    const actionLabel = `${classAtk.icon} ${classAtk.name}${hasLeader ? ' → Вожак' : ''}${chosenSide ? ` (${chosenSide})` : ''}`;
+    const actionLabel = `${classAtk.icon} ${classAtk.name}${hasLeader && role !== 'priest' ? ' → Вожак' : ''}${chosenSide ? ` (${chosenSide})` : ''}`;
     executeCombatAction(actionObj, actionLabel, turnKey);
   }
 
@@ -6876,13 +7129,15 @@
     const greenCount = greenMask.filter(x => x !== null).length;
     const unrevealedCount = n - greenCount;
 
-    if (validAttempts.length === 0) {
+    // Защита от OOM: при более чем 2 неразгаданных цифрах (особенно с повторами, 9^8 = 43M)
+    // не запускаем полный перебор всех вариантов
+    if (validAttempts.length === 0 || unrevealedCount > 2) {
       return {
         len: n,
         maxDigit: max,
         greenMask,
-        greenCount: 0,
-        unrevealedCount: n,
+        greenCount,
+        unrevealedCount,
         candidates: [],
         bestGuess: null,
         readyToSend: false
@@ -7000,8 +7255,11 @@
     if (trData && trData.cx) checkAutoCrossing(trData, q);
     if (trData && trData.bog) checkAutoBog(trData, q);
     if (trData && trData.type === 'code') checkAutoSolveCode(trData, q);
+    if (trData && trData.type === 'react') checkAutoReactTrap(trData, q);
+    if (trData && trData.type === 'ceiling') checkAutoCeilingTrap(trData, q);
     if (evData) checkAutoHwEvents(evData, q);
-    if (q.dgn) checkAutoDungeonVote(q.dgn, q);
+    if (q.loot) checkAutoLoot(q.loot, q);
+    checkAutoVotes(q);
 
     if (q.dgn && q.dgn.room) {
       const seed = q.dgn.room.seed;
@@ -7042,9 +7300,9 @@
       if (qDgnCard) qDgnCard.style.display = 'none';
       if (qTurnStatus) qTurnStatus.textContent = 'Вне боя';
     } else {
-      const kind = v.kind || (v.b ? (v.b.gb ? 'bossgen' : 'battle') : v.dgn ? 'dungeon' : v.ev ? 'event' : v.tr ? 'trap' : 'travel');
-      const kindTitle = KIND_TITLES[kind] || KIND_TITLES[v.kind] || '⚔️ Поход';
-      qLoc.textContent = v.rn || v.name || kindTitle;
+      const kind = v.k || v.kind || (v.b ? (v.b.gb ? 'bossgen' : 'battle') : v.dgn ? 'dungeon' : v.ev ? 'event' : v.tr ? 'trap' : v.sh ? 'shop' : v.pz ? 'puzzle' : v.loot ? 'loot' : 'travel');
+      const kindTitle = KIND_TITLES[kind] || KIND_TITLES[v.k] || KIND_TITLES[v.kind] || '⚔️ Поход';
+      qLoc.textContent = v.t || v.rn || v.name || kindTitle;
       qLoc.style.color = '#f43f5e';
       qIcon.textContent = kind === 'dungeon' ? '🏰' : kind.includes('boss') ? '👑' : kind === 'battle' ? '⚔️' : '🚶';
 
@@ -7070,7 +7328,7 @@
         qPartySt.style.borderColor = '#3d3759';
       }
 
-      let until = v.until || (v.b && v.b.until) || (v.dgn && v.dgn.vote && v.dgn.vote.end) || (v.ev && v.ev.until) || (v.tr && v.tr.rd2 && v.tr.rd2.ang && v.tr.rd2.ang.at) || 0;
+      let until = v.until || (v.b && v.b.until) || (v.dgn && v.dgn.vote && v.dgn.vote.end) || (v.vote && v.vote.end) || (v.ev && v.ev.until) || (v.tr && v.tr.until) || (v.tr && v.tr.rd2 && v.tr.rd2.ang && v.tr.rd2.ang.at) || (v.loot && v.loot.until) || 0;
       if (until) {
         const leftSec = Math.max(0, Math.ceil((+until - Date.now()) / 1000));
         qTimer.textContent = `${leftSec} с`;
@@ -7268,18 +7526,25 @@
         if (qTurnStatus) qTurnStatus.textContent = 'Вне боя';
       }
 
-      // Радар Данжа
-      if (v.dgn && questSettings.dungeonSolver) {
+      // Радар Данжа и Выбор пути (Данж / Развилки карты)
+      const hasDgn = !!(v.dgn && questSettings.dungeonSolver);
+      const hasMapVote = !!(v.vote && !v.vote.done);
+
+      if (hasDgn || hasMapVote) {
         if (qDgnCard) qDgnCard.style.display = 'block';
         const dgn = v.dgn;
-        const room = dgn.room;
+        const room = dgn ? dgn.room : null;
         if (qDgnRoom) {
-          qDgnRoom.textContent = `Этаж ${(room && room.floor) || 1}${dgn.fl ? ' из ' + dgn.fl : ''} (${room?.type || 'комната'})`;
+          if (dgn) {
+            qDgnRoom.textContent = `Этаж ${(room && room.floor) || 1}${dgn.fl ? ' из ' + dgn.fl : ''} (${room?.type || 'комната'})`;
+          } else {
+            qDgnRoom.textContent = '🗺️ Развилка на карте';
+          }
         }
 
-        const secInfo = parseDungeonSecrets(room);
+        const secInfo = room ? parseDungeonSecrets(room) : null;
         if (qDgnSecret) {
-          if (secInfo && secInfo.hasSecret) {
+          if (dgn && secInfo && secInfo.hasSecret) {
             let html = `<div style="font-weight:bold;color:#fcd34d;margin-bottom:3px;">🔍 Найден секрет комнаты:</div>`;
             if (secInfo.searchAnswer) {
               html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:2px 0;">
@@ -7296,26 +7561,34 @@
               html += `<div style="padding:2px 0;color:#fb923c;">🔥 Нужно зажечь факелов: <b>${room.secret?.count || 3} шт.</b></div>`;
             }
             qDgnSecret.innerHTML = html;
-          } else {
+            qDgnSecret.style.display = 'block';
+          } else if (dgn) {
             qDgnSecret.innerHTML = '<div style="color:#94a3b8;font-size:10px;">В этой комнате нет тайников (обычный переход)</div>';
+            qDgnSecret.style.display = 'block';
+          } else {
+            qDgnSecret.style.display = 'none';
           }
         }
 
         if (qDgnVotes) {
-          if (dgn.vote && !dgn.vote.done && Array.isArray(dgn.vote.opts) && dgn.vote.opts.length > 0) {
-            const opts = dgn.vote.opts;
-            const myVote = dgn.vote.my;
+          const voteObj = (dgn && dgn.vote && !dgn.vote.done) ? dgn.vote : (v && v.vote && !v.vote.done ? v.vote : null);
+          const isDgnVote = !!(dgn && dgn.vote && !dgn.vote.done);
+
+          if (voteObj && Array.isArray(voteObj.opts) && voteObj.opts.length > 0) {
+            const opts = voteObj.opts;
+            const myVote = voteObj.my;
             qDgnVotes.innerHTML = opts.map(o => {
               const num = o[0];
-              const key = o[1];
-              const label = o[2];
-              const icon = o[3] || '🚪';
-              const votesCount = o[4] || 0;
-              const isSecret = key === 'secret' || (secInfo && secInfo.searchAnswer === num) || (label && label.toLowerCase().includes('тайник'));
+              const key = isDgnVote ? o[1] : '';
+              const label = isDgnVote ? o[2] : o[1];
+              const icon = isDgnVote ? (o[3] || '🚪') : '🗺️';
+              const votesCount = isDgnVote ? (o[4] || 0) : (o[3] || 0);
+              const isBack = isDgnVote ? !!o[5] : !!o[4];
+              const isSecret = isDgnVote && (key === 'secret' || (label && label.toLowerCase().includes('тайник')));
               const isVoted = myVote === num;
               return `
-                <button type="button" class="b-qvote-btn" data-vid="${dgn.vote.id}" data-opt="${num}" style="flex:1;min-width:120px;padding:4px 6px;background:${isVoted ? '#059669' : (isSecret ? '#854d0e' : '#262238')};color:#fff;border:1px solid ${isSecret ? '#eab308' : '#3d3759'};border-radius:4px;cursor:pointer;font-size:10px;display:flex;justify-content:space-between;align-items:center;">
-                  <span>${icon} ${num}. ${label}${isSecret ? ' ⭐' : ''}</span>
+                <button type="button" class="b-qvote-btn" data-vid="${voteObj.id}" data-opt="${num}" style="flex:1;min-width:120px;padding:4px 6px;background:${isVoted ? '#059669' : (isSecret ? '#854d0e' : '#262238')};color:#fff;border:1px solid ${isSecret ? '#eab308' : '#3d3759'};border-radius:4px;cursor:pointer;font-size:10px;display:flex;justify-content:space-between;align-items:center;">
+                  <span>${icon} ${num}. ${label}${isSecret ? ' ⭐' : ''}${isBack ? ' <small style="color:#94a3b8;">(назад)</small>' : ''}</span>
                   <span style="background:rgba(0,0,0,0.3);padding:0 4px;border-radius:3px;font-weight:bold;">${votesCount}</span>
                 </button>
               `;
@@ -7326,7 +7599,7 @@
                 const vid = btn.dataset.vid;
                 const opt = parseInt(btn.dataset.opt, 10);
                 sendQuestVote(vid, opt).then(() => {
-                  addQuestLog('map', `🗳️ Голос за проход ${opt}`);
+                  addQuestLog('map', `🗳️ Голос за вариант ${opt}`);
                   refreshQuestUI();
                 });
               };
@@ -7469,8 +7742,8 @@
               k: 'b',
               a: 'sk',
               w: skKey,
-              ...(targetNick ? { t: targetNick } : (isDef || isBuff ? {} : (manualTargetLead && hasLeader ? { t: 'lead' } : {}))),
-              ...(chosenSide ? { s: chosenSide } : {})
+              ...(isHeal ? (targetNick ? { t: targetNick } : {}) : {}),
+              ...(!isHeal && chosenSide ? { s: chosenSide } : {})
             };
 
             sendQuestAct(actionObj).then(res => {
@@ -7502,7 +7775,7 @@
             const skKey = btn.dataset.qsk;
             const kind = btn.dataset.qkind;
             const info = getSkillInfo(skKey, kind);
-            showToast(`${info.icon} Боевой скилл «${info.name}». Дождитесь начала боя для использования!`, 'info');
+            showToast(`${info.icon} Боевой скилл «${info.name}». Дождитесь начала боя для использования!`);
           };
         });
       }
@@ -7694,16 +7967,20 @@
         const leadSide = leadFoes.length > 0 ? leadFoes[0][0] : '';
         const chosenSide = manualTargetLead && leadSide ? leadSide : side;
 
-        const actObj = {
+        const actObj = isPriest ? {
           k: 'b',
           a: 'base',
-          ...(isPriest && wounded.length ? { t: wounded[0][0] } : (manualTargetLead && hasLeader ? { t: 'lead' } : {})),
+          ...(wounded.length ? { t: wounded[0][0] } : {})
+        } : {
+          k: 'b',
+          a: 'base',
+          ...(manualTargetLead && hasLeader ? { t: 'lead' } : {}),
           ...(chosenSide ? { s: chosenSide } : {})
         };
 
         sendQuestAct(actObj).then(res => {
           if (res && res.ok !== false) {
-            addQuestLog('sword', `${classAtk.icon} ${classAtk.name}${isPriest && wounded.length ? ' → ' + (wounded[0][1] || wounded[0][0]) : (manualTargetLead && hasLeader ? ' → Вожак' : '')}`);
+            addQuestLog('sword', `${classAtk.icon} ${classAtk.name}${isPriest && wounded.length ? ' → ' + (wounded[0][1] || wounded[0][0]) : (manualTargetLead && hasLeader && !isPriest ? ' → Вожак' : '')}`);
           }
           refreshQuestUI();
         });
@@ -7728,10 +8005,17 @@
             showToast('Ход в этом раунде уже сделан');
             return;
           }
-          const hasLeader = (v.b.foes || []).some(f => f[2] && f[3] > 0);
-          sendQuestAct({ k: 'b', a: 'melee', ...(manualTargetLead && hasLeader ? { t: 'lead' } : {}) }).then(res => {
+          const heroIdx = typeof v.b.me === 'number' ? v.b.me : -1;
+          const p = heroIdx >= 0 && v.b.form ? v.b.form[heroIdx] : null;
+          const mf = !p && Array.isArray(v.b.mf) ? v.b.mf : null;
+          const side = p ? (p[2] || 'R') : mf ? (mf[1] || 'R') : 'R';
+          const leadFoes = (v.b.foes || []).filter(f => f[2] && f[3] > 0);
+          const leadSide = leadFoes.length > 0 ? leadFoes[0][0] : '';
+          const chosenSide = leadSide || side;
+
+          sendQuestAct({ k: 'b', a: 'melee', ...(chosenSide ? { s: chosenSide } : {}) }).then(res => {
             if (res && res.ok !== false) {
-              addQuestLog('sword', `⚔️ Ближний бой жреца${manualTargetLead && hasLeader ? ' → Вожак' : ''}`);
+              addQuestLog('sword', `⚔️ Ближний бой жреца${chosenSide ? ` (${chosenSide})` : ''}`);
             }
             refreshQuestUI();
           });
@@ -7747,12 +8031,17 @@
       btnActDef.onclick = () => {
         const v = getQuestView();
         if (v && v.b && v.b.tele && v.b.tele.word) {
+          const hush = isQuestHush(v);
+          if (hush) {
+            showToast(`⚠️ ${hush}: говорить запрещено!`);
+            return;
+          }
           sendQuestSay(v.b.tele.word).then(() => {
             addQuestLog('shield', `🛡️ Отправлено слово блока: "${v.b.tele.word}"`);
             refreshQuestUI();
           });
         } else {
-          showToast('🛡️ Атаки босса сейчас нет (блок парированием срабатывает во время атаки босса)', 'info');
+          showToast('🛡️ Атаки босса сейчас нет (блок парированием срабатывает во время атаки босса)');
         }
       };
     }
@@ -7802,8 +8091,11 @@
         if (trData && trData.cx) checkAutoCrossing(trData, v);
         if (trData && trData.bog) checkAutoBog(trData, v);
         if (trData && trData.type === 'code') checkAutoSolveCode(trData, v);
+        if (trData && trData.type === 'react') checkAutoReactTrap(trData, v);
+        if (trData && trData.type === 'ceiling') checkAutoCeilingTrap(trData, v);
         if (evData) checkAutoHwEvents(evData, v);
-        if (v.dgn) checkAutoDungeonVote(v.dgn, v);
+        if (v.loot) checkAutoLoot(v.loot, v);
+        checkAutoVotes(v);
       } else if (v) {
         checkQuestMinerCoordination(v);
       }
