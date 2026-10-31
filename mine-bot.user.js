@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.3
+// @version      9.1.4
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -2253,7 +2253,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">Шамиль Клиент v9.1.3</span>
+        <span style="flex-shrink:0;">Шамиль Клиент v9.1.4</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -2265,7 +2265,7 @@
     </div>
     <div id="b-body" style="margin-top:8px;">
       <!-- Вкладки: Шахта, Рынок, Игроки, Рассылка, Город, Поход, Руда и Настройки (Строго сетка 4x2 одинакового размера) -->
-      <div id="b-tabs" style="display:grid;grid-template-columns:repeat(4, 1fr);gap:4px;margin-bottom:8px;border-bottom:1px solid #3d3759;padding-bottom:6px;">
+      <div id="b-tabs" style="display:grid;grid-template-columns:repeat(4, minmax(0, 1fr));gap:4px;margin-bottom:8px;border-bottom:1px solid #3d3759;padding-bottom:6px;">
         <button id="b-tab-btn-mine" style="height:26px;box-sizing:border-box;padding:0 2px;background:#28a745;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;white-space:nowrap;overflow:hidden;" title="Авто-шахта">⛏️ Шахта</button>
         <button id="b-tab-btn-market" style="height:26px;box-sizing:border-box;padding:0 2px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;white-space:nowrap;overflow:hidden;" title="Аукцион и снайпер">
           <span style="white-space:nowrap;">🏛️ Рынок</span>
@@ -3402,8 +3402,17 @@
     [tabMine, tabMarket, tabPlayers, tabBroadcast, tabCity, tabQuest, tabPriority, tabSettings].forEach(t => {
       if (t) t.style.display = 'none';
     });
+
+    const isMine = activeTab === 'mine';
+    const isBroadcast = activeTab === 'broadcast';
+    const targetWidth = isMine ? '260px' : (isBroadcast ? '340px' : '310px');
+    const targetMinWidth = isMine ? '250px' : (isBroadcast ? '310px' : '300px');
+    const targetMaxWidth = isMine ? '275px' : (isBroadcast ? '350px' : '325px');
+
     if (!isMinimized && !isSquare) {
-      w.style.maxWidth = (activeTab === 'broadcast' ? '370px' : 'none');
+      w.style.width = targetWidth;
+      w.style.minWidth = targetMinWidth;
+      w.style.maxWidth = targetMaxWidth;
     }
 
     if (activeTab === 'market') {
@@ -3411,24 +3420,18 @@
       tabBtnMarket.style.color = '#fff';
       tabBtnMarket.style.border = 'none';
       tabMarket.style.display = 'block';
-      if (!isMinimized && !isSquare) w.style.minWidth = '310px';
       fetchAuctionData();
     } else if (activeTab === 'players') {
       tabBtnPlayers.style.background = '#9b59b6';
       tabBtnPlayers.style.color = '#fff';
       tabBtnPlayers.style.border = 'none';
       tabPlayers.style.display = 'block';
-      if (!isMinimized && !isSquare) w.style.minWidth = '310px';
       if (typeof scanPlayers === 'function') scanPlayers();
     } else if (activeTab === 'broadcast') {
       tabBtnBroadcast.style.background = '#d946ef';
       tabBtnBroadcast.style.color = '#fff';
       tabBtnBroadcast.style.border = 'none';
       tabBroadcast.style.display = 'block';
-      if (!isMinimized && !isSquare) {
-        w.style.minWidth = '310px';
-        w.style.maxWidth = '350px';
-      }
       if (typeof scanPlayers === 'function') scanPlayers(true);
       if (typeof updateBroadcastRecipientsCount === 'function') updateBroadcastRecipientsCount();
     } else if (activeTab === 'city') {
@@ -3436,14 +3439,12 @@
       tabBtnCity.style.color = '#000';
       tabBtnCity.style.border = 'none';
       tabCity.style.display = 'block';
-      if (!isMinimized && !isSquare) w.style.minWidth = '310px';
       if (typeof initPocketCity === 'function') initPocketCity();
     } else if (activeTab === 'quest') {
       tabBtnQuest.style.background = '#e11d48';
       tabBtnQuest.style.color = '#fff';
       tabBtnQuest.style.border = 'none';
       tabQuest.style.display = 'block';
-      if (!isMinimized && !isSquare) w.style.minWidth = '310px';
       if (typeof refreshQuestUI === 'function') refreshQuestUI();
     } else if (activeTab === 'priority') {
       if (tabBtnPriority) {
@@ -3452,10 +3453,6 @@
         tabBtnPriority.style.border = 'none';
       }
       if (tabPriority) tabPriority.style.display = 'block';
-      if (!isMinimized && !isSquare) {
-        w.style.minWidth = '310px';
-        w.style.maxWidth = '350px';
-      }
       renderPriorityListUI();
     } else if (activeTab === 'settings') {
       if (tabBtnSettings) {
@@ -3464,10 +3461,6 @@
         tabBtnSettings.style.border = 'none';
       }
       if (tabSettings) tabSettings.style.display = 'block';
-      if (!isMinimized && !isSquare) {
-        w.style.minWidth = '310px';
-        w.style.maxWidth = '350px';
-      }
       updateEcoOptimizerUI();
     } else {
       activeTab = 'mine';
@@ -3475,7 +3468,6 @@
       tabBtnMine.style.color = '#fff';
       tabBtnMine.style.border = 'none';
       tabMine.style.display = 'block';
-      if (!isMinimized && !isSquare) w.style.minWidth = '250px';
     }
     localStorage.setItem('lg_bot_tab', activeTab);
   }
@@ -8176,9 +8168,15 @@
         bSquareBtn.title = 'Свернуть в квадратик';
       }
 
-      w.style.minWidth = (activeTab === 'market' || activeTab === 'players' || activeTab === 'broadcast' || activeTab === 'city' || activeTab === 'quest' ? '310px' : '250px');
-      w.style.maxWidth = (activeTab === 'broadcast' ? '370px' : 'none');
-      w.style.width = 'auto';
+      const isMine = activeTab === 'mine';
+      const isBroadcast = activeTab === 'broadcast';
+      const targetWidth = isMine ? '260px' : (isBroadcast ? '340px' : '310px');
+      const targetMinWidth = isMine ? '250px' : (isBroadcast ? '310px' : '300px');
+      const targetMaxWidth = isMine ? '275px' : (isBroadcast ? '350px' : '325px');
+
+      w.style.width = targetWidth;
+      w.style.minWidth = targetMinWidth;
+      w.style.maxWidth = targetMaxWidth;
       w.style.height = 'auto';
       w.style.minHeight = 'auto';
       w.style.padding = '10px 14px';
@@ -8188,6 +8186,7 @@
       w.style.boxShadow = '0 4px 20px rgba(0,0,0,0.6)';
 
       if (bMiniSummary) bMiniSummary.style.display = 'none';
+      if (typeof applyActiveTab === 'function') applyActiveTab();
     }
 
     updateMiniDealUI();
