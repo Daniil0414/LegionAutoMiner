@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.5
+// @version      9.1.6
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -186,6 +186,8 @@
   if (isEcoOptimizer) {
     try { localStorage.setItem('lgCityR', 'svg'); } catch (e) {}
     try { localStorage.setItem('lgMineHide', '1'); } catch (e) {}
+    if (document.body) document.body.classList.add('lg-eco-active');
+    else window.addEventListener('DOMContentLoaded', () => { if (document.body) document.body.classList.add('lg-eco-active'); });
   }
 
   const origRAF = (G.requestAnimationFrame || window.requestAnimationFrame)?.bind(G) || null;
@@ -2233,6 +2235,18 @@
         #b-prio-reset:hover { color: #fff !important; }
         a.lg-bot-author-link:hover { text-decoration: underline !important; }
         .b-ore-slot:hover { background: rgba(30,26,50,0.95) !important; filter: brightness(1.25); }
+        /* 🚀 Экстремальная оптимизация графики и медиа (Farm Mode) */
+        body.lg-eco-active img:not(#mine-bot-v3 *),
+        body.lg-eco-active video,
+        body.lg-eco-active .cy-bg,
+        body.lg-eco-active .cy-sky,
+        body.lg-eco-active .cy-ground,
+        body.lg-eco-active .cy-decor,
+        body.lg-eco-active .mn-dfx,
+        body.lg-eco-active [style*="background-image"]:not(#mine-bot-v3 *):not(.b-coin-ico):not(.b-lot-art *):not(.mn-bg *) {
+          display: none !important;
+          visibility: hidden !important;
+        }
         /* 🚀 Эко-режим: глубокий сон графики в фоновых вкладках (Anti-OOM) */
         .lg-bg-sleep .mn-dfx { display: none !important; }
         .lg-bg-sleep .mn-heroes .mn-h:not(.me):not([data-k="me"]) { display: none !important; }
@@ -2287,7 +2301,7 @@
     <div id="b-header" style="font-weight:bold;color:#00ff66;display:flex;justify-content:space-between;align-items:center;cursor:grab;">
       <div id="b-title-wrap" style="display:flex;align-items:center;gap:6px;cursor:grab;flex:1;overflow:hidden;" title="ЛКМ — свернуть / развернуть | Зажмите ЛКМ для перемещения по экрану">
         <span id="b-dot" style="width:8px;height:8px;border-radius:50%;background:#ffc107;display:inline-block;flex-shrink:0;"></span>
-        <span style="flex-shrink:0;">Шамиль Клиент v9.1.5</span>
+        <span style="flex-shrink:0;">Шамиль Клиент v9.1.6</span>
         <span id="b-mini-deal-fire" class="no-drag" style="display:none;cursor:pointer;font-size:12px;margin-left:2px;flex-shrink:0;" title="Есть выгодное предложение на Рынке (50%+)! Клик — открыть Рынок">🔥</span>
         <span id="b-mini-summary" style="display:none;color:#aaa;font-size:11px;font-weight:normal;margin-left:4px;flex-shrink:0;"></span>
       </div>
@@ -2856,7 +2870,7 @@
       <div id="b-tab-settings" style="display:none;width:100%;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #3d3759;">
           <b style="color:#38bdf8;font-size:11.5px;">⚙️ Системные настройки</b>
-          <span style="font-size:9.5px;color:#94a3b8;">v9.1.5</span>
+          <span style="font-size:9.5px;color:#94a3b8;">v9.1.6</span>
         </div>
 
         <!-- Карточка: Оптимизация для фермы и Firefox -->
@@ -2877,15 +2891,21 @@
             <div style="margin-bottom:3px;font-weight:bold;color:#38bdf8;">Что делает эта оптимизация:</div>
             <div>• 🛑 <b>Отключение WebGL/Pixi:</b> город в SVG режиме (нет утечек видеопамяти)</div>
             <div>• 👥 <b>Скрытие других игроков:</b> не строит тяжелые SVG аватары толпы</div>
+            <div>• 🖼️ <b>Скрытие картинок и фонов:</b> скрывает тяжелые текстуры, баннеры и медиа</div>
             <div>• 💤 <b>Глубокий Headless-сон графики:</b> в фоне GPU полностью засыпает, анимации стопятся</div>
             <div>• ⚔️ <b>Автобой и авто-шахта активны:</b> вся логика и таймеры работают на 100%</div>
             <div>• 🧹 <b>Авто-очистка DOM:</b> чат и журнал удерживаются до 30 записей</div>
             <div>• 🔇 <b>Глушение звука:</b> выгружает фоновые аудио-потоки браузера</div>
           </div>
 
-          <button id="b-btn-purge-ram" style="width:100%;padding:5px 8px;background:#262238;color:#38bdf8;border:1px solid #0284c7;border-radius:5px;cursor:pointer;font-size:10.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:5px;transition:all 0.2s;" title="Немедленно обрезать разросшийся DOM чата и сбросить буферы Canvas">
-            <span>🧹 Очистить RAM сейчас</span>
-          </button>
+          <div style="display:flex;flex-direction:column;gap:5px;">
+            <button id="b-btn-purge-ram" style="width:100%;padding:5px 8px;background:#262238;color:#38bdf8;border:1px solid #0284c7;border-radius:5px;cursor:pointer;font-size:10.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:5px;transition:all 0.2s;" title="Немедленно обрезать разросшийся DOM чата и сбросить буферы Canvas">
+              <span>🧹 Очистить RAM сейчас</span>
+            </button>
+            <button id="b-btn-reload-eco" style="width:100%;padding:5px 8px;background:#0369a1;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:10.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:5px;transition:all 0.2s;" title="Перезагрузить страницу для полной выгрузки текстур и WebGL из памяти браузера">
+              <span>🔄 Перезагрузить вкладку (F5)</span>
+            </button>
+          </div>
         </div>
 
         <!-- Карточка: Совет по Firefox -->
@@ -3536,6 +3556,7 @@
       if (isEcoOptimizer) {
         try { localStorage.setItem('lgCityR', 'svg'); } catch (e) {}
         try { localStorage.setItem('lgMineHide', '1'); } catch (e) {}
+        if (document.body) document.body.classList.add('lg-eco-active');
         // Автоматически нажимаем кнопку скрытия толпы в шахте (если они видны)
         try {
           const hb = document.querySelector('[data-mn-hide]');
@@ -3552,9 +3573,17 @@
         purgeMemoryNow();
       } else {
         try { localStorage.removeItem('lgCityR'); } catch (e) {}
+        if (document.body) document.body.classList.remove('lg-eco-active');
         updateBackgroundSleepState();
       }
       updateEcoOptimizerUI();
+    };
+  }
+
+  const btnReloadEco = w.querySelector('#b-btn-reload-eco');
+  if (btnReloadEco) {
+    btnReloadEco.onclick = () => {
+      location.reload();
     };
   }
 
