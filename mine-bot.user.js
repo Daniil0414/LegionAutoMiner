@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.27
+// @version      9.1.28
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.1.27';
+  const BOT_VERSION = '9.1.28';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -2326,7 +2326,7 @@
           <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);">
             <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#06b6d4;font-size:10.5px;font-weight:bold;user-select:none;" title="Автоматически при сканировании этажей шахты вносить по 100 монет во все строящиеся и улучшаемые буровые на ВСЕХ этажах (1..N) через API без необходимости переезжать на лифте">
               <input type="checkbox" id="b-drill-all-floors" ${isDrillBuildAllFloors ? 'checked' : ''} style="accent-color:#06b6d4;cursor:pointer;width:14px;height:14px;">
-              <span>🌐 Авто улучшение буров всех этажей (Взнос 100 монет)</span>
+              <span>🌐 Авто улучшение буров всех этажей (Взнос 100м)</span>
             </label>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);">
@@ -2865,7 +2865,7 @@
       isDrillBuildAllFloors = checkDrillBuildAllFloors.checked;
       localStorage.setItem('lg_bot_drill_build_all_floors', isDrillBuildAllFloors ? 'true' : 'false');
       showToast(isDrillBuildAllFloors 
-        ? '🌐 Авто улучшение буров всех этажей ВКЛ (Взнос 100 монет)' 
+        ? '🌐 Авто улучшение буров всех этажей ВКЛ (Взнос 100м)' 
         : 'Авто улучшение буров всех этажей выключено');
       if (!isPaused && isDrillBuildAllFloors) {
         lastDrillsScanTime = 0;
