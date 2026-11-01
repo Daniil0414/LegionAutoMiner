@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.23
+// @version      9.1.25
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.1.23';
+  const BOT_VERSION = '9.1.25';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -2266,8 +2266,8 @@
       <div id="b-tab-mine">
 
         <div style="display:flex;gap:4px;margin-bottom:8px;">
-          <button id="b-mode-screen" style="flex:1;min-width:0;padding:6px 8px;background:#28a745;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:bold;text-align:left;display:flex;justify-content:space-between;align-items:center;box-sizing:border-box;" title="Копать на экране шахты">
-            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">⛏️ Копать на экране</span>
+          <button id="b-mode-screen" style="flex:1;min-width:0;padding:6px 8px;background:#28a745;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:bold;text-align:left;display:flex;justify-content:space-between;align-items:center;box-sizing:border-box;" title="Копать в шахте (на экране)">
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">⛏️ Копать в шахте</span>
             <span id="b-check-screen" style="margin-left:4px;flex-shrink:0;">✔</span>
           </button>
           <button id="b-mode-ghost" style="flex:1;min-width:0;padding:6px 8px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:6px;cursor:pointer;font-size:11px;text-align:left;display:flex;justify-content:space-between;align-items:center;box-sizing:border-box;" title="Копать находясь в городе">
@@ -2304,7 +2304,7 @@
               <span>💎 Сперва руда</span>
             </label>
             <button id="b-open-prio-tab" style="background:#262238;border:1px solid #eab308;color:#eab308;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:10px;font-weight:bold;display:flex;align-items:center;gap:3px;white-space:nowrap;transition:all 0.2s;" title="Открыть вкладку детальной настройки приоритетов руд и сундуков (Drag & Drop)">
-              <span>🎯 Настройка руд</span>
+              <span>🎯 Настроить</span>
             </button>
           </div>
         </div>
