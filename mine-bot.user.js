@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.16
+// @version      9.1.18
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.1.16';
+  const BOT_VERSION = '9.1.18';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -513,7 +513,7 @@
   }
 
   let isRatingMode = localStorage.getItem('lg_bot_rating_mode') === '1'; // Режим «Рейтинг» (толпа + добивание камней + железная фиксация)
-  let ratingCrowdRange = localStorage.getItem('lg_bot_rating_crowd') || '2-5'; // Выбор количества игроков у цели в режиме «Рейтинг»
+  const ratingCrowdRange = '2-5'; // В режиме «Рейтинг» всегда фиксированный диапазон 2–5 чел
   let oreFirst = !isRatingMode && localStorage.getItem('lg_bot_ore_first') !== '0'; // По умолчанию true (выключено, если включен Режим «Рейтинг»)
   let coalIronFirst = localStorage.getItem('lg_bot_coal_iron_first') !== '0'; // По умолчанию true (включено: приоритет сперва уголь, затем железо)
 
@@ -2288,23 +2288,12 @@
             <option value="ryabinen">Рябиненень ★</option>
           </select>
         </div>
-        <!-- Режим «Рейтинг» (выбор нужного числа игроков + добивание камней + железная фиксация) -->
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;background:#1a172e;padding:6px 8px;border-radius:6px;border:1px solid #3d3759;flex-wrap:wrap;gap:4px;">
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#ffd700;font-size:11px;font-weight:bold;user-select:none;" title="Режим «Рейтинг»: поиск камней/руд с выбранным числом игроков, добивание камней с низким HP, фиксация цели до 100% разрушения">
+        <!-- Режим «Рейтинг» (поиск 2-5 игроков + добивание камней + железная фиксация) -->
+        <div style="display:flex;align-items:center;justify-content:flex-start;margin-bottom:8px;background:#1a172e;padding:6px 8px;border-radius:6px;border:1px solid #3d3759;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#ffd700;font-size:11px;font-weight:bold;user-select:none;" title="Режим «Рейтинг»: авто-поиск жил с 2–5 игроками, добивание камней с низким HP, фиксация цели до 100% разрушения">
             <input type="checkbox" id="b-rating-mode" ${isRatingMode ? 'checked' : ''} style="accent-color:#ffd700;cursor:pointer;width:14px;height:14px;">
             <span>🏆 Режим «Рейтинг»</span>
           </label>
-          <div id="b-rating-crowd-row" style="display:${isRatingMode ? 'flex' : 'none'};align-items:center;gap:4px;">
-            <span style="color:#aaa;font-size:10px;font-weight:bold;">Игроков:</span>
-            <select id="b-rating-crowd-select" style="background:#121026;color:#ffd700;border:1px solid #3d3759;border-radius:4px;padding:2px 4px;font-size:10px;font-weight:bold;cursor:pointer;outline:none;">
-              <option value="2-5" ${ratingCrowdRange === '2-5' ? 'selected' : ''}>2–5 чел</option>
-              <option value="2-8" ${ratingCrowdRange === '2-8' ? 'selected' : ''}>2–8 чел</option>
-              <option value="2-15" ${ratingCrowdRange === '2-15' ? 'selected' : ''}>2–15 чел</option>
-              <option value="3-6" ${ratingCrowdRange === '3-6' ? 'selected' : ''}>3–6 чел</option>
-              <option value="1-5" ${ratingCrowdRange === '1-5' ? 'selected' : ''}>1–5 чел</option>
-              <option value="any" ${ratingCrowdRange === 'any' ? 'selected' : ''}>Любое кол-во</option>
-            </select>
-          </div>
         </div>
         <!-- Переключатели приоритета: Сперва руда / Сперва уголь и железо -->
         <div style="display:flex;align-items:center;justify-content:flex-start;gap:12px;margin-bottom:8px;background:#1a172e;padding:6px 8px;border-radius:6px;border:1px solid #3d3759;flex-wrap:wrap;">
@@ -2367,18 +2356,20 @@
           <button id="b-mine-claim-btn" style="display:none;padding:6px 8px;background:#10b981;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:11px;" title="Забрать накопленную награду за выполненные поручения шахты (включая общее поручение недели)">🎁 Награда</button>
         </div>
         <!-- Компактная сводка: время, уровень, заработок, руда -->
-        <div id="b-stats-card" style="background:rgba(0,0,0,0.4);border:1px solid #3d3759;border-radius:6px;padding:6px 8px;font-size:11px;">
-          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-            <span style="color:#aaa;">⏱️ В шахте:</span>
-            <b id="b-stat-time" style="color:#fff;">—</b>
-          </div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-            <span style="color:#aaa;">⛏️ Горное дело:</span>
-            <b id="b-stat-skill" style="color:#ffd700;">—</b>
-          </div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-            <span style="color:#aaa;">💰 Заработок:</span>
-            <b id="b-stat-coins" style="color:#00ff66;">—</b>
+        <div id="b-stats-card" style="background:rgba(0,0,0,0.4);border:1px solid #3d3759;border-radius:6px;padding:6px 8px;font-size:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;flex-wrap:nowrap;">
+            <div style="display:flex;align-items:center;gap:3px;min-width:0;" title="Время в шахте за сегодня">
+              <span style="color:#aaa;white-space:nowrap;">⏱️ В шахте:</span>
+              <b id="b-stat-time" style="color:#fff;white-space:nowrap;">—</b>
+            </div>
+            <div style="display:flex;align-items:center;gap:3px;min-width:0;" title="Навык Горного дела">
+              <span style="color:#aaa;white-space:nowrap;">⛏️ Горное дело:</span>
+              <b id="b-stat-skill" style="color:#ffd700;white-space:nowrap;">—</b>
+            </div>
+            <div style="display:flex;align-items:center;gap:3px;min-width:0;" title="Заработок в шахте">
+              <span style="color:#aaa;white-space:nowrap;">💰 Заработок:</span>
+              <b id="b-stat-coins" style="color:#00ff66;white-space:nowrap;">0</b>
+            </div>
           </div>
           <!-- Слоты руды из шахты (без лишних надписей и кнопок, смотрим всю руду) -->
           <div style="margin-top:6px;padding-top:5px;border-top:1px dashed rgba(255,255,255,0.12);">
@@ -2842,24 +2833,10 @@
   const checkAutoClaimQuests = w.querySelector('#b-auto-claim-quests');
   const checkAutoLift = w.querySelector('#b-auto-lift');
 
-  const ratingCrowdRow = w.querySelector('#b-rating-crowd-row');
-  const ratingCrowdSelect = w.querySelector('#b-rating-crowd-select');
-  if (ratingCrowdSelect) {
-    ratingCrowdSelect.onchange = () => {
-      ratingCrowdRange = ratingCrowdSelect.value;
-      localStorage.setItem('lg_bot_rating_crowd', ratingCrowdRange);
-      lastTargetKey = null;
-      showToast(`🏆 Рейтинг: поиск камней (${ratingCrowdSelect.options[ratingCrowdSelect.selectedIndex].text})`);
-    };
-  }
-
   if (checkRatingMode) {
     checkRatingMode.onchange = () => {
       isRatingMode = checkRatingMode.checked;
       localStorage.setItem('lg_bot_rating_mode', isRatingMode ? '1' : '0');
-      if (ratingCrowdRow) {
-        ratingCrowdRow.style.display = isRatingMode ? 'flex' : 'none';
-      }
       if (isRatingMode) {
         // При включении Режима «Рейтинг» автоматически отключаем «Сперва руда»
         if (checkOreFirst) {
@@ -2872,7 +2849,7 @@
         }
         lastTargetKey = null;
       }
-      showToast(isRatingMode ? `🏆 Режим «Рейтинг» (${ratingCrowdRange} чел): включен` : 'Режим «Рейтинг»: выключен');
+      showToast(isRatingMode ? '🏆 Режим «Рейтинг» (2–5 чел): включен' : 'Режим «Рейтинг»: выключен');
     };
   }
 
@@ -8245,7 +8222,7 @@
         skillStr = `ур. ${me.mx.lv} (${pct}%)`;
       }
       if (me.bag) {
-        coinsStr = me.bag.cx || (me.bag.c != null ? `${me.bag.c} чешуек` : '0');
+        coinsStr = me.bag.cx || (me.bag.c != null ? String(me.bag.c) : '0');
       }
     }
 
