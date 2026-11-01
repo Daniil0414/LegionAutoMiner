@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.21
+// @version      9.1.23
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.1.21';
+  const BOT_VERSION = '9.1.23';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -2265,14 +2265,14 @@
       <!-- Контейнер вкладки: Шахта -->
       <div id="b-tab-mine">
 
-        <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:8px;">
-          <button id="b-mode-screen" style="padding:6px 8px;background:#28a745;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:bold;text-align:left;display:flex;justify-content:space-between;align-items:center;">
-            <span>⛏️ Копать на экране шахты</span>
-            <span id="b-check-screen">✔</span>
+        <div style="display:flex;gap:4px;margin-bottom:8px;">
+          <button id="b-mode-screen" style="flex:1;min-width:0;padding:6px 8px;background:#28a745;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:bold;text-align:left;display:flex;justify-content:space-between;align-items:center;box-sizing:border-box;" title="Копать на экране шахты">
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">⛏️ Копать на экране</span>
+            <span id="b-check-screen" style="margin-left:4px;flex-shrink:0;">✔</span>
           </button>
-          <button id="b-mode-ghost" style="padding:6px 8px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:6px;cursor:pointer;font-size:11px;text-align:left;display:flex;justify-content:space-between;align-items:center;">
-            <span>🏙️ Копать находясь в городе</span>
-            <span id="b-check-ghost" style="display:none;">✔</span>
+          <button id="b-mode-ghost" style="flex:1;min-width:0;padding:6px 8px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:6px;cursor:pointer;font-size:11px;text-align:left;display:flex;justify-content:space-between;align-items:center;box-sizing:border-box;" title="Копать находясь в городе">
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🏙️ Копать в городе</span>
+            <span id="b-check-ghost" style="display:none;margin-left:4px;flex-shrink:0;">✔</span>
           </button>
         </div>
         <div style="margin-bottom:8px;background:#201c33;padding:6px 8px;border-radius:6px;border:1px solid #3d3759;">
@@ -2288,22 +2288,25 @@
             <option value="ryabinen">Рябиненень ★</option>
           </select>
         </div>
-        <!-- Режим «Рейтинг» (поиск 2-5 игроков + добивание камней + железная фиксация) -->
-        <div style="display:flex;align-items:center;justify-content:flex-start;margin-bottom:8px;background:#1a172e;padding:6px 8px;border-radius:6px;border:1px solid #3d3759;">
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#ffd700;font-size:11px;font-weight:bold;user-select:none;" title="Режим «Рейтинг»: авто-поиск жил с 2–5 игроками, добивание камней с низким HP, фиксация цели до 100% разрушения">
-            <input type="checkbox" id="b-rating-mode" ${isRatingMode ? 'checked' : ''} style="accent-color:#ffd700;cursor:pointer;width:14px;height:14px;">
-            <span>🏆 Режим «Рейтинг»</span>
-          </label>
-        </div>
-        <!-- Переключатели приоритета: Сперва руда / Сперва уголь и железо -->
-        <div style="display:flex;align-items:center;justify-content:flex-start;gap:12px;margin-bottom:8px;background:#1a172e;padding:6px 8px;border-radius:6px;border:1px solid #3d3759;flex-wrap:wrap;">
-          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#00ff66;font-size:11px;font-weight:bold;user-select:none;" title="Приоритет добычи ценной руды над обычным камнем">
-            <input type="checkbox" id="b-ore-first" ${oreFirst ? 'checked' : ''} style="accent-color:#00ff66;cursor:pointer;width:14px;height:14px;">
-            <span>💎 Сперва руда</span>
-          </label>
-          <button id="b-open-prio-tab" style="background:#262238;border:1px solid #eab308;color:#eab308;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:10px;font-weight:bold;display:flex;align-items:center;gap:3px;transition:all 0.2s;"  title="Открыть вкладку детальной настройки приоритетов руд и сундуков (Drag & Drop)">
-            <span>🎯 Настройка руд</span>
-          </button>
+        <!-- Режим «Рейтинг» и «Сперва руда» в одну строку с минимальным отступом -->
+        <div style="display:flex;align-items:stretch;gap:4px;margin-bottom:8px;flex-wrap:wrap;">
+          <!-- Режим «Рейтинг» (поиск 2-5 игроков + добивание камней + железная фиксация) -->
+          <div style="display:flex;align-items:center;background:#1a172e;padding:5px 8px;border-radius:6px;border:1px solid #3d3759;flex-shrink:0;">
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#ffd700;font-size:11px;font-weight:bold;user-select:none;white-space:nowrap;" title="Режим «Рейтинг»: авто-поиск жил с 2–5 игроками, добивание камней с низким HP, фиксация цели до 100% разрушения">
+              <input type="checkbox" id="b-rating-mode" ${isRatingMode ? 'checked' : ''} style="accent-color:#ffd700;cursor:pointer;width:14px;height:14px;">
+              <span>🏆 Режим «Рейтинг»</span>
+            </label>
+          </div>
+          <!-- Переключатели приоритета: Сперва руда / Настройка руд -->
+          <div style="display:flex;align-items:center;gap:7px;background:#1a172e;padding:5px 8px;border-radius:6px;border:1px solid #3d3759;flex-shrink:0;">
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#00ff66;font-size:11px;font-weight:bold;user-select:none;white-space:nowrap;" title="Приоритет добычи ценной руды над обычным камнем">
+              <input type="checkbox" id="b-ore-first" ${oreFirst ? 'checked' : ''} style="accent-color:#00ff66;cursor:pointer;width:14px;height:14px;">
+              <span>💎 Сперва руда</span>
+            </label>
+            <button id="b-open-prio-tab" style="background:#262238;border:1px solid #eab308;color:#eab308;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:10px;font-weight:bold;display:flex;align-items:center;gap:3px;white-space:nowrap;transition:all 0.2s;" title="Открыть вкладку детальной настройки приоритетов руд и сундуков (Drag & Drop)">
+              <span>🎯 Настройка руд</span>
+            </button>
+          </div>
         </div>
         <!-- Шахта 3.0: Автобуры (Сбор 30% руды и Установка как отдельный тумблер) -->
         <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:8px;background:#151226;padding:6px 8px;border-radius:6px;border:1px solid #7c3aed;">
