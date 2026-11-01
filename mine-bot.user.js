@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.26
+// @version      9.1.27
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.1.26';
+  const BOT_VERSION = '9.1.27';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -2301,7 +2301,7 @@
           <div style="display:flex;align-items:center;gap:7px;background:#1a172e;padding:5px 8px;border-radius:6px;border:1px solid #3d3759;flex-shrink:0;">
             <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#00ff66;font-size:11px;font-weight:bold;user-select:none;white-space:nowrap;" title="Приоритет добычи ценной руды над обычным камнем">
               <input type="checkbox" id="b-ore-first" ${oreFirst ? 'checked' : ''} style="accent-color:#00ff66;cursor:pointer;width:14px;height:14px;">
-              <span>💎 Сперва руда</span>
+              <span>💎 На Руды</span>
             </label>
             <button id="b-open-prio-tab" style="background:#262238;border:1px solid #eab308;color:#eab308;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:10px;font-weight:bold;display:flex;align-items:center;gap:3px;white-space:nowrap;transition:all 0.2s;" title="Открыть вкладку детальной настройки приоритетов руд и сундуков (Drag & Drop)">
               <span>🎯 Настроить</span>
