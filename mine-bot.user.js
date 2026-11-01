@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.12
+// @version      9.1.13
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.1.12';
+  const BOT_VERSION = '9.1.13';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -2295,14 +2295,14 @@
           </select>
         </div>
         <!-- Режим «Рейтинг» (выбор нужного числа игроков + добивание камней + железная фиксация) -->
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;background:linear-gradient(135deg, rgba(38,28,12,0.85) 0%, rgba(26,23,46,0.95) 100%);padding:6px 8px;border-radius:6px;border:1px solid #eab308;flex-wrap:wrap;gap:4px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;background:#1a172e;padding:6px 8px;border-radius:6px;border:1px solid #3d3759;flex-wrap:wrap;gap:4px;">
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#ffd700;font-size:11px;font-weight:bold;user-select:none;" title="Режим «Рейтинг»: поиск камней/руд с выбранным числом игроков, добивание камней с низким HP, фиксация цели до 100% разрушения">
             <input type="checkbox" id="b-rating-mode" ${isRatingMode ? 'checked' : ''} style="accent-color:#ffd700;cursor:pointer;width:14px;height:14px;">
             <span>🏆 Режим «Рейтинг»</span>
           </label>
           <div id="b-rating-crowd-row" style="display:${isRatingMode ? 'flex' : 'none'};align-items:center;gap:4px;">
-            <span style="color:#fef08a;font-size:10px;font-weight:bold;">Игроков:</span>
-            <select id="b-rating-crowd-select" style="background:#121026;color:#ffd700;border:1px solid #eab308;border-radius:4px;padding:2px 4px;font-size:10px;font-weight:bold;cursor:pointer;outline:none;">
+            <span style="color:#aaa;font-size:10px;font-weight:bold;">Игроков:</span>
+            <select id="b-rating-crowd-select" style="background:#121026;color:#ffd700;border:1px solid #3d3759;border-radius:4px;padding:2px 4px;font-size:10px;font-weight:bold;cursor:pointer;outline:none;">
               <option value="2-5" ${ratingCrowdRange === '2-5' ? 'selected' : ''}>2–5 чел</option>
               <option value="2-8" ${ratingCrowdRange === '2-8' ? 'selected' : ''}>2–8 чел</option>
               <option value="2-15" ${ratingCrowdRange === '2-15' ? 'selected' : ''}>2–15 чел</option>
@@ -2319,7 +2319,7 @@
             <span>💎 Сперва руда</span>
           </label>
           <button id="b-open-prio-tab" style="background:#262238;border:1px solid #eab308;color:#eab308;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:10px;font-weight:bold;display:flex;align-items:center;gap:3px;transition:all 0.2s;"  title="Открыть вкладку детальной настройки приоритетов руд и сундуков (Drag & Drop)">
-            <span>🎯 Очередь руды</span>
+            <span>🎯 Настройка руд</span>
           </button>
         </div>
         <!-- Шахта 3.0: Автобуры (Сбор 30% руды и Установка как отдельный тумблер) -->
