@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.18
+// @version      9.1.19
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.1.18';
+  const BOT_VERSION = '9.1.19';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -2658,17 +2658,6 @@
             <div id="b-quest-skills-list" style="display:flex;flex-wrap:wrap;gap:4px;">
               <span style="font-size:9.5px;color:#64748b;font-style:italic;">Скиллы станут доступны во время боя</span>
             </div>
-          </div>
-        </div>
-
-        <!-- Карточка 5: Журнал событий похода -->
-        <div style="background:#1a172e;border:1px solid #3d3759;border-radius:6px;padding:8px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-            <span style="font-size:10.5px;font-weight:bold;color:#94a3b8;">📜 Журнал похода</span>
-            <button id="b-quest-clear-log" style="padding:1px 6px;background:#262238;color:#ef4444;border:1px solid #3d3759;border-radius:3px;cursor:pointer;font-size:9px;" title="Очистить журнал">🗑️</button>
-          </div>
-          <div id="b-quest-log-list" style="max-height:130px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;font-size:10px;color:#cbd5e1;padding-right:2px;">
-            <div style="color:#64748b;font-style:italic;">Журнал пуст</div>
           </div>
         </div>
       </div>
