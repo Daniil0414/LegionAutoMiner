@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.13
+// @version      9.1.14
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.1.13';
+  const BOT_VERSION = '9.1.14';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -23,7 +23,7 @@
   if (G.__mineBotStop) {
     try { G.__mineBotStop(); } catch (e) {}
   }
-  document.querySelectorAll('#mine-bot-v3, #mine-bot-v2, #b-auc-tooltip').forEach(el => el.remove());
+  document.querySelectorAll('#mine-bot-v3, #mine-bot-v2, #mine-bot-prio-modal, #b-auc-tooltip').forEach(el => el.remove());
   G.__mineBotRunning = true;
 
   // =========================================================================
@@ -2263,9 +2263,6 @@
           <span>⚔️ Поход</span>
           <span id="b-quest-badge" style="display:none;background:#e11d48;color:#fff;border-radius:8px;padding:0 3px;font-size:8px;font-weight:bold;line-height:12px;">!</span>
         </button>
-        <button id="b-tab-btn-priority" style="flex:1;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Приоритеты добычи руды, самоцветов и сундуков (Drag & Drop перетаскивание)">
-          <span>🎯 Руда</span>
-        </button>
       </div>
 
       <!-- Контейнер вкладки: Шахта -->
@@ -2775,24 +2772,6 @@
         </div>
       </div>
 
-      <!-- Контейнер вкладки: Приоритеты добычи (Руда / Сундуки) -->
-      <div id="b-tab-priority" style="display:none;width:100%;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid #3d3759;">
-          <b style="color:#eab308;font-size:11.5px;">🎯 Приоритеты добычи</b>
-          <button id="b-prio-reset" style="background:#262238;border:1px solid #3d3759;color:#94a3b8;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:9.5px;font-weight:bold;transition:all 0.2s;"  title="Сбросить к стандарту (Железо выше Угля)">🔄 По умолч.</button>
-        </div>
-        <div style="font-size:10px;color:#94a3b8;line-height:1.4;margin-bottom:8px;background:rgba(234,179,8,0.06);border:1px solid rgba(234,179,8,0.18);border-radius:5px;padding:5px 7px;max-width:320px;white-space:normal;word-break:break-word;">
-          💡 Перетаскивайте карточки (<b>Drag & Drop</b>) или кнопками <b>▲ ▼</b>.<br>Снимите галочку <b>[ ]</b>, чтобы бот не бил этот ресурс.
-        </div>
-        <div id="b-priority-list" style="display:flex;flex-direction:column;gap:4px;max-height:260px;overflow-y:auto;padding-right:2px;">
-          <!-- Карточки генерируются скриптом -->
-        </div>
-        <div style="margin-top:6px;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-size:9.5px;color:#64748b;">Железо по умолч. выше Угля</span>
-          <span style="font-size:9.5px;color:#4ade80;">💾 Сохранено</span>
-        </div>
-      </div>
-
       <!-- Контакты / Подвал -->
       <div id="b-footer" style="margin-top:8px;padding-top:6px;border-top:1px solid #3d3759;display:flex;justify-content:center;align-items:center;gap:5px;font-size:10px;color:#8899aa;user-select:text;">
         <span>Связь:</span>
@@ -2803,6 +2782,141 @@
     </div>
   `;
   document.body.appendChild(w);
+
+  // Отдельное плавающее окно: Настройка приоритетов руд и сундуков
+  const prioModal = document.createElement('div');
+  prioModal.id = 'mine-bot-prio-modal';
+  prioModal.style.cssText = `
+    position: fixed;
+    top: 100px;
+    left: 280px;
+    z-index: 1000001;
+    background: rgba(18, 16, 38, 0.98);
+    border: 2px solid #eab308;
+    border-radius: 12px;
+    padding: 10px 14px;
+    color: #fff;
+    font-family: sans-serif;
+    font-size: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.75);
+    user-select: none;
+    width: 320px;
+    box-sizing: border-box;
+    display: none;
+  `;
+
+  prioModal.innerHTML = `
+    <div id="b-prio-modal-header" style="display:flex;justify-content:space-between;align-items:center;cursor:grab;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #3d3759;">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="font-size:14px;">🎯</span>
+        <span style="font-weight:bold;color:#ffd700;font-size:12px;">Настройка приоритетов руд</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <button id="b-prio-reset" style="background:#262238;border:1px solid #3d3759;color:#94a3b8;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:9.5px;font-weight:bold;transition:all 0.2s;" title="Сбросить к стандарту (Железо выше Угля)">🔄 По умолч.</button>
+        <button id="b-prio-modal-close" style="padding:1px 7px;background:#dc3545;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;line-height:16px;" title="Закрыть окно">✕</button>
+      </div>
+    </div>
+    <div style="font-size:10px;color:#94a3b8;line-height:1.4;margin-bottom:8px;background:rgba(234,179,8,0.06);border:1px solid rgba(234,179,8,0.18);border-radius:5px;padding:5px 7px;white-space:normal;word-break:break-word;">
+      💡 Перетаскивайте карточки (<b>Drag & Drop</b>) или кнопками <b>▲ ▼</b>.<br>Снимите галочку <b>[ ]</b>, чтобы бот не бил этот ресурс.
+    </div>
+    <div id="b-priority-list" style="display:flex;flex-direction:column;gap:4px;max-height:280px;overflow-y:auto;padding-right:2px;">
+      <!-- Карточки генерируются скриптом -->
+    </div>
+    <div style="margin-top:6px;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:9.5px;color:#64748b;">Железо по умолч. выше Угля</span>
+      <span style="font-size:9.5px;color:#4ade80;">💾 Сохранено</span>
+    </div>
+  `;
+  document.body.appendChild(prioModal);
+
+  // Перетаскивание отдельного окна настройки руд за шапку
+  const prioModalHeader = prioModal.querySelector('#b-prio-modal-header');
+  if (prioModalHeader) {
+    let isPrioDragging = false, hasPrioDragged = false;
+    let pStartX = 0, pStartY = 0, pInitL = 0, pInitT = 0;
+    const onPrioDragStart = (e) => {
+      const isTouch = e.type === 'touchstart';
+      if (!isTouch && e.button !== 0) return;
+      if (e.target.closest('button, select, input, textarea, a, .no-drag')) return;
+
+      isPrioDragging = true;
+      hasPrioDragged = false;
+      const clientX = isTouch ? e.touches[0].clientX : e.clientX;
+      const clientY = isTouch ? e.touches[0].clientY : e.clientY;
+      pStartX = clientX;
+      pStartY = clientY;
+
+      const rect = prioModal.getBoundingClientRect();
+      pInitL = rect.left;
+      pInitT = rect.top;
+
+      const onPrioDragMove = (me) => {
+        if (!isPrioDragging) return;
+        const isMoveTouch = me.type === 'touchmove';
+        const curX = isMoveTouch ? me.touches[0].clientX : me.clientX;
+        const curY = isMoveTouch ? me.touches[0].clientY : me.clientY;
+        const dx = curX - pStartX;
+        const dy = curY - pStartY;
+
+        if (!hasPrioDragged && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+          hasPrioDragged = true;
+          document.body.style.userSelect = 'none';
+          document.body.style.cursor = 'grabbing';
+          prioModalHeader.style.cursor = 'grabbing';
+        }
+
+        if (hasPrioDragged) {
+          if (me.cancelable) me.preventDefault();
+          const maxLeft = Math.max(0, window.innerWidth - prioModal.offsetWidth);
+          const maxTop = Math.max(0, window.innerHeight - prioModal.offsetHeight);
+          const newLeft = Math.min(Math.max(0, pInitL + dx), maxLeft);
+          const newTop = Math.min(Math.max(0, pInitT + dy), maxTop);
+          prioModal.style.left = `${newLeft}px`;
+          prioModal.style.top = `${newTop}px`;
+        }
+      };
+
+      const onPrioDragEnd = () => {
+        if (!isPrioDragging) return;
+        isPrioDragging = false;
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+        prioModalHeader.style.cursor = 'grab';
+
+        window.removeEventListener('mousemove', onPrioDragMove);
+        window.removeEventListener('mouseup', onPrioDragEnd);
+        window.removeEventListener('touchmove', onPrioDragMove);
+        window.removeEventListener('touchend', onPrioDragEnd);
+        window.removeEventListener('touchcancel', onPrioDragEnd);
+
+        if (hasPrioDragged) {
+          const rect = prioModal.getBoundingClientRect();
+          try {
+            localStorage.setItem('lg_bot_prio_pos', JSON.stringify({
+              left: Math.round(rect.left),
+              top: Math.round(rect.top)
+            }));
+          } catch (err) {}
+        }
+      };
+
+      window.addEventListener('mousemove', onPrioDragMove);
+      window.addEventListener('mouseup', onPrioDragEnd);
+      window.addEventListener('touchmove', onPrioDragMove, { passive: false });
+      window.addEventListener('touchend', onPrioDragEnd);
+      window.addEventListener('touchcancel', onPrioDragEnd);
+    };
+
+    prioModalHeader.addEventListener('mousedown', onPrioDragStart);
+    prioModalHeader.addEventListener('touchstart', onPrioDragStart, { passive: true });
+  }
+
+  const prioModalClose = prioModal.querySelector('#b-prio-modal-close');
+  if (prioModalClose) {
+    prioModalClose.onclick = () => {
+      prioModal.style.display = 'none';
+    };
+  }
 
   const st = w.querySelector('#b-st'), btn = w.querySelector('#b-btn'), dot = w.querySelector('#b-dot');
   const btnScreen = w.querySelector('#b-mode-screen'), btnGhost = w.querySelector('#b-mode-ghost');
@@ -3287,9 +3401,9 @@
   // Элементы вкладок
   const tabBtnMine = w.querySelector('#b-tab-btn-mine'), tabBtnMarket = w.querySelector('#b-tab-btn-market');
   const mineClaimBtn = w.querySelector('#b-mine-claim-btn');
-  const tabBtnPlayers = w.querySelector('#b-tab-btn-players'), tabBtnBroadcast = w.querySelector('#b-tab-btn-broadcast'), tabBtnCity = w.querySelector('#b-tab-btn-city'), tabBtnQuest = w.querySelector('#b-tab-btn-quest'), tabBtnPriority = w.querySelector('#b-tab-btn-priority');
+  const tabBtnPlayers = w.querySelector('#b-tab-btn-players'), tabBtnBroadcast = w.querySelector('#b-tab-btn-broadcast'), tabBtnCity = w.querySelector('#b-tab-btn-city'), tabBtnQuest = w.querySelector('#b-tab-btn-quest');
   const tabMine = w.querySelector('#b-tab-mine'), tabMarket = w.querySelector('#b-tab-market');
-  const tabPlayers = w.querySelector('#b-tab-players'), tabBroadcast = w.querySelector('#b-tab-broadcast'), tabCity = w.querySelector('#b-tab-city'), tabQuest = w.querySelector('#b-tab-quest'), tabPriority = w.querySelector('#b-tab-priority');
+  const tabPlayers = w.querySelector('#b-tab-players'), tabBroadcast = w.querySelector('#b-tab-broadcast'), tabCity = w.querySelector('#b-tab-city'), tabQuest = w.querySelector('#b-tab-quest');
   const aucBadge = w.querySelector('#b-auc-badge'), aucList = w.querySelector('#b-auc-list');
   const questBadge = w.querySelector('#b-quest-badge');
   const aucRefresh = w.querySelector('#b-auc-refresh'), aucFilter = w.querySelector('#b-auc-filter');
@@ -3331,17 +3445,17 @@
   }
 
   let activeTab = localStorage.getItem('lg_bot_tab') || 'mine';
-  if (activeTab === 'settings') activeTab = 'mine';
+  if (activeTab === 'settings' || activeTab === 'priority') activeTab = 'mine';
 
   function applyActiveTab() {
-    [tabBtnMine, tabBtnMarket, tabBtnPlayers, tabBtnBroadcast, tabBtnCity, tabBtnQuest, tabBtnPriority].forEach(btn => {
+    [tabBtnMine, tabBtnMarket, tabBtnPlayers, tabBtnBroadcast, tabBtnCity, tabBtnQuest].forEach(btn => {
       if (btn) {
         btn.style.background = '#262238';
         btn.style.color = '#aaa';
         btn.style.border = '1px solid #3d3759';
       }
     });
-    [tabMine, tabMarket, tabPlayers, tabBroadcast, tabCity, tabQuest, tabPriority].forEach(t => {
+    [tabMine, tabMarket, tabPlayers, tabBroadcast, tabCity, tabQuest].forEach(t => {
       if (t) t.style.display = 'none';
     });
     if (!isMinimized && !isSquare) {
@@ -3387,18 +3501,6 @@
       tabQuest.style.display = 'block';
       if (!isMinimized && !isSquare) w.style.minWidth = '310px';
       if (typeof refreshQuestUI === 'function') refreshQuestUI();
-    } else if (activeTab === 'priority') {
-      if (tabBtnPriority) {
-        tabBtnPriority.style.background = '#eab308';
-        tabBtnPriority.style.color = '#fff';
-        tabBtnPriority.style.border = 'none';
-      }
-      if (tabPriority) tabPriority.style.display = 'block';
-      if (!isMinimized && !isSquare) {
-        w.style.minWidth = '310px';
-        w.style.maxWidth = '350px';
-      }
-      renderPriorityListUI();
     } else {
       activeTab = 'mine';
       tabBtnMine.style.background = '#28a745';
@@ -3417,24 +3519,42 @@
   tabBtnCity.onclick = () => { activeTab = 'city'; applyActiveTab(); };
   tabBtnQuest.onclick = () => { activeTab = 'quest'; applyActiveTab(); };
 
-  if (tabBtnPriority) {
-    tabBtnPriority.onclick = () => {
-      activeTab = 'priority';
-      localStorage.setItem('lg_bot_active_tab', 'priority');
-      applyActiveTab();
-    };
-  }
-
+  // Открытие отдельного окна настройки руд по клику на «Настройка руд»
   const openPrioTabBtn = w.querySelector('#b-open-prio-tab');
   if (openPrioTabBtn) {
     openPrioTabBtn.onclick = () => {
-      activeTab = 'priority';
-      localStorage.setItem('lg_bot_active_tab', 'priority');
-      applyActiveTab();
+      if (prioModal.style.display === 'none' || !prioModal.style.display) {
+        try {
+          const savedPrioPos = JSON.parse(localStorage.getItem('lg_bot_prio_pos'));
+          if (savedPrioPos && typeof savedPrioPos.left === 'number' && typeof savedPrioPos.top === 'number') {
+            const maxLeft = Math.max(0, window.innerWidth - 80);
+            const maxTop = Math.max(0, window.innerHeight - 40);
+            prioModal.style.left = Math.min(Math.max(0, savedPrioPos.left), maxLeft) + 'px';
+            prioModal.style.top = Math.min(Math.max(0, savedPrioPos.top), maxTop) + 'px';
+          } else {
+            const rect = w.getBoundingClientRect();
+            let pLeft = rect.right + 10;
+            let pTop = rect.top;
+            if (pLeft + 330 > window.innerWidth) {
+              pLeft = Math.max(10, rect.left - 330);
+            }
+            if (pLeft < 10 || pLeft + 330 > window.innerWidth) {
+              pLeft = Math.max(10, (window.innerWidth - 330) / 2);
+            }
+            pTop = Math.max(10, Math.min(pTop, window.innerHeight - 380));
+            prioModal.style.left = `${Math.round(pLeft)}px`;
+            prioModal.style.top = `${Math.round(pTop)}px`;
+          }
+        } catch (e) {}
+        renderPriorityListUI();
+        prioModal.style.display = 'block';
+      } else {
+        prioModal.style.display = 'none';
+      }
     };
   }
 
-  const prioResetBtn = w.querySelector('#b-prio-reset');
+  const prioResetBtn = prioModal.querySelector('#b-prio-reset');
   if (prioResetBtn) {
     prioResetBtn.onclick = () => {
       customPriorities = DEFAULT_ORE_PRIORITIES.map(x => ({ ...x }));
@@ -3445,7 +3565,7 @@
   }
 
   function renderPriorityListUI() {
-    const listEl = w.querySelector('#b-priority-list');
+    const listEl = prioModal.querySelector('#b-priority-list');
     if (!listEl) return;
     listEl.innerHTML = '';
 
@@ -9324,6 +9444,7 @@
     document.body.classList.remove('lg-ghost-mode');
     document.getElementById('lg-ghost-mode-style')?.remove();
     document.getElementById('lg-mine-floating-container')?.remove();
+    if (typeof prioModal !== 'undefined' && prioModal) prioModal.remove();
     w.remove();
   };
   w.querySelector('#b-cls').onclick = window.__mineBotStop;
