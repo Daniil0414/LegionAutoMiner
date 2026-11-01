@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.20
+// @version      9.1.21
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.1.20';
+  const BOT_VERSION = '9.1.21';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -3199,7 +3199,7 @@
           if (isPaused) {
             const lockedOre = (typeof getOreTargetLock === 'function') ? getOreTargetLock() : null;
             const actionWord = lockedOre ? '[Руда] Докапываем' : 'Копаем';
-            st.textContent = `⏸️ ${actionWord}: ${rockName} · ост. ${prog.remPct}% (${prog.etaText}) ⛏️`;
+            st.textContent = `⏸️ ${actionWord}: ${rockName} ⛏️`;
             st.style.color = '#ffd700';
           } else {
             const isMiningStatus = Boolean(st && st.textContent && (
@@ -3212,7 +3212,8 @@
               let baseTxt = st.textContent.replace(reProg, '').replace(/\.{2,}$/, '').trim();
               const pickIdx = baseTxt.lastIndexOf('⛏');
               if (pickIdx >= 0) baseTxt = baseTxt.slice(0, pickIdx).trim();
-              st.textContent = `${baseTxt} · ост. ${prog.remPct}% (${prog.etaText}) ⛏️`;
+              const nextTxt = `${baseTxt} ⛏️`;
+              if (st.textContent !== nextTxt) st.textContent = nextTxt;
               st.style.color = (isRatingMode || isDailyMiningCapReached()) ? '#ffd700' : '#00ff66';
             } else if (st) {
               const prefix = mode === 'ghost' ? '🏙️ ' : '';
@@ -3220,11 +3221,11 @@
               const countOnRock = (idx >= 0 && G.__lgMineState?.bl?.[idx]?.[3]) || 0;
               const countLabel = countOnRock > 0 ? ` (${countOnRock} чел)` : '';
               if (isRatingMode) {
-                st.textContent = `${prefix}🏆 [Рейтинг] Добиваем: ${rockName}${countLabel} · ост. ${prog.remPct}% (${prog.etaText}) ⛏️`;
+                st.textContent = `${prefix}🏆 [Рейтинг] Добиваем: ${rockName}${countLabel} ⛏️`;
                 st.style.color = '#ffd700';
               } else {
                 const actionWord = lockedOre ? '[Руда] Докапываем' : 'Копаем';
-                st.textContent = `${prefix}${actionWord}: ${rockName}${countLabel} · ост. ${prog.remPct}% (${prog.etaText}) ⛏️`;
+                st.textContent = `${prefix}${actionWord}: ${rockName}${countLabel} ⛏️`;
                 st.style.color = isDailyMiningCapReached() ? '#ffd700' : '#00ff66';
               }
             }
@@ -9818,7 +9819,6 @@
       const oreName = getCurrentMiningRockName(myCandidate);
       const oreLabel = oreName ? `: ${oreName}` : '';
       const prog = getRockMiningProgress(activeMiningRockIndex, myCandidate);
-      const progLabel = prog ? ` · ост. ${prog.remPct}% (${prog.etaText})` : '';
 
       if (prog && pMineWrap && pMinePct && pMineTime && pMineBar) {
         pMineWrap.style.display = 'block';
@@ -9835,10 +9835,10 @@
       }
 
       if (isRatingMode) {
-        st.textContent = `${prefix}🏆 [Рейтинг] Добиваем${oreLabel} (${myCount || 1} чел)${progLabel} ⛏️`;
+        st.textContent = `${prefix}🏆 [Рейтинг] Добиваем${oreLabel} (${myCount || 1} чел) ⛏️`;
         st.style.color = '#ffd700';
       } else {
-        st.textContent = `${prefix}${lockedOre ? '[Руда] Докапываем' : 'Копаем'}${oreLabel} (${myCount || 1} чел)${progLabel} ⛏️`;
+        st.textContent = `${prefix}${lockedOre ? '[Руда] Докапываем' : 'Копаем'}${oreLabel} (${myCount || 1} чел) ⛏️`;
         st.style.color = '#00ff66';
       }
     } else {
