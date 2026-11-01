@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.19
+// @version      9.1.20
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.1.19';
+  const BOT_VERSION = '9.1.20';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -2629,36 +2629,11 @@
           </div>
         </div>
 
-        <!-- Карточка 4: Быстрые действия боя и отряда (Классовые + Скиллы) -->
-        <div style="background:#1a172e;border:1px solid #3d3759;border-radius:6px;padding:8px;margin-bottom:8px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-            <div style="display:flex;align-items:center;gap:6px;">
-              <span style="font-size:11px;font-weight:bold;color:#cbd5e1;">🎯 Действия:</span>
-              <span id="b-quest-class-badge" style="background:#262238;color:#ffd700;border:1px solid #4a3e72;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:bold;display:inline-flex;align-items:center;gap:3px;" title="Класс персонажа (определяется автоматически)">⚔️ Легионер</span>
-            </div>
-            <span id="b-quest-turn-status" style="font-size:9.5px;color:#94a3b8;">Вне боя</span>
-          </div>
-          <!-- 4 кнопки базовых действий под класс -->
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:6px;">
-            <button id="b-quest-act-atk" style="padding:6px 8px;background:#be123c;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:10px;font-weight:bold;display:flex;align-items:center;justify-content:center;gap:3px;" title="Базовая атака вашего класса">⚔️ Удар</button>
-            <button id="b-quest-act-sub" style="padding:6px 8px;background:#262238;color:#fbbf24;border:1px solid #3d3759;border-radius:4px;cursor:pointer;font-size:10px;font-weight:bold;display:flex;align-items:center;justify-content:center;gap:3px;" title="Дополнительное действие / Фокус цели">👥 Цель: Рядовые</button>
-            <button id="b-quest-act-def" style="padding:6px 8px;background:#1e3a8a;color:#60a5fa;border:1px solid #2563eb;border-radius:4px;cursor:pointer;font-size:10px;font-weight:bold;display:flex;align-items:center;justify-content:center;gap:3px;" title="Отправить слово блока / парирование">🛡️ Блок</button>
-            <button id="b-quest-act-squad" style="padding:6px 8px;background:#262238;color:#fbbf24;border:1px solid #3d3759;border-radius:4px;cursor:pointer;font-size:10px;font-weight:bold;display:flex;align-items:center;justify-content:center;gap:3px;" title="Вступить или выйти из отряда">🏃 Отряд</button>
-          </div>
-
-          <!-- Секция: Боевые скиллы персонажа -->
-          <div style="border-top:1px dashed #2e284a;padding-top:6px;margin-top:2px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-              <span style="font-size:10px;font-weight:bold;color:#fcd34d;display:flex;align-items:center;gap:3px;">
-                <span>⚡</span>
-                <span id="b-quest-skills-title">Боевые скиллы класса</span>
-              </span>
-              <span id="b-quest-skills-count" style="font-size:9px;color:#94a3b8;">0 доступно</span>
-            </div>
-            <div id="b-quest-skills-list" style="display:flex;flex-wrap:wrap;gap:4px;">
-              <span style="font-size:9.5px;color:#64748b;font-style:italic;">Скиллы станут доступны во время боя</span>
-            </div>
-          </div>
+        <!-- Действие: Вступить / Выйти из отряда -->
+        <div style="margin-bottom:8px;">
+          <button id="b-quest-act-squad" style="width:100%;box-sizing:border-box;padding:8px 10px;background:#064e3b;color:#a7f3d0;border:1px solid #10b981;border-radius:6px;cursor:pointer;font-size:11px;font-weight:bold;display:flex;align-items:center;justify-content:center;gap:5px;box-shadow:0 2px 6px rgba(0,0,0,0.3);transition:all 0.2s;" title="Вступить или выйти из отряда">
+            <span>🤝 Вступить</span>
+          </button>
         </div>
       </div>
 
