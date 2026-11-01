@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.14
-// @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
+// @version      9.1.15
+// @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=play.multidonate.ru
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.1.14';
+  const BOT_VERSION = '9.1.15';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -2242,7 +2242,7 @@
       </div>
     </div>
     <div id="b-body" style="margin-top:8px;">
-      <!-- Вкладки: Шахта, Рынок, Игроки, Рассылка, Город, Поход и Руда -->
+      <!-- Вкладки: Шахта, Рынок, Игроки, Город, Поход -->
       <div id="b-tabs" style="display:flex;gap:2px;margin-bottom:8px;border-bottom:1px solid #3d3759;padding-bottom:6px;">
         <button id="b-tab-btn-mine" style="flex:1;padding:5px 1px;background:#28a745;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Авто-шахта">⛏️ Шахта</button>
         <button id="b-tab-btn-market" style="flex:1;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Аукцион и снайпер">
@@ -2252,9 +2252,6 @@
         <button id="b-tab-btn-players" style="flex:1;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Разведка игроков">
           <span>👥 Игроки</span>
           <span id="b-players-badge" style="background:#3d3759;color:#66ccff;border-radius:8px;padding:0 3px;font-size:8px;font-weight:bold;line-height:12px;">0</span>
-        </button>
-        <button id="b-tab-btn-broadcast" style="flex:1;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Массовая рассылка сообщений в ЛС игрокам">
-          <span>📢 Рассылка</span>
         </button>
         <button id="b-tab-btn-city" style="flex:1;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Карманный город: лавка, когтекузня, тренер, склад из любой точки">
           <span>🏰 Город</span>
@@ -2453,93 +2450,6 @@
             <span id="b-dossier-nick" style="font-weight:bold;color:#00ff66;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px;">Ник</span>
           </div>
           <div id="b-dossier-content" style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding-right:2px;"></div>
-        </div>
-      </div>
-
-      <!-- Контейнер вкладки: Рассылка в ЛС игрокам -->
-      <div id="b-tab-broadcast" style="display:none;width:100%;max-width:345px;box-sizing:border-box;">
-        <div style="font-size:11px;font-weight:bold;color:#ec4899;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
-          <span>📢 Рассылка в ЛС игрокам</span>
-          <button id="b-bc-refresh" title="Обновить базу игроков" style="padding:2px 6px;background:#262238;color:#00ff66;border:1px solid #3d3759;border-radius:4px;cursor:pointer;font-size:10px;font-weight:bold;">🔄 Обновить</button>
-        </div>
-
-        <!-- Фильтр аудитории получателей -->
-        <div style="background:rgba(255,255,255,0.03);border:1px solid #3d3759;border-radius:6px;padding:6px 8px;margin-bottom:8px;">
-          <div style="font-size:10px;color:#aaa;margin-bottom:4px;display:flex;justify-content:space-between;">
-            <span>Кому отправить:</span>
-            <span id="b-bc-target-count" style="color:#00ff66;font-weight:bold;">0 игроков</span>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
-            <button id="b-bc-filter-city" class="b-bc-filter-btn" style="padding:4px 2px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:4px;cursor:pointer;font-size:9.5px;" title="Отправлять только тем, кто прямо сейчас находится в Городе">🏰 Только в Городе</button>
-            <button id="b-bc-filter-online" class="b-bc-filter-btn" style="padding:4px 2px;background:#d946ef;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:9.5px;font-weight:bold;" title="Все игроки онлайн: и в городе, и в шахте">🟢 Весь онлайн</button>
-            <button id="b-bc-filter-market" class="b-bc-filter-btn" style="padding:4px 2px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:4px;cursor:pointer;font-size:9.5px;" title="Активные продавцы аукциона с лотами">🏛️ Торговцы</button>
-            <button id="b-bc-filter-all" class="b-bc-filter-btn" style="padding:4px 2px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:4px;cursor:pointer;font-size:9.5px;" title="Все обнаруженные игроки в базе бота">👥 Все (в базе)</button>
-          </div>
-        </div>
-
-        <!-- Ввод сообщения -->
-        <div style="margin-bottom:8px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;font-size:10px;color:#aaa;">
-            <span>Текст сообщения:</span>
-            <span>Символов: <b id="b-bc-chars" style="color:#00ff66;">0</b>/196</span>
-          </div>
-          <textarea id="b-bc-text" maxlength="196" rows="3" placeholder="Привет, {ник}! Куплю любую руду / предметы с аукциона..." style="width:100%;box-sizing:border-box;background:#121026;color:#fff;border:1px solid #3d3759;border-radius:5px;padding:6px;font-size:11px;line-height:1.3;resize:none;outline:none;font-family:inherit;"></textarea>
-          <div style="font-size:9px;color:#38bdf8;margin-top:3px;line-height:1.3;white-space:normal;word-break:break-word;">
-            ✨ Тег <b>{ник}</b> подставит имя игрока и сделает каждое ЛС уникальным (обход ошибки «это уже было»)!
-          </div>
-        </div>
-
-        <!-- Настройки скорости / задержки -->
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:10px;color:#aaa;background:rgba(255,255,255,0.02);padding:5px 8px;border-radius:5px;border:1px solid #2d2645;">
-          <span>Интервал между ЛС:</span>
-          <select id="b-bc-delay" style="background:#1a1728;color:#fff;border:1px solid #3d3759;border-radius:4px;padding:2px 5px;font-size:10px;outline:none;cursor:pointer;">
-            <option value="3500" selected>3.5 сек (Рекомендуется)</option>
-            <option value="2500">2.5 сек (Быстро)</option>
-            <option value="5000">5.0 сек (Макс. безопасно)</option>
-          </select>
-        </div>
-
-        <!-- Кнопки управления рассылкой -->
-        <div style="display:flex;gap:5px;margin-bottom:8px;">
-          <button id="b-bc-start" style="flex:2;padding:8px 6px;background:#d946ef;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:4px;box-shadow:0 2px 4px rgba(0,0,0,0.3);transition:background 0.15s;">
-            <span>🚀 Отправить всем в ЛС</span>
-          </button>
-          <button id="b-bc-pause" style="display:none;flex:1;padding:8px 4px;background:#f59e0b;color:#000;border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:bold;justify-content:center;align-items:center;gap:3px;">
-            <span>⏸️ Пауза</span>
-          </button>
-          <button id="b-bc-stop" style="display:none;flex:1;padding:8px 4px;background:#ef4444;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:bold;justify-content:center;align-items:center;gap:3px;">
-            <span>⏹️ Стоп</span>
-          </button>
-        </div>
-
-        <!-- Прогресс-бар и счетчики -->
-        <div id="b-bc-progress-wrap" style="display:none;margin-bottom:8px;">
-          <div style="display:flex;justify-content:space-between;font-size:10px;color:#aaa;margin-bottom:3px;">
-            <span id="b-bc-state-label">Отправка...</span>
-            <span id="b-bc-state-nums">0 / 0</span>
-          </div>
-          <div style="background:#161329;border-radius:4px;height:7px;overflow:hidden;border:1px solid #3d3759;">
-            <div id="b-bc-bar" style="width:0%;height:100%;background:#00ff66;transition:width 0.25s;"></div>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:9.5px;color:#8899aa;margin-top:3px;">
-            <span style="color:#00ff66;">✔ Доставлено: <b id="b-bc-cnt-ok">0</b></span>
-            <span style="color:#f59e0b;">⏳ Рейт-лимиты: <b id="b-bc-cnt-rl">0</b></span>
-            <span style="color:#ef4444;">❌ Ошибки: <b id="b-bc-cnt-err">0</b></span>
-          </div>
-        </div>
-
-        <!-- Лог отправки -->
-        <div style="font-size:10px;color:#8899aa;margin-bottom:3px;display:flex;justify-content:space-between;">
-          <span>Журнал рассылки:</span>
-          <button id="b-bc-clear-log" style="background:none;border:none;color:#666;font-size:9px;cursor:pointer;text-decoration:underline;">Очистить</button>
-        </div>
-        <div id="b-bc-log" style="max-height:110px;overflow-y:auto;overflow-x:hidden;background:#0d0b1a;border:1px solid #2d2645;border-radius:4px;padding:5px 6px;font-family:monospace;font-size:9.5px;display:flex;flex-direction:column;gap:3px;white-space:normal;word-break:break-word;">
-          <div style="color:#666;text-align:center;padding:12px 0;white-space:normal;word-break:break-word;">Здесь будет отображаться статус отправки сообщений каждому игроку</div>
-        </div>
-
-        <!-- Подсказка безопасности -->
-        <div style="font-size:9px;color:#778899;margin-top:6px;line-height:1.3;padding-top:4px;border-top:1px dashed #2d2645;white-space:normal;word-break:break-word;">
-          💡 <b>Совет:</b> бот отправляет сообщения с безопасной паузой. Не спамьте оскорблениями во избежание жалоб модераторам.
         </div>
       </div>
 
@@ -3401,9 +3311,9 @@
   // Элементы вкладок
   const tabBtnMine = w.querySelector('#b-tab-btn-mine'), tabBtnMarket = w.querySelector('#b-tab-btn-market');
   const mineClaimBtn = w.querySelector('#b-mine-claim-btn');
-  const tabBtnPlayers = w.querySelector('#b-tab-btn-players'), tabBtnBroadcast = w.querySelector('#b-tab-btn-broadcast'), tabBtnCity = w.querySelector('#b-tab-btn-city'), tabBtnQuest = w.querySelector('#b-tab-btn-quest');
+  const tabBtnPlayers = w.querySelector('#b-tab-btn-players'), tabBtnCity = w.querySelector('#b-tab-btn-city'), tabBtnQuest = w.querySelector('#b-tab-btn-quest');
   const tabMine = w.querySelector('#b-tab-mine'), tabMarket = w.querySelector('#b-tab-market');
-  const tabPlayers = w.querySelector('#b-tab-players'), tabBroadcast = w.querySelector('#b-tab-broadcast'), tabCity = w.querySelector('#b-tab-city'), tabQuest = w.querySelector('#b-tab-quest');
+  const tabPlayers = w.querySelector('#b-tab-players'), tabCity = w.querySelector('#b-tab-city'), tabQuest = w.querySelector('#b-tab-quest');
   const aucBadge = w.querySelector('#b-auc-badge'), aucList = w.querySelector('#b-auc-list');
   const questBadge = w.querySelector('#b-quest-badge');
   const aucRefresh = w.querySelector('#b-auc-refresh'), aucFilter = w.querySelector('#b-auc-filter');
@@ -3445,22 +3355,19 @@
   }
 
   let activeTab = localStorage.getItem('lg_bot_tab') || 'mine';
-  if (activeTab === 'settings' || activeTab === 'priority') activeTab = 'mine';
+  if (activeTab === 'settings' || activeTab === 'priority' || activeTab === 'broadcast') activeTab = 'mine';
 
   function applyActiveTab() {
-    [tabBtnMine, tabBtnMarket, tabBtnPlayers, tabBtnBroadcast, tabBtnCity, tabBtnQuest].forEach(btn => {
+    [tabBtnMine, tabBtnMarket, tabBtnPlayers, tabBtnCity, tabBtnQuest].forEach(btn => {
       if (btn) {
         btn.style.background = '#262238';
         btn.style.color = '#aaa';
         btn.style.border = '1px solid #3d3759';
       }
     });
-    [tabMine, tabMarket, tabPlayers, tabBroadcast, tabCity, tabQuest].forEach(t => {
+    [tabMine, tabMarket, tabPlayers, tabCity, tabQuest].forEach(t => {
       if (t) t.style.display = 'none';
     });
-    if (!isMinimized && !isSquare) {
-      w.style.maxWidth = (activeTab === 'broadcast' ? '370px' : 'none');
-    }
 
     if (activeTab === 'market') {
       tabBtnMarket.style.background = '#007bff';
@@ -3476,17 +3383,6 @@
       tabPlayers.style.display = 'block';
       if (!isMinimized && !isSquare) w.style.minWidth = '310px';
       if (typeof scanPlayers === 'function') scanPlayers();
-    } else if (activeTab === 'broadcast') {
-      tabBtnBroadcast.style.background = '#d946ef';
-      tabBtnBroadcast.style.color = '#fff';
-      tabBtnBroadcast.style.border = 'none';
-      tabBroadcast.style.display = 'block';
-      if (!isMinimized && !isSquare) {
-        w.style.minWidth = '310px';
-        w.style.maxWidth = '350px';
-      }
-      if (typeof scanPlayers === 'function') scanPlayers(true);
-      if (typeof updateBroadcastRecipientsCount === 'function') updateBroadcastRecipientsCount();
     } else if (activeTab === 'city') {
       tabBtnCity.style.background = '#f59e0b';
       tabBtnCity.style.color = '#000';
@@ -3515,7 +3411,6 @@
   tabBtnMine.onclick = () => { activeTab = 'mine'; applyActiveTab(); };
   tabBtnMarket.onclick = () => { activeTab = 'market'; applyActiveTab(); };
   tabBtnPlayers.onclick = () => { activeTab = 'players'; applyActiveTab(); };
-  tabBtnBroadcast.onclick = () => { activeTab = 'broadcast'; applyActiveTab(); };
   tabBtnCity.onclick = () => { activeTab = 'city'; applyActiveTab(); };
   tabBtnQuest.onclick = () => { activeTab = 'quest'; applyActiveTab(); };
 
@@ -4959,9 +4854,6 @@
       const activeAuctionSellers = Array.from(playersMap.values()).filter(p => p.lotsCount > 0).length;
       playersStatus.textContent = `В базе: ${playersMap.size} • Торговцев: ${activeAuctionSellers} • В городе: ${cityPlayers.size}`;
     }
-    if (typeof updateBroadcastRecipientsCount === 'function') {
-      updateBroadcastRecipientsCount();
-    }
 
     // Обновляем представление, если вкладка активна
     if (activeTab === 'players') {
@@ -5402,409 +5294,6 @@
   if (playersSearch) {
     playersSearch.oninput = () => {
       renderPlayersList();
-    };
-  }
-
-  // ---------- МОДУЛЬ: МАССОВАЯ РАССЫЛКА В ЛС (ЛИЧНЫЕ СООБЩЕНИЯ) ----------
-  const bcRefreshBtn = w.querySelector('#b-bc-refresh');
-  const bcFilterCityBtn = w.querySelector('#b-bc-filter-city');
-  const bcFilterOnlineBtn = w.querySelector('#b-bc-filter-online');
-  const bcFilterMarketBtn = w.querySelector('#b-bc-filter-market');
-  const bcFilterAllBtn = w.querySelector('#b-bc-filter-all');
-  const bcTargetCount = w.querySelector('#b-bc-target-count');
-  const bcText = w.querySelector('#b-bc-text');
-  const bcChars = w.querySelector('#b-bc-chars');
-  const bcDelaySelect = w.querySelector('#b-bc-delay');
-  const bcStartBtn = w.querySelector('#b-bc-start');
-  const bcPauseBtn = w.querySelector('#b-bc-pause');
-  const bcStopBtn = w.querySelector('#b-bc-stop');
-  const bcProgressWrap = w.querySelector('#b-bc-progress-wrap');
-  const bcStateLabel = w.querySelector('#b-bc-state-label');
-  const bcStateNums = w.querySelector('#b-bc-state-nums');
-  const bcBar = w.querySelector('#b-bc-bar');
-  const bcCntOk = w.querySelector('#b-bc-cnt-ok');
-  const bcCntRl = w.querySelector('#b-bc-cnt-rl');
-  const bcCntErr = w.querySelector('#b-bc-cnt-err');
-  const bcLogEl = w.querySelector('#b-bc-log');
-  const bcClearLogBtn = w.querySelector('#b-bc-clear-log');
-
-  let broadcastAudienceFilter = 'online'; // Default 'online' (весь онлайн: город + шахта). 'city' | 'online' | 'market' | 'all'
-  let isBroadcasting = false;
-  let isBroadcastPaused = false;
-  let broadcastAbortRequested = false;
-
-  function waitBroadcastMs(ms) {
-    return new Promise(resolve => {
-      const start = Date.now();
-      const check = () => {
-        if (broadcastAbortRequested || !window.__mineBotRunning || Date.now() - start >= ms) {
-          resolve();
-        } else {
-          setTimeout(check, 100);
-        }
-      };
-      check();
-    });
-  }
-
-  function addBcLog(msg, color = '#aaa') {
-    if (!bcLogEl) return;
-    const item = document.createElement('div');
-    item.style.color = color;
-    item.style.wordBreak = 'break-word';
-    item.style.lineHeight = '1.3';
-    item.textContent = msg;
-    bcLogEl.appendChild(item);
-    bcLogEl.scrollTop = bcLogEl.scrollHeight;
-  }
-
-  function getBroadcastRecipients() {
-    const myNick = (getMyNick() || '').trim().toLowerCase();
-    const citySet = getCityPlayers();
-    const mineSet = getMinePlayers();
-    const list = [];
-
-    playersMap.forEach(p => {
-      const nick = (p.nick || '').trim();
-      const key = nick.toLowerCase();
-      if (!key || (myNick && key === myNick)) return;
-
-      const inCity = citySet.has(key);
-      const isOnline = inCity || mineSet.has(key);
-      const hasLots = (p.lotsCount || 0) > 0;
-
-      if (broadcastAudienceFilter === 'city') {
-        if (inCity) {
-          list.push({ nick, inCity: true, online: true, lots: p.lotsCount || 0 });
-        }
-      } else if (broadcastAudienceFilter === 'online') {
-        if (isOnline) {
-          list.push({ nick, inCity, online: true, lots: p.lotsCount || 0 });
-        }
-      } else if (broadcastAudienceFilter === 'market') {
-        if (hasLots) {
-          list.push({ nick, inCity, online: isOnline, lots: p.lotsCount || 0 });
-        }
-      } else {
-        // 'all' — все обнаруженные игроки с вкладки «Игроки»
-        list.push({ nick, inCity, online: isOnline, lots: p.lotsCount || 0 });
-      }
-    });
-
-    // Сортировка: сначала те, кто в городе, затем онлайн, затем торговцы с лотами, затем по алфавиту
-    list.sort((a, b) => {
-      if (b.inCity !== a.inCity) return (b.inCity ? 1 : 0) - (a.inCity ? 1 : 0);
-      if (b.online !== a.online) return (b.online ? 1 : 0) - (a.online ? 1 : 0);
-      if (b.lots !== a.lots) return b.lots - a.lots;
-      return a.nick.localeCompare(b.nick);
-    });
-
-    return list.map(item => item.nick);
-  }
-
-  function updateBroadcastRecipientsCount() {
-    const recipients = getBroadcastRecipients();
-    const cnt = recipients.length;
-    if (bcTargetCount) {
-      bcTargetCount.textContent = `${cnt} игроков`;
-    }
-  }
-
-  function setBroadcastFilter(filterType) {
-    broadcastAudienceFilter = filterType;
-    const filterBtns = [bcFilterCityBtn, bcFilterOnlineBtn, bcFilterMarketBtn, bcFilterAllBtn];
-    filterBtns.forEach(b => {
-      if (!b) return;
-      b.style.background = '#262238';
-      b.style.color = '#aaa';
-      b.style.border = '1px solid #3d3759';
-      b.style.fontWeight = 'normal';
-    });
-    const activeBtn = filterType === 'city' ? bcFilterCityBtn : filterType === 'online' ? bcFilterOnlineBtn : filterType === 'market' ? bcFilterMarketBtn : bcFilterAllBtn;
-    if (activeBtn) {
-      activeBtn.style.background = '#d946ef';
-      activeBtn.style.color = '#fff';
-      activeBtn.style.border = 'none';
-      activeBtn.style.fontWeight = 'bold';
-    }
-    updateBroadcastRecipientsCount();
-  }
-
-  if (bcFilterCityBtn) bcFilterCityBtn.onclick = () => setBroadcastFilter('city');
-  if (bcFilterOnlineBtn) bcFilterOnlineBtn.onclick = () => setBroadcastFilter('online');
-  if (bcFilterMarketBtn) bcFilterMarketBtn.onclick = () => setBroadcastFilter('market');
-  if (bcFilterAllBtn) bcFilterAllBtn.onclick = () => setBroadcastFilter('all');
-  updateBroadcastRecipientsCount();
-
-  if (bcRefreshBtn) {
-    bcRefreshBtn.onclick = async () => {
-      if (typeof refreshLiveCityPlayers === 'function') await refreshLiveCityPlayers();
-      if (typeof scanPlayers === 'function') scanPlayers();
-      updateBroadcastRecipientsCount();
-      showToast('Список игроков и город актуализированы');
-    };
-  }
-
-  if (bcClearLogBtn) {
-    bcClearLogBtn.onclick = () => {
-      if (bcLogEl) bcLogEl.innerHTML = '<div style="color:#666;text-align:center;padding:12px 0;">Журнал очищен</div>';
-    };
-  }
-
-  if (bcText) {
-    bcText.oninput = () => {
-      const len = bcText.value.length;
-      if (bcChars) {
-        bcChars.textContent = String(len);
-        bcChars.style.color = len >= 190 ? '#ef4444' : len >= 160 ? '#f59e0b' : '#00ff66';
-      }
-    };
-  }
-
-  function updateBcProgress(current, total, ok, rl, err) {
-    if (bcStateNums) bcStateNums.textContent = `${current} / ${total}`;
-    if (bcBar) {
-      const pct = total > 0 ? Math.round((current / total) * 100) : 0;
-      bcBar.style.width = `${pct}%`;
-    }
-    if (bcCntOk) bcCntOk.textContent = String(ok);
-    if (bcCntRl) bcCntRl.textContent = String(rl);
-    if (bcCntErr) bcCntErr.textContent = String(err);
-  }
-
-  // Генератор уникального сообщения (обход анти-спам проверки сервера «это уже было»)
-  function formatBroadcastMessage(rawText, targetNick, index, attempt = 1) {
-    let msg = (rawText || '').trim();
-
-    // 1. Подстановка макроса {ник} или {nick} (персональное обращение)
-    if (/\{ник\}|\{nick\}/i.test(msg)) {
-      msg = msg.replace(/\{ник\}|\{nick\}/gi, targetNick);
-    }
-
-    // 2. Невидимые нуль-символы для гарантированного разрыва идентичности строк
-    const zeroWidths = [
-      '\u200B',
-      '\u200C',
-      '\u200D',
-      '\u2060',
-      '\u200B\u200C',
-      '\u200C\u200D',
-      '\u200D\u2060',
-      '\u2060\u200B'
-    ];
-    const zw = zeroWidths[index % zeroWidths.length];
-
-    // 3. Видимая микро-пунктуация (на случай, если сервер чистит нуль-символы)
-    // Чередуем неброские варианты хвоста: '.', ' .', ' ·', '..', ' ~', ' -'
-    const visSalts = ['.', ' .', ' ·', '..', ' ~', ' -'];
-    const saltIdx = (index + (attempt > 1 ? (attempt * 2) : 0)) % visSalts.length;
-    const visTail = visSalts[saltIdx];
-
-    // Контроль длины в пределах 200 символов
-    const reserved = zw.length + visTail.length;
-    if (msg.length + reserved > 200) {
-      msg = msg.slice(0, 200 - reserved);
-    }
-
-    return msg + zw + visTail;
-  }
-
-  async function startBroadcastFlow() {
-    if (isBroadcasting) return;
-    const text = (bcText && bcText.value || '').trim();
-    if (!text) {
-      showToast('Введите текст сообщения для рассылки!', true);
-      if (bcText) bcText.focus();
-      return;
-    }
-    if (text.length > 200) {
-      showToast('Сообщение не должно превышать 200 символов!', true);
-      return;
-    }
-
-    if (broadcastAudienceFilter === 'city') {
-      if (typeof refreshLiveCityPlayers === 'function') await refreshLiveCityPlayers();
-    }
-    if (typeof scanPlayers === 'function') scanPlayers(true);
-    const recipients = getBroadcastRecipients();
-    if (recipients.length === 0) {
-      if (broadcastAudienceFilter === 'city') {
-        showToast('В городе сейчас никого нет (кроме вас)! Нажмите 🔄 для проверки.', true);
-      } else {
-        showToast('Список получателей пуст! Нажмите 🔄 для сканирования.', true);
-      }
-      return;
-    }
-
-    const shortPreview = text.length > 55 ? text.slice(0, 55) + '...' : text;
-    if (!confirm(`📢 Запустить рассылку в ЛС для ${recipients.length} игроков?\n\nТекст сообщения:\n"${shortPreview}"\n\nБот будет отправлять сообщения с безопасной паузой.`)) {
-      return;
-    }
-
-    isBroadcasting = true;
-    isBroadcastPaused = false;
-    broadcastAbortRequested = false;
-
-    if (bcStartBtn) bcStartBtn.style.display = 'none';
-    if (bcPauseBtn) {
-      bcPauseBtn.style.display = 'flex';
-      bcPauseBtn.innerHTML = '<span>⏸️ Пауза</span>';
-      bcPauseBtn.style.background = '#f59e0b';
-      bcPauseBtn.style.color = '#000';
-    }
-    if (bcStopBtn) bcStopBtn.style.display = 'flex';
-    if (bcProgressWrap) bcProgressWrap.style.display = 'block';
-    if (bcText) bcText.disabled = true;
-
-    if (bcLogEl) bcLogEl.innerHTML = '';
-    const delayMs = parseInt((bcDelaySelect && bcDelaySelect.value) || '3500', 10);
-    addBcLog(`🚀 Старт рассылки: ${recipients.length} получателей. Задержка: ${(delayMs / 1000).toFixed(1)} сек.`, '#38bdf8');
-
-    let okCount = 0;
-    let rlCount = 0;
-    let errCount = 0;
-
-    for (let i = 0; i < recipients.length; i++) {
-      if (broadcastAbortRequested || !window.__mineBotRunning) {
-        addBcLog(`⏹️ Рассылка остановлена пользователем.`, '#ef4444');
-        break;
-      }
-
-      // Ожидание при паузе
-      while (isBroadcastPaused && !broadcastAbortRequested && window.__mineBotRunning) {
-        if (bcStateLabel) bcStateLabel.textContent = '⏸️ На паузе...';
-        await waitBroadcastMs(400);
-      }
-      if (broadcastAbortRequested || !window.__mineBotRunning) break;
-
-      if (bcStateLabel) bcStateLabel.textContent = `Отправка (${i + 1}/${recipients.length})...`;
-      updateBcProgress(i, recipients.length, okCount, rlCount, errCount);
-
-      const targetNick = recipients[i];
-      const timeStr = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-      // Если выбран режим "Только в Городе", делаем дополнительную живую проверку перед отправкой:
-      if (broadcastAudienceFilter === 'city') {
-        const liveCity = getCityPlayers();
-        if (!liveCity.has(targetNick.toLowerCase())) {
-          addBcLog(`[${timeStr}] ⏩ [${targetNick}] вышел из города, пропускаем`, '#f59e0b');
-          continue;
-        }
-      }
-
-      addBcLog(`[${timeStr}] ✉️ (${i + 1}/${recipients.length}) Отправка для [${targetNick}]...`, '#aaa');
-
-      let delivered = false;
-      let attempt = 0;
-
-      while (attempt < 3 && !delivered && !broadcastAbortRequested && window.__mineBotRunning) {
-        attempt++;
-        const uniqueText = formatBroadcastMessage(text, targetNick, i, attempt);
-        try {
-          const res = await gameApi('/api/city/say', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              text: uniqueText,
-              to: targetNick
-            })
-          });
-
-          if (res && res.ok) {
-            delivered = true;
-            okCount++;
-            addBcLog(`[${timeStr}] ✔ Доставлено игроку [${targetNick}]`, '#00ff66');
-          } else {
-            const err = String((res && (res.error || res.err)) || 'неизвестная ошибка');
-            if (err.includes('это уже было') || err.includes('уже было')) {
-              addBcLog(`[${timeStr}] ⚠️ «Это уже было» — уникализируем текст для [${targetNick}]...`, '#ffd700');
-              await waitBroadcastMs(1200);
-              if (attempt >= 3) {
-                errCount++;
-                addBcLog(`[${timeStr}] ❌ [${targetNick}]: не удалось обойти фильтр повтора`, '#ef4444');
-              }
-            } else if (err === 'rate_limited' || /слишком часто|передохни|не так часто/i.test(err)) {
-              rlCount++;
-              const isMinuteThrottled = /слишком часто|передохни/i.test(err);
-              const waitSec = isMinuteThrottled ? 62 : 6;
-              addBcLog(`[${timeStr}] ⏳ Кулдаун чата («${err}»)! Ожидание ${waitSec} сек...`, '#ffd700');
-              for (let s = waitSec; s > 0; s--) {
-                if (broadcastAbortRequested || !window.__mineBotRunning) break;
-                while (isBroadcastPaused && !broadcastAbortRequested && window.__mineBotRunning) {
-                  if (bcStateLabel) bcStateLabel.textContent = '⏸️ На паузе...';
-                  await waitBroadcastMs(400);
-                }
-                if (bcStateLabel) bcStateLabel.textContent = `⏳ Кулдаун сервера: ждём ${s} сек...`;
-                await waitBroadcastMs(1000);
-              }
-              if (attempt >= 3) {
-                errCount++;
-                addBcLog(`[${timeStr}] ❌ [${targetNick}]: превышен лимит попыток`, '#ef4444');
-              } else {
-                addBcLog(`[${timeStr}] 🔄 Повторная отправка для [${targetNick}]...`, '#38bdf8');
-              }
-            } else {
-              errCount++;
-              const errMsg = err === 'city_closed' ? 'город закрыт' : err === 'forbidden' ? 'нет прав на ЛС' : err;
-              addBcLog(`[${timeStr}] ❌ [${targetNick}]: ${errMsg}`, '#ef4444');
-              break;
-            }
-          }
-        } catch (e) {
-          errCount++;
-          addBcLog(`[${timeStr}] ❌ [${targetNick}]: ошибка сети`, '#ef4444');
-          break;
-        }
-      }
-
-      updateBcProgress(i + 1, recipients.length, okCount, rlCount, errCount);
-
-      // Задержка перед следующим сообщением (плюс случайный джиттер 0..600мс)
-      if (i < recipients.length - 1 && !broadcastAbortRequested && window.__mineBotRunning) {
-        const jitter = Math.floor(Math.random() * 600);
-        await waitBroadcastMs(delayMs + jitter);
-      }
-    }
-
-    isBroadcasting = false;
-    isBroadcastPaused = false;
-    broadcastAbortRequested = false;
-
-    if (bcStartBtn) bcStartBtn.style.display = 'flex';
-    if (bcPauseBtn) bcPauseBtn.style.display = 'none';
-    if (bcStopBtn) bcStopBtn.style.display = 'none';
-    if (bcText) bcText.disabled = false;
-    if (bcStateLabel) bcStateLabel.textContent = 'Рассылка завершена';
-
-    addBcLog(`🏁 Завершено! Доставлено: ${okCount}, Ошибок: ${errCount}, Рейт-лимитов: ${rlCount}`, '#00ff66');
-    showToast(`Рассылка завершена: доставлено ${okCount} из ${recipients.length}`);
-  }
-
-  if (bcStartBtn) bcStartBtn.onclick = startBroadcastFlow;
-
-  if (bcPauseBtn) {
-    bcPauseBtn.onclick = () => {
-      isBroadcastPaused = !isBroadcastPaused;
-      if (isBroadcastPaused) {
-        bcPauseBtn.innerHTML = '<span>▶️ Продолжить</span>';
-        bcPauseBtn.style.background = '#28a745';
-        bcPauseBtn.style.color = '#fff';
-        addBcLog(`⏸️ Рассылка поставлена на паузу`, '#ffd700');
-      } else {
-        bcPauseBtn.innerHTML = '<span>⏸️ Пауза</span>';
-        bcPauseBtn.style.background = '#f59e0b';
-        bcPauseBtn.style.color = '#000';
-        addBcLog(`▶️ Возобновление рассылки...`, '#00ff66');
-      }
-    };
-  }
-
-  if (bcStopBtn) {
-    bcStopBtn.onclick = () => {
-      if (confirm('Остановить текущую рассылку?')) {
-        broadcastAbortRequested = true;
-        isBroadcastPaused = false;
-      }
     };
   }
 
@@ -8176,8 +7665,8 @@
         bSquareBtn.title = 'Свернуть в квадратик';
       }
 
-      w.style.minWidth = (activeTab === 'market' || activeTab === 'players' || activeTab === 'broadcast' || activeTab === 'city' || activeTab === 'quest' ? '310px' : '250px');
-      w.style.maxWidth = (activeTab === 'broadcast' ? '370px' : 'none');
+      w.style.minWidth = (activeTab === 'market' || activeTab === 'players' || activeTab === 'city' || activeTab === 'quest' ? '310px' : '250px');
+      w.style.maxWidth = 'none';
       w.style.width = 'auto';
       w.style.height = 'auto';
       w.style.minHeight = 'auto';
@@ -9419,7 +8908,6 @@
     isPaused = true;
     isAutoBuy = false;
     if (bAucAutoBuy) bAucAutoBuy.checked = false;
-    broadcastAbortRequested = true;
     clearTimeout(timer);
     if (liveProgressTimer) clearInterval(liveProgressTimer);
     clearInterval(refreshMinesTimer);
