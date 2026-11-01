@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.15
+// @version      9.1.16
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.1.15';
+  const BOT_VERSION = '9.1.16';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -2351,7 +2351,7 @@
           </div>
 
         </div>
-        <div id="b-st" style="margin-bottom:8px;color:#ffc107;font-size:12px;font-weight:bold;min-height:16px;line-height:1.35;word-break:break-word;">На паузе</div>
+        <div id="b-st" style="margin-bottom:8px;color:#ffc107;font-size:11px;font-weight:bold;min-height:15px;line-height:1.35;word-break:break-word;">На паузе</div>
         <!-- Прогресс-бар добычи текущего камня (здоровье камня / сколько осталось, как в игре) -->
         <div id="b-mine-progress-wrap" style="display:none;margin-bottom:8px;background:rgba(0,0,0,0.35);padding:6px 8px;border-radius:6px;border:1px solid #3d3759;">
           <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:4px;">
