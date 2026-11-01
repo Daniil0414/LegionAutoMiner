@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.25
+// @version      9.1.26
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.1.25';
+  const BOT_VERSION = '9.1.26';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -2294,7 +2294,7 @@
           <div style="display:flex;align-items:center;background:#1a172e;padding:5px 8px;border-radius:6px;border:1px solid #3d3759;flex-shrink:0;">
             <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#ffd700;font-size:11px;font-weight:bold;user-select:none;white-space:nowrap;" title="Режим «Рейтинг»: авто-поиск жил с 2–5 игроками, добивание камней с низким HP, фиксация цели до 100% разрушения">
               <input type="checkbox" id="b-rating-mode" ${isRatingMode ? 'checked' : ''} style="accent-color:#ffd700;cursor:pointer;width:14px;height:14px;">
-              <span>🏆 Режим «Рейтинг»</span>
+              <span>🏆 На Рейтинг</span>
             </label>
           </div>
           <!-- Переключатели приоритета: Сперва руда / Настройка руд -->
