@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.8
+// @version      9.1.9
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -1338,9 +1338,19 @@
     G.__mineFetchHooked = true;
     const origFetch = G.fetch;
     G.fetch = async function (...args) {
+      const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
+      const requestedMineId = url.includes('/api/mine/state')
+        ? (new URL(url, location.href).searchParams.get('c') || 'home')
+        : null;
+      const snapshotOnly = args[1]?.mineSnapshotOnly === true;
+      const ignoreMineState = snapshotOnly || (requestedMineId !== null && requestedMineId !== String(currentMineId || 'home'));
+      if (snapshotOnly) {
+        const fetchOptions = { ...args[1] };
+        delete fetchOptions.mineSnapshotOnly;
+        args[1] = fetchOptions;
+      }
       // 🛡️ Стелс-защита: перехват и полная очистка телеметрии tl в запросах mineDig (Шахта 29.10 / 30.10)
       try {
-        const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
         if (url.includes('/api/mineDig') && args[1] && args[1].body) {
           if (typeof args[1].body === 'string') {
             try {
@@ -1376,7 +1386,6 @@
 
       const res = await origFetch.apply(this, args);
       try {
-        const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
         if (url.includes('/api/me') || url.includes('/api/st') || url.includes('/api/mineOreBag') || url.includes('/api/mineSell') || url.includes('/api/equip') || url.includes('/api/unequip') || url.includes('/api/craft')) {
           const origJson = res.json.bind(res);
           res.json = async function () {
@@ -1400,9 +1409,10 @@
             return data;
           };
         }
-        if (url.includes('/api/mine/state') || url.includes('/api/mine/enter') || url.includes('/api/minestop') || url.includes('/api/mineDig') || url.includes('/api/mineOreBag')) {
+        if (!ignoreMineState && (url.includes('/api/mine/state') || url.includes('/api/mine/enter') || url.includes('/api/minestop') || url.includes('/api/mineDig') || url.includes('/api/mineOreBag'))) {
           const clone = res.clone();
           clone.json().then(data => {
+            if (requestedMineId !== null && requestedMineId !== String(currentMineId || 'home')) return;
             if (data && data.st) {
               if (typeof G.__mineHandleStateUpdate === 'function') {
                 G.__mineHandleStateUpdate(data.st);
@@ -1592,7 +1602,8 @@
 
     // 1. Приоритет: Нативный api-контекст игры (app.js / city.js / mine.js / auction.js / quest.js)
     const nativeCtx = G.__lgAucContext || G.__lgCityContext || G.__lgMineContext || G.__lgQuestContext;
-    if (nativeCtx && typeof nativeCtx.api === 'function' && options.body && options.method === 'POST') {
+    // Покупкам нужен HTTP-статус: нативный api() возвращает только JSON.
+    if (p !== '/api/aucBuy' && nativeCtx && typeof nativeCtx.api === 'function' && options.body && options.method === 'POST') {
       try {
         const bodyObj = typeof options.body === 'string' ? JSON.parse(options.body) : options.body;
         const res = await nativeCtx.api(p, bodyObj);
@@ -1625,6 +1636,8 @@
       }
 
       if (data && typeof data === 'object') {
+        data.status = res.status;
+        if (!res.ok) data.ok = false;
         return data;
       }
 
@@ -1678,7 +1691,7 @@
     try {
       const c = currentMineId || 'home';
       const res = await gameApi(`/api/mine/state?c=${encodeURIComponent(c)}`);
-      if (res && res.st) {
+      if (res && res.st && c === (currentMineId || 'home')) {
         G.__lgMineState = res.st;
         G.__lgMineError = null;
         if (typeof G.__mineHandleStateUpdate === 'function') {
@@ -1832,7 +1845,9 @@
                 if (res && typeof endpoint === 'string') {
                   const S = G.__lgMineS;
                   // Перехват входа в шахту и опроса состояния:
-                  if (endpoint.includes('/api/mine/enter') || endpoint.includes('/api/mine/state') || endpoint.includes('/api/mine/poll')) {
+                  const isOtherFloorState = endpoint.includes('/api/mine/state') &&
+                    (new URL(endpoint, location.href).searchParams.get('c') || 'home') !== String(currentMineId || 'home');
+                  if (!isOtherFloorState && (endpoint.includes('/api/mine/enter') || endpoint.includes('/api/mine/state') || endpoint.includes('/api/mine/poll'))) {
                     const curFloor = res.st?.n || (res.st && (res.st.deep || res.st.n)) || S?.st?.n;
                     if (curFloor) {
                       if (res.me) res.me.at = curFloor;
@@ -3824,6 +3839,7 @@
   }
 
   let lastAuctionData = null;
+  let lastAutoBuyCandidates = [];
   let aucPollTimer = null;
   let cityStockMap = new Map();
   let cityStockLoaded = false;
@@ -3966,6 +3982,7 @@
       }
       const res = await gameApi('/api/auction');
       if (res && res.notModified) {
+        if (isAutoBuy) processAutoBuy(lastAutoBuyCandidates);
         return lastAuctionData;
       }
       if (res && res.ok && Array.isArray(res.lots)) {
@@ -3974,6 +3991,8 @@
         if (isNewVersion) {
           renderMarketLots();
           if (typeof scanPlayers === 'function') scanPlayers(true);
+        } else if (isAutoBuy) {
+          processAutoBuy(lastAutoBuyCandidates);
         }
 
         // Проверяем склад аукциона
@@ -4045,9 +4064,9 @@
     }
 
     // МАКСИМАЛЬНЫЙ СНАЙПИНГ: Сортируем и запускаем скупку НЕМЕДЛЕННО до генерации тяжелого DOM!
-    if (isAutoBuy && evaluated.length > 0) {
-      const buyCandidates = evaluated.slice().sort((a, b) => b.ev.discount - a.ev.discount);
-      processAutoBuy(buyCandidates);
+    lastAutoBuyCandidates = evaluated.slice().sort((a, b) => b.ev.discount - a.ev.discount);
+    if (isAutoBuy && lastAutoBuyCandidates.length > 0) {
+      processAutoBuy(lastAutoBuyCandidates);
     }
 
     // Обновляем бейдж горячих предложений (только для 50%+)
@@ -4214,13 +4233,10 @@
       };
     });
 
-    if (isAutoBuy && evaluated.length > 0 && !isAutoBuyInProgress) {
-      processAutoBuy(evaluated);
-    }
   }
 
   async function processAutoBuy(evaluatedLots) {
-    if (!isAutoBuy || isAutoBuyInProgress) return;
+    if (!G.__mineBotRunning || !isAutoBuy || isAutoBuyInProgress) return;
     if (!Array.isArray(evaluatedLots) || evaluatedLots.length === 0) return;
 
     isAutoBuyInProgress = true;
@@ -4233,7 +4249,7 @@
 
       let boughtAny = false;
       for (const item of evaluatedLots) {
-        if (!isAutoBuy) break;
+        if (!G.__mineBotRunning || !isAutoBuy) break;
         const lot = item.lot;
         const ev = item.ev;
         if (!lot || !lot.id) continue;
@@ -4325,7 +4341,7 @@
       }
 
       // После скупки найденных лотов сразу обновляем витрину
-      if (boughtAny) {
+      if (boughtAny && G.__mineBotRunning && isAutoBuy) {
         fetchAuctionData(true);
       }
     } finally {
@@ -9266,6 +9282,9 @@
 
   window.__mineBotStop = () => {
     window.__mineBotRunning = false;
+    isPaused = true;
+    isAutoBuy = false;
+    if (bAucAutoBuy) bAucAutoBuy.checked = false;
     broadcastAbortRequested = true;
     clearTimeout(timer);
     if (liveProgressTimer) clearInterval(liveProgressTimer);
@@ -10400,7 +10419,7 @@
         } else {
           const roomKey = f >= deep ? baseId : `${baseId}.${f}`;
           try {
-            const res = await gameApi(`/api/mine/state?c=${encodeURIComponent(roomKey)}`);
+            const res = await gameApi(`/api/mine/state?c=${encodeURIComponent(roomKey)}`, { mineSnapshotOnly: true });
             if (res && res.ok && res.st && Array.isArray(res.st.drills)) {
               drillsForFloor = res.st.drills;
             }
@@ -10501,7 +10520,7 @@
           floorStats.push({ floor: f, working, total, count: Math.max(total, working), key: roomKey });
         } else {
           try {
-            const res = await gameApi(`/api/mine/state?c=${encodeURIComponent(roomKey)}`);
+            const res = await gameApi(`/api/mine/state?c=${encodeURIComponent(roomKey)}`, { mineSnapshotOnly: true });
             if (res && res.ok) {
               const st = res.st || {};
               const working = res.hw != null ? +res.hw : (st.working || 0);
