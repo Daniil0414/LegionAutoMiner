@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.10
+// @version      9.1.11
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub, Mass PM Broadcast & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.1.10';
+  const BOT_VERSION = '9.1.11';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -601,6 +601,7 @@
   let lastFloorSeed = null;
   let lastDg = {};
   let activeMiningRockIndex = -1;
+  let oreTargetLock = null;
   let lastMiningConfirmedTime = 0;
   let lastKnownMiningProgress = null;
   let idleHeroDetectedTime = 0;
@@ -9807,12 +9808,51 @@
     return candidates;
   }
 
+  function rememberOreTarget(candidate) {
+    if (!oreFirst || isRatingMode || candidate?.rockId == null) return null;
+    const index = Number(candidate.rockId);
+    if (!Number.isInteger(index) || index < 0 || getRockCategory(index, candidate.group) === 'rock') return null;
+    const floorState = G.__lgMineState || G.__lgMineS?.st;
+    if (String(floorState?.dug?.[index]) === '1') return null;
+    oreTargetLock = {
+      rockId: String(index),
+      index,
+      mine: String(currentMineId || 'home').split('.')[0],
+      floor: floorState?.n ?? null,
+      seed: floorState?.seed == null ? null : String(floorState.seed)
+    };
+    return oreTargetLock;
+  }
+
+  function getOreTargetLock() {
+    if (!oreFirst || isRatingMode) {
+      oreTargetLock = null;
+      return null;
+    }
+    const floorState = G.__lgMineState || G.__lgMineS?.st;
+    if (oreTargetLock) {
+      const changedMine = oreTargetLock.mine !== String(currentMineId || 'home').split('.')[0];
+      const changedFloor = floorState?.n != null && oreTargetLock.floor != null && Number(floorState.n) !== Number(oreTargetLock.floor);
+      const changedSeed = floorState?.seed != null && oreTargetLock.seed != null && String(floorState.seed) !== oreTargetLock.seed;
+      const dug = String(floorState?.dug?.[oreTargetLock.index]) === '1';
+      if (changedMine || changedFloor || changedSeed || dug) {
+        oreTargetLock = null;
+        return null;
+      }
+    } else if (activeMiningRockIndex >= 0 && isMining()) {
+      rememberOreTarget({ rockId: activeMiningRockIndex });
+    }
+    return oreTargetLock;
+  }
+
   // Режим экрана шахты
   function stepScreen() {
     // 0. Своевременно закрываем всплывашку «Пока тебя не было»
     closeNewsModal();
 
-    if (isRidingLift || pendingLiftRide) return;
+    let lockedOre = getOreTargetLock();
+    if (isRidingLift || (pendingLiftRide && !lockedOre)) return;
+    if (lockedOre && Date.now() - lastMineStatePoll > 8000) refreshMineStateFromServer();
 
     // ⏳ Проверка исчерпания суточного лимита копания (10 часов / me.cap, сброс в 05:00 МСК)
     if (isDailyMiningCapReached()) {
@@ -9844,7 +9884,7 @@
     const isWalking = Boolean(G.__lgMineS?.path && G.__lgMineS.path.length > 0);
     const hasLiveDigProof = Boolean(digEl || myBarEl || nowlEl);
 
-    if (!hasLiveDigProof && !isWalking) {
+    if (!lockedOre && !hasLiveDigProof && !isWalking) {
       if (!idleHeroDetectedTime) {
         idleHeroDetectedTime = Date.now();
       } else if (Date.now() - idleHeroDetectedTime > 2000) {
@@ -9866,7 +9906,7 @@
     }
 
     if (G.__lgMineS) {
-      if (G.__lgMineS.left && (typeof isMining === 'function' && isMining())) {
+      if (G.__lgMineS.left && (lockedOre || (typeof isMining === 'function' && isMining()))) {
         G.__lgMineS.left = null;
       }
     }
@@ -9917,7 +9957,7 @@
 
     const mining = isMining();
     if (!mining) {
-      if (Date.now() - lastMiningConfirmedTime > 2500) {
+      if (!lockedOre && Date.now() - lastMiningConfirmedTime > 2500) {
         if (activeMiningRockIndex >= 0) {
           // Мы только что завершили копать камень — запускаем обновление руды через 500 мс
           scheduleOreRefreshAfterDig(500);
@@ -9930,7 +9970,7 @@
     const candidates = getCandidateRocks();
 
     // Если НЕ копаем и шли к камню, проверяем сообщения о недоступности пути
-    if (!mining && lastTargetKey) {
+    if (!lockedOre && !mining && lastTargetKey) {
       const tipErr = checkTipError();
       if (tipErr) {
         blacklist.set(lastTargetKey, Date.now() + 30000);
@@ -9967,13 +10007,22 @@
         if (blk && blk[3]) myCount = blk[3];
       }
     } else {
-      if (Date.now() - lastMiningConfirmedTime > 2500) {
+      if (!lockedOre && Date.now() - lastMiningConfirmedTime > 2500) {
         activeMiningRockIndex = -1;
         lastKnownMiningProgress = null;
       }
     }
 
-    const valid = candidates.filter(c => !c.isFar && !c.inBlacklist && (c.isMe || isRockPathReachable(c.rockId)));
+    if (!lockedOre && mining && activeMiningRockIndex >= 0) {
+      rememberOreTarget({ rockId: activeMiningRockIndex, group: myCandidate?.group });
+      lockedOre = getOreTargetLock();
+    }
+    if (lockedOre) {
+      activeMiningRockIndex = lockedOre.index;
+      lastTargetKey = lockedOre.rockId;
+    }
+    const valid = candidates.filter(c => (lockedOre && String(c.rockId) === lockedOre.rockId) ||
+      (!c.isFar && !c.inBlacklist && (c.isMe || isRockPathReachable(c.rockId))));
 
     // Функция стабильной сортировки кандидатов с гистерезисом (предотвращает метания между одинаковыми камнями)
     const sortCandidates = (arr) => {
@@ -10122,9 +10171,15 @@
       best = valid[0];
     }
 
+    // Начатую руду держим до серверного dug, даже при временном исчезновении SVG/полоски.
+    if (lockedOre) {
+      best = candidates.find(c => String(c.rockId) === lockedOre.rockId) ||
+        { rockId: lockedOre.rockId, count: myCount || 1, group: null, bar: null, isMe: mining };
+    }
+
     // Защита от смены цели во время ходьбы: если уже идём к камню (< 7.5 сек), цель не разбита и доступна,
     // удерживаем её, если только на линии не открылась руда более высокого приоритета!
-    if (!mining && lastTargetKey) {
+    if (!lockedOre && !mining && lastTargetKey) {
       const walkElapsed = Date.now() - targetAssignedTime;
       const isTargetDug = G.__lgMineState?.dug && G.__lgMineState.dug[parseInt(lastTargetKey, 10)] === '1';
       if (!isTargetDug && !blacklist.has(lastTargetKey) && walkElapsed < 7500) {
@@ -10188,10 +10243,8 @@
     let shouldSwitchToCrowd = mining && best && !best.isMe && !isTargetSameAsCurrent && 
       (shouldSwitchToHigherOre || shouldSwitchToOreCrowd || canSwitchToRockCrowd || shouldSwitchPureCrowd);
 
-    if (isRatingMode && mining) {
-      // 🏆 В режиме «Рейтинг» действует ЖЕЛЕЗНОЕ ПРАВИЛО:
-      // НИ В КОЕМ СЛУЧАЕ НЕ БРОСАТЬ НАЧАТЫЙ КАМЕНЬ ДО ЕГО ПОЛНОГО РАЗРУШЕНИЯ!
-      // Любое переключение mid-dig обнуляет весь нанесенный урон и очко в топ!
+    if ((isRatingMode || lockedOre) && mining) {
+      // В режимах «Руда» и «Рейтинг» выбранную цель докапываем до конца.
       shouldSwitchToCrowd = false;
     }
 
@@ -10224,7 +10277,7 @@
         st.textContent = `${prefix}🏆 [Рейтинг] Добиваем${oreLabel} (${myCount || 1} чел)${progLabel} ⛏️`;
         st.style.color = '#ffd700';
       } else {
-        st.textContent = `${prefix}Копаем${oreLabel} (${myCount || 1} чел)${progLabel} ⛏️`;
+        st.textContent = `${prefix}${lockedOre ? '[Руда] Докапываем' : 'Копаем'}${oreLabel} (${myCount || 1} чел)${progLabel} ⛏️`;
         st.style.color = '#00ff66';
       }
     } else {
@@ -10251,14 +10304,14 @@
         if (lastTargetKey === targetKey) {
           const elapsed = Date.now() - targetAssignedTime;
           const tipErr = checkTipError();
-          if (tipErr) {
+          if (tipErr && !lockedOre) {
             blacklist.set(targetKey, Date.now() + 30000);
             lastTargetKey = null;
             st.textContent = 'Путь закрыт, меняем...';
             st.style.color = '#ff9900';
             return;
           }
-          if (elapsed > 25000) {
+          if (elapsed > 25000 && !lockedOre) {
             // Реальный таймаут (25 сек) — если за 25 сек так и не начали копать, временно в черный список
             blacklist.set(targetKey, Date.now() + 30000);
             lastTargetKey = null;
@@ -10283,6 +10336,7 @@
         if (mining && (best.isMe || (activeMiningRockIndex >= 0 && targetKey === String(activeMiningRockIndex)))) {
           shouldClick = false;
         }
+        if (lockedOre && isWalking) shouldClick = false;
 
         if (!shouldSwitchToCrowd) {
           if (isRatingMode) {
@@ -10296,7 +10350,7 @@
           }
         }
         if (shouldClick) {
-          clickTarget(best);
+          if (clickTarget(best)) rememberOreTarget(best);
         }
       } else {
         const S = G.__lgMineS;
@@ -10571,11 +10625,10 @@
       }
 
       if (shouldSwitch) {
-        if (isRatingMode && isMining()) {
-          // 🏆 В режиме «Рейтинг» не прерываем копание начатого камня!
-          // Запоминаем этаж и переедем на лифте сразу, как только текущий камень разрушится:
+        if ((isRatingMode && isMining()) || getOreTargetLock()) {
+          // Поездку к толпе откладываем до полного завершения выбранной руды/камня.
           pendingLiftRide = { floor: best.floor, count: best.count, percent: percentDiff };
-          showToast(`🏆 Лифт: этаж ${best.floor} (+${percentDiff}%) ждет окончания текущего камня`);
+          showToast(`⛏️ Лифт: этаж ${best.floor} (+${percentDiff}%) ждет окончания текущей добычи`);
           return;
         }
         // Переезжаем СРАЗУ на более людный этаж, не дожидаясь окончания текущей руды/камня!
@@ -10592,7 +10645,14 @@
 
   async function executeLiftRide(targetFloor, peopleCount, percentDiff) {
     if (isRidingLift) return;
+    const floorState = G.__lgMineState || G.__lgMineS?.st;
+    const newFloor = floorState && targetFloor === floorState.deep && targetFloor > floorState.n;
+    if (getOreTargetLock() && !newFloor) {
+      pendingLiftRide = { floor: targetFloor, count: peopleCount, percent: percentDiff };
+      return;
+    }
     isRidingLift = true;
+    oreTargetLock = null;
     pendingLiftRide = null;
     activeMiningRockIndex = -1;
     lastTargetKey = null;
@@ -10698,24 +10758,24 @@
   function checkAutoLiftStep() {
     if (isPaused || !autoLiftBestFloor || isRidingLift) return;
 
-    if (pendingLiftRide && !isMining()) {
-      const { floor, count, percent } = pendingLiftRide;
-      pendingLiftRide = null;
-      executeLiftRide(floor, count, percent);
-      return;
-    }
-
     // 🛗 Проверка авто-спуска: если открыт новый этаж (deep > currentFloor)
     const S = G.__lgMineS;
     if (S && S.st) {
       const currentFloor = S.st.n || 1;
       const deep = S.st.deep || currentFloor;
       if (deep > currentFloor && !isRidingLift) {
-        if (!isMining()) {
+        if (!isMining() || (oreFirst && !isRatingMode)) {
           executeLiftRide(deep, 1, 100);
           return;
         }
       }
+    }
+
+    if (pendingLiftRide && !getOreTargetLock() && !isMining()) {
+      const { floor, count, percent } = pendingLiftRide;
+      pendingLiftRide = null;
+      executeLiftRide(floor, count, percent);
+      return;
     }
 
     if (Date.now() - lastLiftCheckTime > 120000) {
