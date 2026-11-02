@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.29
+// @version      9.1.31
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.1.29';
+  const BOT_VERSION = '9.1.31';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -2635,6 +2635,51 @@
               <input type="checkbox" id="b-quest-opt-hwevents" style="cursor:pointer;accent-color:#f59e0b;flex-shrink:0;margin:0;" />
             </label>
 
+            <!-- 11. Боссы & Острова -->
+            <label title="Боссы & Острова: Выбор и смена островов в Логове, срыв заклинаний, безопасные зоны на арене, фонари Джека" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
+                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">👑 Боссы & Острова</span>
+                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">острова, зоны, заклинания</span>
+              </div>
+              <input type="checkbox" id="b-quest-opt-boss-mech" style="cursor:pointer;accent-color:#ef4444;flex-shrink:0;margin:0;" />
+            </label>
+
+            <!-- 12. Мини-Ивенты -->
+            <label title="Мини-Ивенты: Странник (помощь), кости d20, колодец желаний, алтарь жреца, гадалка, ярмарка гоблинов, танец скелетов" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
+                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🎪 Мини-Ивенты</span>
+                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">странник, кости, колодец, танец</span>
+              </div>
+              <input type="checkbox" id="b-quest-opt-mini-events" style="cursor:pointer;accent-color:#8b5cf6;flex-shrink:0;margin:0;" />
+            </label>
+
+            <!-- 13. Ловушки & Загадки -->
+            <label title="Ловушки & Загадки: Веревки, сундук-приманка, делёж добычи, плиты, весы, кубки с ядом, предметы" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
+                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🧩 Ловушки & Загадки</span>
+                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">веревки, сундук, весы, кубки</span>
+              </div>
+              <input type="checkbox" id="b-quest-opt-traps-puzzles" style="cursor:pointer;accent-color:#06b6d4;flex-shrink:0;margin:0;" />
+            </label>
+
+            <!-- 14. Привал & Еда -->
+            <label title="Привал & Еда: Автоматическое поедание еды или лечебных зелий из сумки во время привала у костра при HP < 80%" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
+                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🍖 Привал & Еда</span>
+                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">авто-лечение при HP &lt; 80%</span>
+              </div>
+              <input type="checkbox" id="b-quest-opt-camp-rest" style="cursor:pointer;accent-color:#10b981;flex-shrink:0;margin:0;" />
+            </label>
+
+            <!-- 15. Побег из данжа -->
+            <label title="Побег из данжа: Автоматическая отправка команды «бежать» при обрушении подземелья" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
+                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🏃 Побег из данжа</span>
+                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">авто-«бежать» при крахе</span>
+              </div>
+              <input type="checkbox" id="b-quest-opt-dgn-escape" style="cursor:pointer;accent-color:#f97316;flex-shrink:0;margin:0;" />
+            </label>
+
             <!-- 11. QA-панель (на всю ширину двух колонок внизу) -->
             <label title="Разблокировка QA-панели: Принудительно ME.hero.qa = true (быстрые кнопки игры)" style="grid-column:span 2;display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:28px;box-sizing:border-box;">
               <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
@@ -2646,11 +2691,47 @@
           </div>
         </div>
 
-        <!-- Действие: Вступить / Выйти из отряда -->
-        <div style="margin-bottom:8px;">
-          <button id="b-quest-act-squad" style="width:100%;box-sizing:border-box;padding:8px 10px;background:#064e3b;color:#a7f3d0;border:1px solid #10b981;border-radius:6px;cursor:pointer;font-size:11px;font-weight:bold;display:flex;align-items:center;justify-content:center;gap:5px;box-shadow:0 2px 6px rgba(0,0,0,0.3);transition:all 0.2s;" title="Вступить или выйти из отряда">
-            <span>🤝 Вступить</span>
-          </button>
+        <!-- Карточка 4: Быстрые действия боя и отряда (Классовые + Скиллы) -->
+        <div style="background:#1a172e;border:1px solid #3d3759;border-radius:6px;padding:8px;margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-size:11px;font-weight:bold;color:#cbd5e1;">🎯 Действия:</span>
+              <span id="b-quest-class-badge" style="background:#262238;color:#ffd700;border:1px solid #4a3e72;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:bold;display:inline-flex;align-items:center;gap:3px;" title="Класс персонажа (определяется автоматически)">⚔️ Легионер</span>
+            </div>
+            <span id="b-quest-turn-status" style="font-size:9.5px;color:#94a3b8;">Вне боя</span>
+          </div>
+          <!-- 4 кнопки базовых действий под класс -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:6px;">
+            <button id="b-quest-act-atk" style="padding:6px 8px;background:#be123c;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:10px;font-weight:bold;display:flex;align-items:center;justify-content:center;gap:3px;" title="Базовая атака вашего класса">⚔️ Удар</button>
+            <button id="b-quest-act-sub" style="padding:6px 8px;background:#262238;color:#fbbf24;border:1px solid #3d3759;border-radius:4px;cursor:pointer;font-size:10px;font-weight:bold;display:flex;align-items:center;justify-content:center;gap:3px;" title="Дополнительное действие / Фокус цели">👥 Цель: Рядовые</button>
+            <button id="b-quest-act-def" style="padding:6px 8px;background:#1e3a8a;color:#60a5fa;border:1px solid #2563eb;border-radius:4px;cursor:pointer;font-size:10px;font-weight:bold;display:flex;align-items:center;justify-content:center;gap:3px;" title="Отправить слово блока / парирование">🛡️ Блок</button>
+            <button id="b-quest-act-squad" style="padding:6px 8px;background:#064e3b;color:#a7f3d0;border:1px solid #10b981;border-radius:6px;cursor:pointer;font-size:10px;font-weight:bold;display:flex;align-items:center;justify-content:center;gap:3px;" title="Вступить или выйти из отряда">🤝 Вступить</button>
+          </div>
+
+          <!-- Секция: Боевые скиллы персонажа -->
+          <div style="border-top:1px dashed #2e284a;padding-top:6px;margin-top:2px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+              <span style="font-size:10px;font-weight:bold;color:#fcd34d;display:flex;align-items:center;gap:3px;">
+                <span>⚡</span>
+                <span id="b-quest-skills-title">Боевые скиллы класса</span>
+              </span>
+              <span id="b-quest-skills-count" style="font-size:9px;color:#94a3b8;">0 доступно</span>
+            </div>
+            <div id="b-quest-skills-list" style="display:flex;flex-wrap:wrap;gap:4px;">
+              <span style="font-size:9.5px;color:#64748b;font-style:italic;">Скиллы станут доступны во время боя</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Карточка 5: Журнал событий похода -->
+        <div style="background:#1a172e;border:1px solid #3d3759;border-radius:6px;padding:8px;margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+            <span style="font-size:10.5px;font-weight:bold;color:#94a3b8;">📜 Журнал похода</span>
+            <button id="b-quest-clear-log" style="padding:1px 6px;background:#262238;color:#ef4444;border:1px solid #3d3759;border-radius:3px;cursor:pointer;font-size:9px;" title="Очистить журнал">🗑️</button>
+          </div>
+          <div id="b-quest-log-list" style="max-height:130px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;font-size:10px;color:#cbd5e1;padding-right:2px;">
+            <div style="color:#64748b;font-style:italic;">Журнал пуст</div>
+          </div>
         </div>
       </div>
 
@@ -5432,6 +5513,11 @@
   const optCrossing = w.querySelector('#b-quest-opt-crossing');
   const optBog = w.querySelector('#b-quest-opt-bog');
   const optHwEvents = w.querySelector('#b-quest-opt-hwevents');
+  const optBossMech = w.querySelector('#b-quest-opt-boss-mech');
+  const optMiniEvents = w.querySelector('#b-quest-opt-mini-events');
+  const optTrapsPuzzles = w.querySelector('#b-quest-opt-traps-puzzles');
+  const optCampRest = w.querySelector('#b-quest-opt-camp-rest');
+  const optDgnEscape = w.querySelector('#b-quest-opt-dgn-escape');
 
   // Кнопки быстрых действий и скиллов
   const qClassBadge = w.querySelector('#b-quest-class-badge');
@@ -5456,7 +5542,12 @@
     qaMode: localStorage.getItem('lg_quest_qamode') !== '0',           // Разблокировка QA-кнопок игры
     autoCrossing: localStorage.getItem('lg_quest_autocrossing') !== '0', // Вкл по умолчанию (авто-выбор безопасной кочки)
     autoBog: localStorage.getItem('lg_quest_autobog') !== '0',           // Вкл по умолчанию (авто-тянем и авто-руби в трясине)
-    autoHwEvents: localStorage.getItem('lg_quest_autohwevents') !== '0'  // Вкл по умолчанию (авто-котёл и сладость/гадость)
+    autoHwEvents: localStorage.getItem('lg_quest_autohwevents') !== '0',  // Вкл по умолчанию (авто-котёл и сладость/гадость)
+    autoBossMechanics: localStorage.getItem('lg_quest_boss_mech') !== '0', // Вкл по умолчанию (боссы, острова, заклинания, зоны, фонари)
+    autoMiniEvents: localStorage.getItem('lg_quest_mini_events') !== '0', // Вкл по умолчанию (странник, кости, колодец, жрец, гадалка, ярмарка, танец)
+    autoTrapsAndPuzzles: localStorage.getItem('lg_quest_traps_puzzles') !== '0', // Вкл по умолчанию (веревки, сундук, делёж, весы, кубки, предметы)
+    autoCampRest: localStorage.getItem('lg_quest_camp_rest') !== '0', // Вкл по умолчанию (авто-лечение едой/зельями у костра)
+    autoDungeonEscape: localStorage.getItem('lg_quest_dgn_escape') !== '0' // Вкл по умолчанию (авто-побег «бежать» при крахе данжа)
   };
 
   let questAutoPausedMiner = false;
@@ -5935,6 +6026,17 @@
   async function sendQuestSay(line) {
     const clean = String(line || '').trim();
     if (!clean) return { ok: false };
+
+    // 🛡️ Предохранитель от ядовитого газа, финтов босса и безмолвия
+    const v = (typeof getQuestView === 'function' ? getQuestView() : null) || (typeof lastQuestData !== 'undefined' ? lastQuestData : null);
+    const hushReason = typeof isQuestHush === 'function' ? isQuestHush(v) : null;
+    if (hushReason) {
+      if (typeof addQuestLog === 'function') {
+        addQuestLog('warn', `🤫 Блокировка отправки («${clean}»): ${hushReason}`);
+      }
+      return { ok: false, hush: true, reason: hushReason };
+    }
+
     if (G.__lgQuestContext && typeof G.__lgQuestContext.say === 'function') {
       try {
         const res = await G.__lgQuestContext.say(clean);
@@ -5942,11 +6044,15 @@
       } catch (e) {
       }
     }
-    return await gameApi('/api/qsay', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ line: clean })
-    });
+    try {
+      return await gameApi('/api/qsay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ line: clean })
+      });
+    } catch (err) {
+      return { ok: false, error: err?.message || err };
+    }
   }
 
   async function sendQuestAct(p) {
@@ -5957,11 +6063,15 @@
       } catch (e) {
       }
     }
-    return await gameApi('/api/qact', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(p)
-    });
+    try {
+      return await gameApi('/api/qact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(p)
+      });
+    } catch (err) {
+      return { ok: false, error: err?.message || err };
+    }
   }
 
   async function sendQuestVote(vid, n) {
@@ -6005,6 +6115,11 @@
       return M.fake ? 'Финт босса (обманный удар — молчите!)' : 'Тишина босса (нельзя писать!)';
     }
     if (v.b && v.b.tele && (v.b.tele.fake || v.b.tele.hush)) return 'Финт атаки (обманный удар — молчите!)';
+    // Безмолвие острова в Логове
+    if (v.lair && v.lair.is && v.lair.is.sil) {
+      const myIsl = (v.lair.is.at && v.lair.is.at.my) || (v.lair.is.pick && v.lair.is.pick.my) || v.lair.is.my || 0;
+      if (myIsl && v.lair.is.sil.n === myIsl) return 'Безмолвие острова (тишина в логове)';
+    }
     return null;
   }
 
@@ -6319,6 +6434,661 @@
     }
   }
 
+  // =========================================================================
+  // 🏝️ Механики Логова (is.pick, is.doom, spell, mass)
+  // =========================================================================
+  let lastLairPickKey = null;
+  let lastLairPickTime = 0;
+  let lastLairJumpKey = null;
+  let lastLairJumpTime = 0;
+  let lastLairSpellKey = null;
+  let lastLairSpellTime = 0;
+  let lastLairMassKey = null;
+  let lastLairMassTime = 0;
+
+  function checkAutoLairMechanics(lair, v) {
+    if (!questSettings.autoBossMechanics || !lair) return;
+    const vObj = v || getQuestView();
+    if (!vObj || vObj.party !== 'in') return;
+    if (isQuestHush(vObj)) return;
+
+    const now = Date.now();
+
+    // 1. Выбор острова (is.pick)
+    const isles = lair.is;
+    if (isles && isles.pick) {
+      const pick = isles.pick;
+      const myPick = pick.my;
+      // Если герой ещё не выбрал остров
+      if (!myPick && (now - lastLairPickTime > 3000)) {
+        // Массив заселенности лежит в pick.cnt или at.cnt
+        const cnt = (isles.pick && Array.isArray(isles.pick.cnt)) ? isles.pick.cnt :
+                    (isles.at && Array.isArray(isles.at.cnt)) ? isles.at.cnt :
+                    (Array.isArray(isles.cnt) ? isles.cnt : [0, 0, 0, 0]);
+        let chosenIsland = 1;
+        let minHeroes = 999;
+        for (let i = 0; i < 4; i++) {
+          const c = cnt[i] || 0;
+          if (c < minHeroes) {
+            minHeroes = c;
+            chosenIsland = i + 1;
+          }
+        }
+        const pickKey = `pick:${lair.id || 'lair'}:${chosenIsland}`;
+        if (lastLairPickKey !== pickKey || now - lastLairPickTime > 6000) {
+          lastLairPickKey = pickKey;
+          lastLairPickTime = now;
+          addQuestLog('puzzle', `🏝️ Логово: выбор острова → «${chosenIsland}» (героев: ${minHeroes})`);
+          sendQuestSay(String(chosenIsland)).catch(() => {});
+        }
+      }
+    }
+
+    // 2. Разрушение острова (is.doom / gone.has(my))
+    if (isles) {
+      const gone = new Set(isles.gone || []);
+      const my = (isles.at && isles.at.my) || (isles.pick && isles.pick.my) || isles.my || 0;
+      const silIsland = isles.sil && isles.sil.n;
+      const isMyIslandGone = my && gone.has(my);
+
+      if (isMyIslandGone && now - lastLairJumpTime > 2500) {
+        // Соседние доступные уцелевшие острова: геометрический fallback {1:[2,3], 2:[1,3], 3:[1,2,4], 4:[3]}
+        const nbMap = isles.nb || { 1: [2, 3], 2: [1, 3], 3: [1, 2, 4], 4: [3] };
+        const myNeighbors = (my && nbMap[my]) ? nbMap[my] : [1, 2, 3, 4];
+        // Исключаем затонувшие и замолкшие острова
+        const surviving = myNeighbors.filter(n => !gone.has(n) && n !== my && n !== silIsland);
+        const targetIsland = surviving[0] || myNeighbors.find(n => !gone.has(n) && n !== my);
+
+        if (targetIsland) {
+          const jumpKey = `jump:${lair.id || 'lair'}:${my}->${targetIsland}`;
+          if (lastLairJumpKey !== jumpKey || now - lastLairJumpTime > 6000) {
+            lastLairJumpKey = jumpKey;
+            lastLairJumpTime = now;
+            addQuestLog('speed', `🏃 Остров ${my} разрушен! Прыжок на остров ${targetIsland} («прыгнуть ${targetIsland}»)`);
+            sendQuestSay(`прыгнуть ${targetIsland}`).catch(() => {});
+          }
+        }
+      }
+    }
+
+    // 3. Срыв заклинания Логова (lair.spell)
+    if (lair.spell && !lair.spell.hid && Array.isArray(lair.spell.words) && lair.spell.words.length > 0) {
+      const spellPhrase = lair.spell.words.filter(Boolean).join(' ').trim();
+      const spellKey = `spell:${lair.id || 'lair'}:${spellPhrase}`;
+      if (spellPhrase && (lastLairSpellKey !== spellKey || now - lastLairSpellTime > 5000) && now - lastLairSpellTime > 3000) {
+        lastLairSpellKey = spellKey;
+        lastLairSpellTime = now;
+        addQuestLog('sword', `⚡ Срыв заклинания Логова: «${spellPhrase}»`);
+        sendQuestSay(spellPhrase).catch(() => {});
+      }
+    }
+
+    // 4. Общее заклинание Логова (lair.mass)
+    if (lair.mass && !lair.mass.hid && Array.isArray(lair.mass.words) && lair.mass.words.length > 0) {
+      const massPhrase = lair.mass.words.filter(Boolean).join(' ').trim();
+      const massKey = `mass:${lair.id || 'lair'}:${massPhrase}`;
+      if (massPhrase && (lastLairMassKey !== massKey || now - lastLairMassTime > 5000) && now - lastLairMassTime > 3000) {
+        lastLairMassKey = massKey;
+        lastLairMassTime = now;
+        addQuestLog('magic', `✨ Общее заклинание Логова: «${massPhrase}»`);
+        sendQuestSay(massPhrase).catch(() => {});
+      }
+    }
+  }
+
+  // =========================================================================
+  // 👑 Механики Боссов: слова, опасные зоны арены, фонари Джека
+  // =========================================================================
+  let lastBossMechKey = null;
+  let lastBossMechTime = 0;
+  let lastBossZoneJumpKey = null;
+  let lastBossZoneJumpTime = 0;
+  let lastBossLanternKey = null;
+  let lastBossLanternTime = 0;
+
+  function checkAutoBossMechanics(v) {
+    if (!questSettings.autoBossMechanics || !v) return;
+    const vObj = v || getQuestView();
+    if (!vObj || vObj.party !== 'in') return;
+    if (isQuestHush(vObj)) return;
+
+    const now = Date.now();
+    const g = vObj.bg || (vObj.b && vObj.b.gb);
+    if (!g) return;
+    if (g.my != null && g.my <= 0) return; // Мертвый герой не действует
+
+    const M = g.mech || (vObj.b && vObj.b.mech);
+
+    // 1. Уникальные механики / фразы босса (word, words, how)
+    if (M && !M.fake) {
+      let sayLine = '';
+      if (M.word && !M.hid) {
+        sayLine = String(M.word).trim();
+      } else if (M.words && Array.isArray(M.words) && M.words.length > 0 && !M.hid) {
+        sayLine = M.words.filter(Boolean).join(' ').trim();
+      } else if (M.how && typeof M.how === 'string' && !M.hid && M.how.length < 50 && !/нажмите|смотрите/i.test(M.how)) {
+        sayLine = M.how.trim();
+      }
+
+      if (sayLine) {
+        const mechKey = `bossmech:${g.id || 'bg'}:${sayLine}`;
+        if ((lastBossMechKey !== mechKey || now - lastBossMechTime > 6000) && now - lastBossMechTime > 3000) {
+          lastBossMechKey = mechKey;
+          lastBossMechTime = now;
+          addQuestLog('sword', `💥 Механика босса: отправка «${sayLine}»`);
+          sendQuestSay(sayLine).catch(() => {});
+        }
+      }
+    }
+
+    // 2. Опасные зоны арены (g.zn / M.fam === 'position')
+    if (g.zn && M && M.fam === 'position') {
+      const Z = g.zn;
+      const gone = new Set(Z.gone || []);
+      const my = g.area || 0;
+      const bad = new Set(M.id === 'M32' ? [] : (M.zones || []));
+      const keep = new Set(M.id === 'M32' ? (M.zones || []) : []);
+      const isBad = (my && bad.has(my)) || (keep.size > 0 && my && !keep.has(my));
+
+      if (isBad && now - lastBossZoneJumpTime > 3000) {
+        const platList = Array.isArray(Z.a) ? Z.a : [];
+        const myPlatEntry = platList.find(a => Array.isArray(a) && a[0] === my);
+        const nb = (myPlatEntry && Array.isArray(myPlatEntry[1])) ? myPlatEntry[1] : [];
+        const cand = platList
+          .filter(a => Array.isArray(a) && typeof a[0] === 'number')
+          .map(a => a[0])
+          .filter(n => !gone.has(n) && n !== my && (M.any || !my || nb.includes(n)));
+
+        const safeCand = cand.filter(n => keep.size > 0 ? keep.has(n) : !bad.has(n));
+        // Прыгаем только на безопасную площадку (или на любую, если текущая разрушена gone)
+        const targetPlat = safeCand[0] || (gone.has(my) ? cand[0] : null);
+
+        if (targetPlat) {
+          const zoneKey = `zone:${g.id || 'bg'}:${my}->${targetPlat}`;
+          if (lastBossZoneJumpKey !== zoneKey || now - lastBossZoneJumpTime > 6000) {
+            lastBossZoneJumpKey = zoneKey;
+            lastBossZoneJumpTime = now;
+            addQuestLog('speed', `⚠️ Опасная зона ${my}! Прыжок на безопасную площадку ${targetPlat} («прыжок ${targetPlat}»)`);
+            sendQuestSay(`прыжок ${targetPlat}`).catch(() => {});
+          }
+        }
+      }
+    }
+
+    // 3. Фонари Джека (hw.lan)
+    const J = (g.hw) || (vObj.b && vObj.b.hw);
+    if (J && J.lan && Array.isArray(J.lan.lit) && now - lastBossLanternTime > 3500) {
+      const off = J.lan.lit.map((val, i) => val ? 0 : i + 1).filter(Boolean);
+      if (off.length > 0) {
+        const lanternNum = off[0];
+        const lanKey = `lan:${lanternNum}`;
+        if (lastBossLanternKey !== lanKey || now - lastBossLanternTime > 6000) {
+          lastBossLanternKey = lanKey;
+          lastBossLanternTime = now;
+          addQuestLog('magic', `🎃 Фонари Джека: зажигаем фонарь ${lanternNum} («зажечь ${lanternNum}»)`);
+          sendQuestSay(`зажечь ${lanternNum}`).catch(() => {});
+        }
+      }
+    }
+  }
+
+  // =========================================================================
+  // 🎪 Мини-Ивенты: Странник, кости d20, колодец, жрец, гадалка, танец, ярмарка
+  // =========================================================================
+  let lastMiniEventKey = null;
+  let lastMiniEventTime = 0;
+  let lastSkelDanceSeq = [];
+
+  function parseCardRank(str) {
+    if (!str) return 7;
+    const s = String(str).toUpperCase().replace(/[^0-9A-ZА-ЯЁ]/gi, '');
+    if (/^10/.test(s)) return 10;
+    const n = parseInt(s, 10);
+    if (!isNaN(n) && n >= 2 && n <= 10) return n;
+    const c = s.charAt(0);
+    if (c === 'В' || c === 'J') return 11;
+    if (c === 'Д' || c === 'Q') return 12;
+    if (c === 'К' || c === 'K') return 13;
+    if (c === 'Т' || c === 'A') return 14;
+    return 7;
+  }
+
+  function checkAutoMiniEvents(ev, v) {
+    if (!questSettings.autoMiniEvents || !ev) return;
+    const vObj = v || getQuestView();
+    if (!vObj) return;
+    const party = vObj.party || (lastQuestData && lastQuestData.party);
+    if (party !== 'in' && party !== 'ghost') return;
+    if (isQuestHush(vObj)) return;
+
+    const now = Date.now();
+    const eventKey = `${ev.id || 'ev'}:${ev.st}:${ev.look || 'e'}`;
+
+    // 1. Странник (traveler) - голосование «помочь»
+    if (ev.look === 'traveler' && ev.st === 'vote') {
+      if (!ev.my && now - lastMiniEventTime > 3500) {
+        lastMiniEventKey = eventKey;
+        lastMiniEventTime = now;
+        addQuestLog('puzzle', '🤝 Странник: голосуем «помочь»');
+        sendQuestAct({ k: 'ev', a: 'help' }).catch(() => {});
+      }
+      return;
+    }
+
+    // 2. Бродяга с костями d20 (dice)
+    if (ev.look === 'dice' && ev.st === 'on') {
+      const used = +ev.used || 0;
+      const h = (G.__lgQuestContext?.hero?.() || G.ME?.hero || G.__lgHero) || {};
+      const heroMoney = h.money != null ? +h.money : 30;
+      if (used < 3 && heroMoney >= 5 && now - lastMiniEventTime > 3500) {
+        const purse = +ev.purse || 30;
+        const bet = Math.max(5, Math.min(30, purse, heroMoney));
+        lastMiniEventKey = eventKey;
+        lastMiniEventTime = now;
+        addQuestLog('puzzle', `🎲 Бродяга: бросок d20 со ставкой ${bet} монет`);
+        sendQuestAct({ k: 'ev', a: 'bet', n: bet }).catch(() => {});
+      }
+      return;
+    }
+
+    // 3. Колодец желаний (well)
+    if (ev.look === 'well' && !ev.filled) {
+      const used = +ev.used || 0;
+      if (used < 3 && now - lastMiniEventTime > 3500) {
+        lastMiniEventKey = eventKey;
+        lastMiniEventTime = now;
+        addQuestLog('puzzle', `🪙 Колодец желаний: бросаем монету (${used + 1}/3)`);
+        sendQuestAct({ k: 'ev', a: 'coin' }).catch(() => {});
+      }
+      return;
+    }
+
+    // 4. Алтарь жреца (priest)
+    if (ev.look === 'priest' && !ev.res) {
+      const done = ev.done || {};
+      if (!done.heal && now - lastMiniEventTime > 4000) {
+        lastMiniEventKey = eventKey;
+        lastMiniEventTime = now;
+        addQuestLog('heart', '✚ Алтарь жреца: исцеление отряда');
+        sendQuestAct({ k: 'ev', a: 'heal' }).catch(() => {});
+      } else if (!done.bless && now - lastMiniEventTime > 4000) {
+        lastMiniEventKey = eventKey;
+        lastMiniEventTime = now;
+        addQuestLog('magic', '🙏 Алтарь жреца: благословение');
+        sendQuestAct({ k: 'ev', a: 'bless' }).catch(() => {});
+      }
+      return;
+    }
+
+    // 5. Гадалка (fortune)
+    if (ev.look === 'fortune') {
+      if (ev.my !== 'done' && now - lastMiniEventTime > 4000) {
+        lastMiniEventKey = eventKey;
+        lastMiniEventTime = now;
+        addQuestLog('magic', '🔮 Гадалка: получаем благословение («погадать»)');
+        sendQuestSay('погадать').catch(() => {});
+      }
+      return;
+    }
+
+    // 6. Танец скелетов (skeldance)
+    if (ev.look === 'skeldance') {
+      const HW_STEP_MAP = { l: 'влево', r: 'вправо', j: 'прыг', c: 'хлоп' };
+      if (ev.st === 'show') {
+        const rawSeq = (Array.isArray(ev.seq) && ev.seq.length > 0) ? ev.seq :
+                       (Array.isArray(ev.sq) && ev.sq.length > 0) ? ev.sq.map(x => x[0]) : [];
+        if (rawSeq.length > lastSkelDanceSeq.length) {
+          lastSkelDanceSeq = rawSeq;
+        }
+      } else if (ev.st === 'input') {
+        const myAnswer = ev.my;
+        if (!myAnswer && now - lastMiniEventTime > 3000) {
+          const raw = (Array.isArray(ev.seq) && ev.seq.length > 0) ? ev.seq : lastSkelDanceSeq;
+          if (raw && raw.length > 0) {
+            const danceLine = raw.map(k => HW_STEP_MAP[k] || k).join(' ');
+            lastMiniEventKey = `${eventKey}:${danceLine}`;
+            lastMiniEventTime = now;
+            addQuestLog('puzzle', `💀 Танец скелетов: отправка цепочки «${danceLine}»`);
+            sendQuestSay(danceLine).catch(() => {});
+          }
+        }
+      } else if (ev.st === 'done') {
+        lastSkelDanceSeq = [];
+      }
+      return;
+    }
+
+    // 7. Ярмарка гоблинов (E.gob)
+    if (ev.gob) {
+      const me = Array.isArray(ev.me) ? ev.me : [];
+      const h = (G.__lgQuestContext?.hero?.() || G.ME?.hero || G.__lgHero) || {};
+      const heroMoney = h.money != null ? +h.money : 30;
+
+      if (ev.st === 'ask' && !me[0] && now - lastMiniEventTime > 3500) {
+        lastMiniEventKey = `${eventKey}:ask`;
+        lastMiniEventTime = now;
+        addQuestLog('puzzle', '🎪 Ярмарка гоблинов: соглашаемся играть («да»)!');
+        sendQuestSay('да').catch(() => {});
+      } else if (ev.st === 'bet' && !me[1] && heroMoney >= 10 && now - lastMiniEventTime > 3500) {
+        const betSum = Math.min(30, heroMoney);
+        lastMiniEventKey = `${eventKey}:bet`;
+        lastMiniEventTime = now;
+        addQuestLog('puzzle', `🪙 Ярмарка гоблинов: ставка ${betSum} монет («ставка ${betSum}»)`);
+        sendQuestSay(`ставка ${betSum}`).catch(() => {});
+      } else if (ev.st === 'guess' && me[1] && !me[2] && now - lastMiniEventTime > 3500) {
+        lastMiniEventTime = now;
+        if (ev.gk === 'shell') {
+          lastMiniEventKey = `${eventKey}:shell`;
+          addQuestLog('puzzle', '🎲 Ярмарка: напёрстки → угадываем «стакан 1»');
+          sendQuestSay('стакан 1').catch(() => {});
+        } else if (ev.gk === 'coin') {
+          lastMiniEventKey = `${eventKey}:coin`;
+          addQuestLog('puzzle', '🪙 Ярмарка: монетка → угадываем «орёл»');
+          sendQuestSay('орёл').catch(() => {});
+        } else if (ev.gk === 'hilo' && ev.hl) {
+          const rank = parseCardRank(ev.hl.c1);
+          let guess = rank <= 7 ? 'больше' : 'меньше';
+          if (ev.hl.hp && ev.hl.lp) {
+            const hp = parseFloat(ev.hl.hp) || 2;
+            const lp = parseFloat(ev.hl.lp) || 2;
+            if (hp !== lp) {
+              guess = hp < lp ? 'больше' : 'меньше';
+            }
+          }
+          lastMiniEventKey = `${eventKey}:hilo:${guess}`;
+          addQuestLog('puzzle', `🃏 Ярмарка: карта ${ev.hl.c1} (${rank}) → угадываем «${guess}»`);
+          sendQuestSay(guess).catch(() => {});
+        }
+      }
+    }
+  }
+
+  // =========================================================================
+  // 🧩 Ловушки & Загадки: веревки, сундук-приманка, делёж, весы, кубки, предметы
+  // =========================================================================
+  let lastTrapActionKey = null;
+  let lastTrapActionTime = 0;
+  let lastPuzzleActionKey = null;
+  let lastPuzzleActionTime = 0;
+
+  function checkAutoTrapsAndPuzzles(tr, pz, v) {
+    if (!questSettings.autoTrapsAndPuzzles) return;
+    const vObj = v || getQuestView();
+    if (!vObj || vObj.party !== 'in') return;
+    if (isQuestHush(vObj)) return;
+
+    const now = Date.now();
+
+    // 1. Ловушки (v.tr)
+    if (tr && (tr.st === 'act' || tr.st === 'wait') && !tr.acted && !tr.res) {
+      if (tr.gas) return; // Смертельный газ - ничего не жмем!
+
+      // А. Веревки (ropes) - режем веревку 1
+      if (tr.type === 'ropes' && now - lastTrapActionTime > 3000) {
+        const trapKey = `rope:${tr.name || 'tr'}:1`;
+        if (lastTrapActionKey !== trapKey) {
+          lastTrapActionKey = trapKey;
+          lastTrapActionTime = now;
+          addQuestLog('puzzle', '✂️ Ловушка: режем веревку 1 («резать 1»)');
+          sendQuestAct({ k: 'tr', a: 'rope', n: 1 }).catch(() => {});
+        }
+      }
+
+      // Б. Сундук-приманка (bait) - берем сундук, если еще не берут
+      if (tr.type === 'bait' && !tr.taker && now - lastTrapActionTime > 3000) {
+        const trapKey = `bait:${tr.name || 'tr'}`;
+        if (lastTrapActionKey !== trapKey) {
+          lastTrapActionKey = trapKey;
+          lastTrapActionTime = now;
+          addQuestLog('puzzle', '🧰 Ловушка-приманка: открываем сундук («взять»)!');
+          sendQuestAct({ k: 'tr', a: 'take' }).catch(() => {});
+        }
+      }
+
+      // В. Дележ добычи (share) - выбираем «поровну»
+      if (tr.type === 'share' && now - lastTrapActionTime > 3000) {
+        const trapKey = `share:${tr.name || 'tr'}`;
+        if (lastTrapActionKey !== trapKey) {
+          lastTrapActionKey = trapKey;
+          lastTrapActionTime = now;
+          addQuestLog('puzzle', '🤝 Делёж добычи: выбираем «поровну»');
+          sendQuestAct({ k: 'tr', a: 'eq' }).catch(() => {});
+        }
+      }
+
+      // Г. Нажимные плиты (plates)
+      if (tr.type === 'plates' && tr.path && now - lastTrapActionTime > 3000) {
+        const trapKey = `plates:${tr.name || 'tr'}:${tr.path}`;
+        if (lastTrapActionKey !== trapKey) {
+          lastTrapActionKey = trapKey;
+          lastTrapActionTime = now;
+          addQuestLog('puzzle', `👣 Нажимные плиты: проходим путь «${tr.path}»`);
+          sendQuestAct({ k: 'tr', a: 'path', s: tr.path }).catch(() => {});
+        }
+      }
+    }
+
+    // 2. Головоломки (v.pz)
+    const puzzle = pz || (vObj && vObj.pz);
+    if (puzzle && puzzle.st !== 'done' && now - lastPuzzleActionTime > 3500) {
+      const pzKey = `${puzzle.id || 'pz'}:${puzzle.kind}:${puzzle.st}`;
+
+      // А. Весы (scales)
+      if (puzzle.kind === 'scales') {
+        const S = Array.isArray(puzzle.sums) ? puzzle.sums : [0, 0, 0, 0];
+        const rt = puzzle.rt || 'тяжелее';
+
+        // Проверяем: выполнено ли уже целевое условие прямо сейчас?
+        const isCurrentlyBalanced =
+          (rt.includes('легче') && S[0] < S[1]) ||
+          (rt.includes('равн') && S[0] === S[1]) ||
+          (!rt.includes('легче') && !rt.includes('равн') && S[0] > S[1]);
+
+        // Если условие УЖЕ выполнено — стоим на месте, ни в коем случае не сходим!
+        if (isCurrentlyBalanced) {
+          return;
+        }
+
+        // Если условие НЕ выполнено, встаем на нужную плиту:
+        let choice = 'лево';
+        if (rt.includes('легче')) {
+          choice = S[0] >= S[1] ? 'право' : 'лево';
+        } else if (rt.includes('равн')) {
+          choice = S[0] < S[1] ? 'лево' : 'право';
+        } else {
+          // тяжелее
+          choice = S[0] <= S[1] ? 'лево' : 'право';
+        }
+
+        if (lastPuzzleActionKey !== `${pzKey}:${choice}`) {
+          lastPuzzleActionKey = `${pzKey}:${choice}`;
+          lastPuzzleActionTime = now;
+          addQuestLog('puzzle', `⚖️ Загадка весов: встаем на плиту «${choice}» (цель: левая ${rt})`);
+          sendQuestSay(choice).catch(() => {});
+        }
+      }
+
+      // Б. Кубки с ядом (cups) - отвечаем только в фазе ответа
+      if (puzzle.kind === 'cups' && puzzle.st === 'answer' && !puzzle.my) {
+        const choice = '1';
+        if (lastPuzzleActionKey !== `${pzKey}:${choice}`) {
+          lastPuzzleActionKey = `${pzKey}:${choice}`;
+          lastPuzzleActionTime = now;
+          addQuestLog('puzzle', `🏆 Загадка кубков: выбираем кубок «1»`);
+          sendQuestSay(choice).catch(() => {});
+        }
+      }
+
+      // В. Пропавший предмет (changed)
+      if (puzzle.kind === 'changed' && puzzle.st === 'answer' && !puzzle.my) {
+        const choice = '1';
+        if (lastPuzzleActionKey !== `${pzKey}:${choice}`) {
+          lastPuzzleActionKey = `${pzKey}:${choice}`;
+          lastPuzzleActionTime = now;
+          addQuestLog('puzzle', `🔍 Загадка предметов: выбираем предмет «1»`);
+          sendQuestSay(choice).catch(() => {});
+        }
+      }
+    }
+  }
+
+  // =========================================================================
+  // 🏃 Побег из рушащегося данжа (v.dgn.esc)
+  // =========================================================================
+  let lastDgnEscapeTime = 0;
+
+  function checkAutoDungeonEscape(v) {
+    if (!questSettings.autoDungeonEscape || !v) return;
+    const vObj = v || getQuestView();
+    if (!vObj || vObj.party !== 'in') return;
+    if (isQuestHush(vObj)) return;
+
+    const dgn = vObj.dgn;
+    if (dgn && dgn.esc) {
+      const now = Date.now();
+      if (now - lastDgnEscapeTime > 2500) {
+        lastDgnEscapeTime = now;
+        addQuestLog('warn', '🏃 Данж рушится! Авто-побег: отправлено «бежать»!');
+        sendQuestSay('бежать').catch(() => {});
+      }
+    }
+  }
+
+  // =========================================================================
+  // 🍖 Привал у костра (v.k === 'rest' & авто-лечение через /api/use)
+  // =========================================================================
+  let lastCampRestTime = 0;
+
+  function checkAutoCampRest(v) {
+    if (!questSettings.autoCampRest || !v) return;
+    const vObj = v || getQuestView();
+    if (!vObj || vObj.party !== 'in') return;
+    if (vObj.k !== 'rest') return;
+    if (vObj.b || vObj.bg || vObj.lair) return; // Не едим во время боя/логова
+
+    const now = Date.now();
+    if (now - lastCampRestTime < 4000) return;
+
+    const hero = (G.__lgQuestContext?.hero?.() || G.ME?.hero || G.__lgHero);
+    if (!hero || hero.ghost) return;
+
+    const maxHp = (hero.stats && hero.stats.hp) || 100;
+    const hpNow = hero.hpNow != null ? hero.hpNow : maxHp;
+    const hpPct = hpNow / maxHp;
+
+    // Если здоровье ниже 80%
+    if (hpPct < 0.8) {
+      const srvNow = (G.LG && typeof G.LG.now === 'function') ? G.LG.now() : now;
+      const eatUntil = hero.eatUntil || 0;
+      if (eatUntil <= srvNow) {
+        const items = Array.isArray(hero.items) ? hero.items : [];
+        // Фильтруем ТОЛЬКО еду или лечебные зелья (зелья баффов без исцеления не трогаем!)
+        const food = items.find(it =>
+          !it.on && !it.wearable &&
+          ((it.slot === 'food') || (it.slot === 'potion' && it.effect && +it.effect.heal > 0)) &&
+          it.effect && !it.effect.revive
+        );
+
+        if (food && food.uid) {
+          lastCampRestTime = now;
+          addQuestLog('heart', `🍖 Привал: здоровье ${Math.round(hpPct * 100)}% → съедено «${food.name}»`);
+          if (G.__lgQuestContext && typeof G.__lgQuestContext.eat === 'function') {
+            try {
+              G.__lgQuestContext.eat(food.uid);
+            } catch (e) {}
+          } else {
+            gameApi('/api/use', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ uid: food.uid })
+            }).catch(() => {});
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Интеллектуальный расчет целевой стороны (side) и цели (target) для автобоя и ручных атак.
+   * Предотвращает ошибки сервера «Нет врага с этой стороны» при зачистке фланга или бое с боссом.
+   * 
+   * @param {Object} b - снимок боя (battle state, v.b)
+   * @param {Object} options - параметры: { preferLead: boolean, isPriest: boolean }
+   * @returns {Object} { side: string, canTargetLead: boolean, hasLeader: boolean, isMulti: boolean, livingSides: string[] }
+   */
+  function resolveCombatTarget(b, options = {}) {
+    if (!b) {
+      return { side: '', canTargetLead: false, hasLeader: false, isMulti: false, livingSides: [] };
+    }
+
+    // 1. Бой с боссом (b.gb): никаких сторон и флангов нет!
+    // Отправка параметра "s" по рейдовому боссу вызывает ошибку «Нет врага с этой стороны».
+    if (b.gb) {
+      return { side: '', canTargetLead: false, hasLeader: false, isMulti: false, livingSides: [] };
+    }
+
+    // 2. Определение многосторонности текущего боя (Multi-front: 2 или 3 стороны)
+    const fronts = (b.cr && Array.isArray(b.cr.fr) && b.cr.fr.length > 1) ? b.cr.fr : (b.two ? ['L', 'R'] : []);
+    const isMulti = fronts.length > 1;
+
+    // 3. Анализ живых врагов: b.foes = [ [side, type, isLead, hp, id], ... ]
+    // Враг считается живым, если его hp > 0 (f[3] > 0)
+    const foes = Array.isArray(b.foes) ? b.foes : [];
+    const livingFoes = foes.filter(f => f && (typeof f[3] === 'number' ? f[3] > 0 : true));
+
+    // Стороны, где реально находятся ЖИВЫЕ враги
+    const livingSides = [...new Set(livingFoes.map(f => f[0]).filter(Boolean))];
+
+    // Живые вожаки (f[2] === true/1 && f[3] > 0)
+    const livingLeaders = livingFoes.filter(f => f[2]);
+    const leaderSides = [...new Set(livingLeaders.map(f => f[0]).filter(Boolean))];
+    const hasLeader = livingLeaders.length > 0;
+
+    // 4. Собственная позиция/фланг героя в строю
+    const heroIdx = typeof b.me === 'number' ? b.me : -1;
+    const p = heroIdx >= 0 && Array.isArray(b.form) ? b.form[heroIdx] : null;
+    const mf = !p && Array.isArray(b.mf) ? b.mf : null;
+    const heroSide = p ? (p[2] || '') : mf ? (mf[1] || '') : '';
+
+    // 5. Выбор стороны:
+    let chosenSide = '';
+    let canTargetLead = false;
+
+    // А. Приоритет вожака (если включен и вожак реально жив)
+    if (options.preferLead && hasLeader) {
+      canTargetLead = true;
+      // Если у вожака есть явный фланг, атакуем строго с его фланга
+      if (leaderSides.length > 0) {
+        chosenSide = leaderSides[0];
+      }
+    } else {
+      // Б. Обычная цель (рядовые или вожак уже пал)
+      // Сначала проверяем: есть ли живые враги на нашем родном фланге?
+      if (heroSide && livingSides.includes(heroSide)) {
+        chosenSide = heroSide;
+      } else if (livingSides.length > 0) {
+        // НАШ ФЛАНГ ПОЛНОСТЬЮ ЗАЧИЩЕН! Переключаемся на фланг, где враги еще живы!
+        chosenSide = livingSides[0];
+      }
+    }
+
+    // Если бой НЕ многосторонний (одиночный фронт):
+    // По правилам движка (quest.js): если fronts.length <= 1, параметр s не передается.
+    if (!isMulti) {
+      chosenSide = '';
+    }
+
+    return {
+      side: chosenSide,
+      canTargetLead,
+      hasLeader,
+      isMulti,
+      livingSides
+    };
+  }
+
+  let combatErrorCooldownUntil = 0;
+
   function checkAutoCombat(b, v) {
     if (!questSettings.autoCombat || !b) return;
     const vObj = v || getQuestView();
@@ -6329,13 +7099,13 @@
     const turnKey = `${b.id || 'b'}:${b.round || 0}`;
     if (lastCombatTurnKey === turnKey) return;
     if (combatPending && Date.now() - combatPendingAt < 6000) return;
+    if (Date.now() < combatErrorCooldownUntil) return;
 
     const myNick = (G.ME?.user?.login || G.__lgMineMe?.name || getMyNick() || '').toLowerCase();
     const heroIdx = typeof b.me === 'number' ? b.me : -1;
     const p = heroIdx >= 0 && b.form ? b.form[heroIdx] : null;
     const mf = !p && Array.isArray(b.mf) ? b.mf : null;
     const role = p ? p[1] : mf ? mf[0] : (G.ME?.hero?.role) || getHeroRole() || 'legionary';
-    const side = p ? (p[2] || 'R') : mf ? (mf[1] || 'R') : 'R';
     const st = b.hp == null ? 'out' : b.hp === 0 ? 'dead' : b.hp < 0 ? 'fled' : (heroIdx >= 0 || mf ? 'on' : 'reserve');
 
     if (st === 'dead' || st === 'fled' || st === 'out') return;
@@ -6379,18 +7149,17 @@
       return;
     }
 
-    // 2. Фокус на вожаке
-    const leadFoes = (b.foes || []).filter(f => f[2] && f[3] > 0);
-    const hasLeader = leadFoes.length > 0 && !b.gb;
-    const leadSide = hasLeader ? leadFoes[0][0] : '';
-    const chosenSide = leadSide || side || '';
+    // 2. Интеллектуальный расчет целевой стороны (с защитой от «нет врага с этой стороны»)
+    const targetInfo = resolveCombatTarget(b, { preferLead: true, isPriest: (role === 'priest') });
+    const chosenSide = targetInfo.side;
+    const hasLeader = targetInfo.hasLeader && targetInfo.canTargetLead;
 
     // Разделяем скиллы по категориям строго по b.sk от сервера
     const readySkills = (b.sk || []).filter(x => !x[1]); // cd === 0
 
     // Защитные умения (Стойка легионера) — активируются при угрозе (< 75% HP или бой с боссом/вожаком)
     const defSkills = readySkills.filter(x => x[2] === 'def' || x[0] === 'stoyka' || getSkillInfo(x[0]).kind === 'def');
-    if (defSkills.length > 0 && (myHpPct <= 0.75 || b.gb || hasLeader)) {
+    if (defSkills.length > 0 && (myHpPct <= 0.75 || b.gb || targetInfo.hasLeader)) {
       const sk = defSkills[0];
       const skInfo = getSkillInfo(sk[0], 'def');
       const actionObj = {
@@ -6453,25 +7222,67 @@
     executeCombatAction(actionObj, actionLabel, turnKey);
   }
 
-  function executeCombatAction(actionObj, label, turnKey) {
+  async function executeCombatAction(actionObj, label, turnKey, retryAttempt = 0) {
+    if (Date.now() < combatErrorCooldownUntil && retryAttempt === 0) return;
+
     lastCombatTurnKey = turnKey;
     combatPending = true;
     combatPendingAt = Date.now();
 
-    sendQuestAct(actionObj).then(res => {
+    try {
+      const res = await sendQuestAct(actionObj);
       if (res && res.ok !== false) {
         addQuestLog('sword', label);
+        combatErrorCooldownUntil = 0;
       } else {
-        addQuestLog('warn', `⚠️ Ход не принят: ${res?.error || 'ошибка'}`);
+        const err = String(res?.error || 'ошибка');
+        const isSideOrFoeError = /сторон|враг|цел|target/i.test(err);
+
+        // Умное авто-исправление при ошибке «Нет врага с этой стороны» / «Некого бить»
+        if (isSideOrFoeError && retryAttempt < 2) {
+          let retryObj = null;
+          let retryLabel = '';
+
+          if (actionObj.s) {
+            // Попытка 1: Снимаем фланг s (одиночный фронт, либо авто-выбор игры)
+            retryObj = { ...actionObj };
+            delete retryObj.s;
+            retryLabel = `${label} (без указания фланга)`;
+          } else if (actionObj.t === 'lead') {
+            // Попытка 2: Вожак пал перед ходом — бьем рядовых врагов
+            retryObj = { ...actionObj };
+            delete retryObj.t;
+            retryLabel = `${label} (цель: рядовые)`;
+          } else if (actionObj.a === 'sk') {
+            // Попытка 3: Скилл отклонен — мгновенный откат на базовый удар
+            const role = (G.ME?.hero?.role) || getHeroRole() || 'legionary';
+            const baseCmd = role === 'priest' ? 'melee' : 'base';
+            retryObj = { k: 'b', a: baseCmd };
+            retryLabel = `⚔️ Базовый удар (запасной откат)`;
+          }
+
+          if (retryObj) {
+            addQuestLog('warn', `⚠️ ${err} ➔ мгновенный перезапуск хода...`);
+            await executeCombatAction(retryObj, retryLabel, turnKey, retryAttempt + 1);
+            return;
+          }
+        }
+
+        addQuestLog('warn', `⚠️ Ход не принят: ${err}`);
+        // Предотвращаем бесконечный спам тостов каждую секунду (пауза на 2.5 сек)
+        combatErrorCooldownUntil = Date.now() + 2500;
         lastCombatTurnKey = null;
       }
-      refreshQuestUI();
-    }).catch(err => {
+    } catch (err) {
       addQuestLog('warn', `⚠️ Ошибка хода: ${err?.message || err}`);
+      combatErrorCooldownUntil = Date.now() + 2500;
       lastCombatTurnKey = null;
-    }).finally(() => {
-      combatPending = false;
-    });
+    } finally {
+      if (retryAttempt === 0) {
+        combatPending = false;
+        refreshQuestUI();
+      }
+    }
   }
 
   function parseDungeonSecrets(room) {
@@ -6708,18 +7519,25 @@
     checkQuestMinerCoordination(q);
     if (q.b) checkAutoParry(q.b, q);
     if (q.lair) checkAutoParryLair(q.lair, q);
+    if (q.lair) checkAutoLairMechanics(q.lair, q);
+    checkAutoBossMechanics(q);
     if (q.b) checkAutoCombat(q.b, q);
     checkHotPumpkin(q);
 
-    // Новые механики похода (28.10)
+    // Новые механики похода
     const trData = q.tr || (G.LGQuest && G.LGQuest._view && G.LGQuest._view()?.tr);
     const evData = q.ev || (G.LGQuest && G.LGQuest._view && G.LGQuest._view()?.ev);
+    const pzData = q.pz || (G.LGQuest && G.LGQuest._view && G.LGQuest._view()?.pz);
     if (trData && trData.cx) checkAutoCrossing(trData, q);
     if (trData && trData.bog) checkAutoBog(trData, q);
     if (trData && trData.type === 'code') checkAutoSolveCode(trData, q);
     if (trData && trData.type === 'react') checkAutoReactTrap(trData, q);
     if (trData && trData.type === 'ceiling') checkAutoCeilingTrap(trData, q);
+    checkAutoTrapsAndPuzzles(trData, pzData, q);
     if (evData) checkAutoHwEvents(evData, q);
+    if (evData) checkAutoMiniEvents(evData, q);
+    checkAutoDungeonEscape(q);
+    checkAutoCampRest(q);
     if (q.loot) checkAutoLoot(q.loot, q);
     checkAutoVotes(q);
 
@@ -7192,13 +8010,8 @@
             const targetNick = isHeal && wounded.length ? wounded[0][0] : null;
             const targetName = isHeal && wounded.length ? (wounded[0][1] || targetNick) : '';
 
-            const heroIdx = typeof v.b.me === 'number' ? v.b.me : -1;
-            const p = heroIdx >= 0 && v.b.form ? v.b.form[heroIdx] : null;
-            const mf = !p && Array.isArray(v.b.mf) ? v.b.mf : null;
-            const side = p ? (p[2] || 'R') : mf ? (mf[1] || 'R') : 'R';
-            const leadFoes = (v.b.foes || []).filter(f => f[2] && f[3] > 0);
-            const leadSide = leadFoes.length > 0 ? leadFoes[0][0] : '';
-            const chosenSide = manualTargetLead && leadSide ? leadSide : side;
+            const targetInfo = resolveCombatTarget(v.b, { preferLead: manualTargetLead, isPriest: isHeal });
+            const chosenSide = targetInfo.side;
 
             const actionObj = {
               k: 'b',
@@ -7391,6 +8204,51 @@
       };
     }
 
+    if (optBossMech) {
+      optBossMech.checked = questSettings.autoBossMechanics;
+      optBossMech.onchange = () => {
+        questSettings.autoBossMechanics = optBossMech.checked;
+        localStorage.setItem('lg_quest_boss_mech', questSettings.autoBossMechanics ? '1' : '0');
+        addQuestLog(questSettings.autoBossMechanics ? 'sword' : 'info', `👑 Боссы & Острова ${questSettings.autoBossMechanics ? 'включены' : 'выключены'}`);
+      };
+    }
+
+    if (optMiniEvents) {
+      optMiniEvents.checked = questSettings.autoMiniEvents;
+      optMiniEvents.onchange = () => {
+        questSettings.autoMiniEvents = optMiniEvents.checked;
+        localStorage.setItem('lg_quest_mini_events', questSettings.autoMiniEvents ? '1' : '0');
+        addQuestLog(questSettings.autoMiniEvents ? 'puzzle' : 'info', `🎪 Мини-Ивенты ${questSettings.autoMiniEvents ? 'включены' : 'выключены'}`);
+      };
+    }
+
+    if (optTrapsPuzzles) {
+      optTrapsPuzzles.checked = questSettings.autoTrapsAndPuzzles;
+      optTrapsPuzzles.onchange = () => {
+        questSettings.autoTrapsAndPuzzles = optTrapsPuzzles.checked;
+        localStorage.setItem('lg_quest_traps_puzzles', questSettings.autoTrapsAndPuzzles ? '1' : '0');
+        addQuestLog(questSettings.autoTrapsAndPuzzles ? 'puzzle' : 'info', `🧩 Ловушки & Загадки ${questSettings.autoTrapsAndPuzzles ? 'включены' : 'выключены'}`);
+      };
+    }
+
+    if (optCampRest) {
+      optCampRest.checked = questSettings.autoCampRest;
+      optCampRest.onchange = () => {
+        questSettings.autoCampRest = optCampRest.checked;
+        localStorage.setItem('lg_quest_camp_rest', questSettings.autoCampRest ? '1' : '0');
+        addQuestLog(questSettings.autoCampRest ? 'heart' : 'info', `🍖 Привал & Еда ${questSettings.autoCampRest ? 'включены' : 'выключены'}`);
+      };
+    }
+
+    if (optDgnEscape) {
+      optDgnEscape.checked = questSettings.autoDungeonEscape;
+      optDgnEscape.onchange = () => {
+        questSettings.autoDungeonEscape = optDgnEscape.checked;
+        localStorage.setItem('lg_quest_dgn_escape', questSettings.autoDungeonEscape ? '1' : '0');
+        addQuestLog(questSettings.autoDungeonEscape ? 'speed' : 'info', `🏃 Побег из данжа ${questSettings.autoDungeonEscape ? 'включен' : 'выключен'}`);
+      };
+    }
+
     if (btnClearLog) {
       btnClearLog.onclick = () => {
         questLogHistory = [];
@@ -7421,13 +8279,9 @@
         const myNick = (G.ME?.user?.login || G.__lgMineMe?.name || getMyNick() || '').toLowerCase();
         const wounded = isPriest ? (v.b.low || []).filter(x => x[0] !== myNick && x[2] < 0.9).sort((a,b) => a[2] - b[2]) : [];
 
-        const heroIdx = typeof v.b.me === 'number' ? v.b.me : -1;
-        const p = heroIdx >= 0 && v.b.form ? v.b.form[heroIdx] : null;
-        const mf = !p && Array.isArray(v.b.mf) ? v.b.mf : null;
-        const side = p ? (p[2] || 'R') : mf ? (mf[1] || 'R') : 'R';
-        const leadFoes = (v.b.foes || []).filter(f => f[2] && f[3] > 0);
-        const leadSide = leadFoes.length > 0 ? leadFoes[0][0] : '';
-        const chosenSide = manualTargetLead && leadSide ? leadSide : side;
+        const targetInfo = resolveCombatTarget(v.b, { preferLead: manualTargetLead, isPriest });
+        const chosenSide = targetInfo.side;
+        const canTargetLead = targetInfo.canTargetLead;
 
         const actObj = isPriest ? {
           k: 'b',
@@ -7436,13 +8290,15 @@
         } : {
           k: 'b',
           a: 'base',
-          ...(manualTargetLead && hasLeader ? { t: 'lead' } : {}),
+          ...(manualTargetLead && canTargetLead ? { t: 'lead' } : {}),
           ...(chosenSide ? { s: chosenSide } : {})
         };
 
         sendQuestAct(actObj).then(res => {
           if (res && res.ok !== false) {
-            addQuestLog('sword', `${classAtk.icon} ${classAtk.name}${isPriest && wounded.length ? ' → ' + (wounded[0][1] || wounded[0][0]) : (manualTargetLead && hasLeader && !isPriest ? ' → Вожак' : '')}`);
+            addQuestLog('sword', `${classAtk.icon} ${classAtk.name}${isPriest && wounded.length ? ' → ' + (wounded[0][1] || wounded[0][0]) : (manualTargetLead && canTargetLead && !isPriest ? ' → Вожак' : '')}${chosenSide && !isPriest ? ` (${chosenSide})` : ''}`);
+          } else {
+            addQuestLog('warn', `⚠️ Атака не принята: ${res?.error || 'ошибка'}`);
           }
           refreshQuestUI();
         });
@@ -7467,17 +8323,14 @@
             showToast('Ход в этом раунде уже сделан');
             return;
           }
-          const heroIdx = typeof v.b.me === 'number' ? v.b.me : -1;
-          const p = heroIdx >= 0 && v.b.form ? v.b.form[heroIdx] : null;
-          const mf = !p && Array.isArray(v.b.mf) ? v.b.mf : null;
-          const side = p ? (p[2] || 'R') : mf ? (mf[1] || 'R') : 'R';
-          const leadFoes = (v.b.foes || []).filter(f => f[2] && f[3] > 0);
-          const leadSide = leadFoes.length > 0 ? leadFoes[0][0] : '';
-          const chosenSide = leadSide || side;
+          const targetInfo = resolveCombatTarget(v.b, { preferLead: manualTargetLead, isPriest: false });
+          const chosenSide = targetInfo.side;
 
           sendQuestAct({ k: 'b', a: 'melee', ...(chosenSide ? { s: chosenSide } : {}) }).then(res => {
             if (res && res.ok !== false) {
               addQuestLog('sword', `⚔️ Ближний бой жреца${chosenSide ? ` (${chosenSide})` : ''}`);
+            } else {
+              addQuestLog('warn', `⚠️ Ближний бой не принят: ${res?.error || 'ошибка'}`);
             }
             refreshQuestUI();
           });
@@ -7547,15 +8400,22 @@
           if (v.b.st === 'party') checkAutoCombat(v.b, v);
         }
         if (v.lair && v.lair.tele) checkAutoParryLair(v.lair, v);
+        if (v.lair) checkAutoLairMechanics(v.lair, v);
+        checkAutoBossMechanics(v);
         checkHotPumpkin(v);
         const trData = v.tr || (G.LGQuest && G.LGQuest._view && G.LGQuest._view()?.tr);
         const evData = v.ev || (G.LGQuest && G.LGQuest._view && G.LGQuest._view()?.ev);
+        const pzData = v.pz || (G.LGQuest && G.LGQuest._view && G.LGQuest._view()?.pz);
         if (trData && trData.cx) checkAutoCrossing(trData, v);
         if (trData && trData.bog) checkAutoBog(trData, v);
         if (trData && trData.type === 'code') checkAutoSolveCode(trData, v);
         if (trData && trData.type === 'react') checkAutoReactTrap(trData, v);
         if (trData && trData.type === 'ceiling') checkAutoCeilingTrap(trData, v);
+        checkAutoTrapsAndPuzzles(trData, pzData, v);
         if (evData) checkAutoHwEvents(evData, v);
+        if (evData) checkAutoMiniEvents(evData, v);
+        checkAutoDungeonEscape(v);
+        checkAutoCampRest(v);
         if (v.loot) checkAutoLoot(v.loot, v);
         checkAutoVotes(v);
       } else if (v) {
