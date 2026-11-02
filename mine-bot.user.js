@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.28
+// @version      9.1.29
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.1.28';
+  const BOT_VERSION = '9.1.29';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -778,7 +778,11 @@
   }
 
   // Детерминированное вычисление точного индекса клетки (для Шахты 2.0 и Шахты 3.0) по координатам полоски прогресса
-  function getCellIndexFromBarPosition(bx, by) {
+  function getCellIndexFromBarPosition(bx, by, barEl) {
+    if (barEl && typeof barEl._bk === 'string' && barEl._bk.startsWith('b')) {
+      const directI = parseInt(barEl._bk.slice(1), 10);
+      if (!isNaN(directI) && directI >= 0) return directI;
+    }
     const isV3 = !!(G.__lgMineS?.F?.v3 || G.__lgMineState?.fl?.v3);
     const m3info = G.__lgMineS?.F || G.__lgMineState?.fl;
     const getXY = (isV3 && G.LGWorldLib?.mine3 && m3info) ? G.LGWorldLib.mine3(m3info).cellXY :
@@ -944,9 +948,25 @@
     if (barI) {
       let remPct = 100;
       let pct = 0;
-      if (barI.dataset.rem) {
-        const rem = parseFloat(barI.dataset.rem);
-        remPct = Math.round(Math.max(0, Math.min(1, rem)) * 100);
+      let etaSec = 0;
+
+      // 1. Приоритет живого отсчёта времени игры: data-left хранит точный таймштамп окончания в мс
+      if (barLt && barLt.dataset.left) {
+        const leftMs = +barLt.dataset.left - Date.now();
+        etaSec = Math.max(0, leftMs / 1000);
+      } else if (barI.dataset.eta) {
+        etaSec = parseFloat(barI.dataset.eta) || 0;
+      }
+
+      // 2. Расчёт динамического оставшегося процента
+      // Замороженные атрибуты barI.dataset.rem и barI.dataset.eta ставятся игрой только в момент создания полоски
+      const initialEta = parseFloat(barI.dataset.eta) || 0;
+      const initialRem = parseFloat(barI.dataset.rem) || 0;
+
+      if (etaSec > 0 && initialEta > 0 && initialRem > 0) {
+        const totalDurationSec = initialEta / initialRem;
+        const dynamicRem = Math.max(0, Math.min(1, etaSec / totalDurationSec));
+        remPct = Math.round(dynamicRem * 100);
         pct = 100 - remPct;
       } else if (barI.style.width) {
         const wVal = parseFloat(barI.style.width);
@@ -954,13 +974,11 @@
           remPct = Math.round(Math.max(0, Math.min(100, wVal)));
           pct = 100 - remPct;
         }
+      } else if (initialRem > 0) {
+        remPct = Math.round(Math.max(0, Math.min(1, initialRem)) * 100);
+        pct = 100 - remPct;
       }
-      let etaSec = 0;
-      if (barI.dataset.eta) {
-        etaSec = parseFloat(barI.dataset.eta) || 0;
-      } else if (barLt && barLt.dataset.left) {
-        etaSec = Math.max(0, (+barLt.dataset.left - Date.now()) / 1000);
-      }
+
       return {
         pct: pct || 0,
         remPct: remPct != null ? remPct : 100,
@@ -1011,10 +1029,6 @@
 
         // Если в слепке rate ещё 0 (сервер ещё не успел пересчитать или снимок старый):
         if (effRate <= 0) {
-          // Проверяем живые данные в DOM полоске
-          const domProg = getDomMiningProgress(myCandidate);
-          if (domProg) return domProg;
-
           // Оценочный урон по числу копателей (чтобы не застревать на 1% с черточкой)
           const diggerCount = Math.max(1, n || 1);
           effRate = diggerCount * 40;
@@ -3114,7 +3128,7 @@
       if (myBar) {
         const bx = parseFloat(myBar.style.left) || 0;
         const by = parseFloat(myBar.style.top) || 0;
-        const bIdx = getCellIndexFromBarPosition(bx, by);
+        const bIdx = getCellIndexFromBarPosition(bx, by, myBar);
         if (bIdx >= 0 && (!st || !st.dug || st.dug[bIdx] !== '1')) return bIdx;
       }
       // 3. Из состояния st.dg по нашему нику
@@ -3145,6 +3159,30 @@
       }
     } catch (e) {}
     return -1;
+  }
+
+  // Единая функция обновления полоски прогресса копания в интерфейсе бота (защита от мерцания)
+  function updateMiningProgressBarUI(prog) {
+    if (!pMineWrap) return;
+    if (prog && typeof prog.remPct === 'number' && isMining()) {
+      pMineWrap.style.display = 'block';
+      if (pMinePct) {
+        pMinePct.textContent = `${prog.remPct}%`;
+        pMinePct.style.color = prog.remPct > 50 ? '#5fd35f' : (prog.remPct > 20 ? '#ffd23f' : '#ff4d3d');
+      }
+      if (pMineTime) {
+        pMineTime.textContent = prog.etaText || '—';
+      }
+      if (pMineBar) {
+        pMineBar.style.width = `${prog.remPct}%`;
+        const hpC = prog.remPct > 50 
+          ? (prog.remPct > 75 ? '#5fd35f' : 'linear-gradient(90deg, #ffd23f, #5fd35f)')
+          : (prog.remPct > 20 ? 'linear-gradient(90deg, #ff903e, #ffd23f)' : '#ff4d3d');
+        pMineBar.style.background = hpC;
+      }
+    } else {
+      pMineWrap.style.display = 'none';
+    }
   }
 
   // Ежесекундный плавный таймер обновления прогресса и обратного отсчёта
@@ -3187,17 +3225,7 @@
           if (!prog.rate || prog.rate <= 0 || Date.now() - lastMineStatePoll > 8000) {
             refreshMineStateFromServer();
           }
-          if (pMineWrap && pMinePct && pMineTime && pMineBar) {
-            pMineWrap.style.display = 'block';
-            pMinePct.textContent = `${prog.remPct}%`;
-            pMineTime.textContent = prog.etaText;
-            pMineBar.style.width = `${prog.remPct}%`;
-            const hpC = prog.remPct > 50 
-              ? (prog.remPct > 75 ? '#5fd35f' : 'linear-gradient(90deg, #ffd23f, #5fd35f)')
-              : (prog.remPct > 20 ? 'linear-gradient(90deg, #ff903e, #ffd23f)' : '#ff4d3d');
-            pMineBar.style.background = hpC;
-            pMinePct.style.color = prog.remPct > 50 ? '#5fd35f' : (prog.remPct > 20 ? '#ffd23f' : '#ff4d3d');
-          }
+          updateMiningProgressBarUI(prog);
           const rockName = (typeof getCurrentMiningRockName === 'function' ? getCurrentMiningRockName() : null) || formatRockName(idx) || 'Камень';
           if (isPaused) {
             const lockedOre = (typeof getOreTargetLock === 'function') ? getOreTargetLock() : null;
@@ -9252,7 +9280,7 @@
       const isMe = bar.classList.contains('me');
 
       // Точный расчет индекса клетки по сетке шахты (без искажений SVG bbox)
-      let iNum = getCellIndexFromBarPosition(bx, by);
+      let iNum = getCellIndexFromBarPosition(bx, by, bar);
       if (isMe && liveMyI >= 0) {
         iNum = liveMyI;
       }
@@ -9566,6 +9594,11 @@
       const liveIdx = getActiveMiningRockIndex();
       if (liveIdx >= 0) {
         activeMiningRockIndex = liveIdx;
+        const matchingCand = candidates.find(c => String(c.rockId) === String(liveIdx));
+        if (matchingCand) {
+          myCandidate = matchingCand;
+          myCount = matchingCand.count || myCount;
+        }
       }
       if (activeMiningRockIndex >= 0 && G.__lgMineState?.bl?.[activeMiningRockIndex]) {
         const blk = G.__lgMineState.bl[activeMiningRockIndex];
@@ -9821,21 +9854,13 @@
       }
       const oreName = getCurrentMiningRockName(myCandidate);
       const oreLabel = oreName ? `: ${oreName}` : '';
-      const prog = getRockMiningProgress(activeMiningRockIndex, myCandidate);
-
-      if (prog && pMineWrap && pMinePct && pMineTime && pMineBar) {
-        pMineWrap.style.display = 'block';
-        pMinePct.textContent = `${prog.remPct}%`;
-        pMineTime.textContent = prog.etaText;
-        pMineBar.style.width = `${prog.remPct}%`;
-        const hpC = prog.remPct > 50 
-          ? (prog.remPct > 75 ? '#5fd35f' : 'linear-gradient(90deg, #ffd23f, #5fd35f)')
-          : (prog.remPct > 20 ? 'linear-gradient(90deg, #ff903e, #ffd23f)' : '#ff4d3d');
-        pMineBar.style.background = hpC;
-        pMinePct.style.color = prog.remPct > 50 ? '#5fd35f' : (prog.remPct > 20 ? '#ffd23f' : '#ff4d3d');
-      } else if (pMineWrap) {
-        pMineWrap.style.display = 'none';
+      let prog = getRockMiningProgress(activeMiningRockIndex, myCandidate);
+      if (prog) {
+        lastKnownMiningProgress = { p: prog, at: Date.now() };
+      } else if (lastKnownMiningProgress && Date.now() - lastKnownMiningProgress.at < 2500) {
+        prog = lastKnownMiningProgress.p;
       }
+      updateMiningProgressBarUI(prog);
 
       if (isRatingMode) {
         st.textContent = `${prefix}🏆 [Рейтинг] Добиваем${oreLabel} (${myCount || 1} чел) ⛏️`;
