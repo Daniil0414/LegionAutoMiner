@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.31
+// @version      9.1.32
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.1.31';
+  const BOT_VERSION = '9.1.32';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -2538,160 +2538,204 @@
           <div id="b-quest-dgn-votes" style="display:flex;flex-wrap:wrap;gap:4px;"></div>
         </div>
 
-        <!-- Карточка 3: Тумблеры автоматизации -->
+        <!-- Карточка 3: Тумблеры автоматизации (3 ряда / 3 колонки) -->
         <div style="background:#1a172e;border:1px solid #3d3759;border-radius:6px;padding:8px;margin-bottom:8px;">
           <div style="font-size:11px;font-weight:bold;color:#f59e0b;margin-bottom:6px;display:flex;align-items:center;gap:4px;">
             <span>⚙️</span>
             <span>Автоматизация & Защита</span>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+          <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:3.5px;">
             <!-- 1. Автопоход -->
-            <label title="Автопоход (авто-вход & сбор): Сам записывается в поход («поход»/«портал»), ставит шахту на авто-паузу и возвращает после похода" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:rgba(244,63,94,0.12);padding:4px 6px;border-radius:5px;border:1px solid rgba(244,63,94,0.3);min-height:32px;box-sizing:border-box;">
-              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
-                <span style="font-size:10px;font-weight:bold;color:#fca5a5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🤝 Автопоход</span>
-                <span style="font-size:8px;color:#fda4af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">авто-вход & сбор</span>
+            <label title="Автопоход (авто-вход & сбор): Сам записывается в поход («поход»/«портал»), ставит шахту на авто-паузу и возвращает после похода" style="display:flex;align-items:center;justify-content:space-between;gap:3px;cursor:pointer;background:rgba(244,63,94,0.12);padding:3px 5px;border-radius:5px;border:1px solid rgba(244,63,94,0.3);min-height:30px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.15;">
+                <span style="font-size:9.5px;font-weight:bold;color:#fca5a5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🤝 Автопоход</span>
+                <span style="font-size:7.5px;color:#fda4af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">авто-вход & сбор</span>
               </div>
-              <input type="checkbox" id="b-quest-opt-autojoin" style="cursor:pointer;accent-color:#f43f5e;flex-shrink:0;margin:0;" />
+              <input type="checkbox" id="b-quest-opt-autojoin" style="cursor:pointer;accent-color:#f43f5e;flex-shrink:0;margin:0;transform:scale(0.95);" />
             </label>
 
             <!-- 2. Авто-Бой -->
-            <label title="Умный Авто-Бой: Хил союзников <35% HP, фокус вожака, скиллы без кд" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:rgba(244,63,94,0.12);padding:4px 6px;border-radius:5px;border:1px solid rgba(244,63,94,0.3);min-height:32px;box-sizing:border-box;">
-              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
-                <span style="font-size:10px;font-weight:bold;color:#fca5a5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">⚔️ Авто-Бой</span>
-                <span style="font-size:8px;color:#fda4af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">скиллы, хил & фокус</span>
+            <label title="Умный Авто-Бой: Хил союзников <35% HP, фокус вожака, скиллы без кд" style="display:flex;align-items:center;justify-content:space-between;gap:3px;cursor:pointer;background:rgba(244,63,94,0.12);padding:3px 5px;border-radius:5px;border:1px solid rgba(244,63,94,0.3);min-height:30px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.15;">
+                <span style="font-size:9.5px;font-weight:bold;color:#fca5a5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">⚔️ Авто-Бой</span>
+                <span style="font-size:7.5px;color:#fda4af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">скиллы, хил & фокус</span>
               </div>
-              <input type="checkbox" id="b-quest-opt-combat" style="cursor:pointer;accent-color:#f43f5e;flex-shrink:0;margin:0;" />
+              <input type="checkbox" id="b-quest-opt-combat" style="cursor:pointer;accent-color:#f43f5e;flex-shrink:0;margin:0;transform:scale(0.95);" />
             </label>
 
             <!-- 3. Двери Данжа -->
-            <label title="Авто-голосование за двери в Данже: Автоматически голосует за верную дверь по подсказке радара или большинству" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
-              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
-                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🚪 Двери Данжа</span>
-                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">авто-выбор двери</span>
+            <label title="Авто-голосование за двери в Данже: Автоматически голосует за верную дверь по подсказке радара или большинству" style="display:flex;align-items:center;justify-content:space-between;gap:3px;cursor:pointer;background:#121026;padding:3px 5px;border-radius:5px;border:1px solid #2e284a;min-height:30px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.15;">
+                <span style="font-size:9.5px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🚪 Двери Данжа</span>
+                <span style="font-size:7.5px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">авто-выбор двери</span>
               </div>
-              <input type="checkbox" id="b-quest-opt-dgnvote" style="cursor:pointer;accent-color:#38bdf8;flex-shrink:0;margin:0;" />
+              <input type="checkbox" id="b-quest-opt-dgnvote" style="cursor:pointer;accent-color:#38bdf8;flex-shrink:0;margin:0;transform:scale(0.95);" />
             </label>
 
             <!-- 4. Без задержки -->
-            <label title="Стрим без задержки (dl: 0): Видеть события на 30–60с раньше стрима" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
-              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
-                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">⚡ Без задержки</span>
-                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">dl: 0 (раньше стрима)</span>
+            <label title="Стрим без задержки (dl: 0): Видеть события на 30–60с раньше стрима" style="display:flex;align-items:center;justify-content:space-between;gap:3px;cursor:pointer;background:#121026;padding:3px 5px;border-radius:5px;border:1px solid #2e284a;min-height:30px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.15;">
+                <span style="font-size:9.5px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">⚡ Без задержки</span>
+                <span style="font-size:7.5px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">dl: 0 (раньше стрима)</span>
               </div>
-              <input type="checkbox" id="b-quest-opt-fastforward" style="cursor:pointer;accent-color:#f59e0b;flex-shrink:0;margin:0;" />
+              <input type="checkbox" id="b-quest-opt-fastforward" style="cursor:pointer;accent-color:#f59e0b;flex-shrink:0;margin:0;transform:scale(0.95);" />
             </label>
 
             <!-- 5. Авто-Блок -->
-            <label title="Мгновенный Авто-Блок ударов босса: 100% защита от атак босса (отправка секретного слова)" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
-              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
-                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🛡️ Авто-Блок</span>
-                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">слово босса (100%)</span>
+            <label title="Мгновенный Авто-Блок ударов босса: 100% защита от атак босса (отправка секретного слова)" style="display:flex;align-items:center;justify-content:space-between;gap:3px;cursor:pointer;background:#121026;padding:3px 5px;border-radius:5px;border:1px solid #2e284a;min-height:30px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.15;">
+                <span style="font-size:9.5px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🛡️ Авто-Блок</span>
+                <span style="font-size:7.5px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">слово босса (100%)</span>
               </div>
-              <input type="checkbox" id="b-quest-opt-autoparry" style="cursor:pointer;accent-color:#10b981;flex-shrink:0;margin:0;" />
+              <input type="checkbox" id="b-quest-opt-autoparry" style="cursor:pointer;accent-color:#10b981;flex-shrink:0;margin:0;transform:scale(0.95);" />
             </label>
 
             <!-- 6. Радар Данжа -->
-            <label title="Радар тайников Данжа: Расчёт плит, порядка рун, глифов и подсветка верных дверей" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
-              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
-                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🧩 Радар Данжа</span>
-                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">плиты, руны, двери</span>
+            <label title="Радар Данжа: Подсказки секретов, рун и комнат подземелья" style="display:flex;align-items:center;justify-content:space-between;gap:3px;cursor:pointer;background:#121026;padding:3px 5px;border-radius:5px;border:1px solid #2e284a;min-height:30px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.15;">
+                <span style="font-size:9.5px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🧩 Радар Данжа</span>
+                <span style="font-size:7.5px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">плиты, руны, двери</span>
               </div>
-              <input type="checkbox" id="b-quest-opt-dgn" style="cursor:pointer;accent-color:#38bdf8;flex-shrink:0;margin:0;" />
+              <input type="checkbox" id="b-quest-opt-dgn" style="cursor:pointer;accent-color:#38bdf8;flex-shrink:0;margin:0;transform:scale(0.95);" />
             </label>
 
-            <!-- 7. Декодер шифра -->
-            <label title="Декодер кода сокровищницы: Взлом шифра двери: ввод кода, когда осталось ≤2 неизвестных цифр" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
-              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
-                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🔮 Декодер кода</span>
-                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">взлом при ≤2 скрытых</span>
+            <!-- 7. Декодер кода -->
+            <label title="Декодер сокровищницы: Авто-ввод кода рун, когда осталось <=2 неразгаданных цифр" style="display:flex;align-items:center;justify-content:space-between;gap:3px;cursor:pointer;background:#121026;padding:3px 5px;border-radius:5px;border:1px solid #2e284a;min-height:30px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.15;">
+                <span style="font-size:9.5px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🔮 Декодер кода</span>
+                <span style="font-size:7.5px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">взлом при ≤2 скрытых</span>
               </div>
-              <input type="checkbox" id="b-quest-opt-solve-code" style="cursor:pointer;accent-color:#a855f7;flex-shrink:0;margin:0;" />
+              <input type="checkbox" id="b-quest-opt-solve-code" style="cursor:pointer;accent-color:#a855f7;flex-shrink:0;margin:0;transform:scale(0.95);" />
             </label>
 
             <!-- 8. Переправа -->
-            <label title="Авто-Переправа (безопасные кочки): Авто-прыжок на безопасную кочку (исключая утонувшие)" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
-              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
-                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🪵 Переправа</span>
-                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">безопасные кочки</span>
+            <label title="Авто-Переправа: Выбор безопасной кочки (исключая затонувшие)" style="display:flex;align-items:center;justify-content:space-between;gap:3px;cursor:pointer;background:#121026;padding:3px 5px;border-radius:5px;border:1px solid #2e284a;min-height:30px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.15;">
+                <span style="font-size:9.5px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🪵 Переправа</span>
+                <span style="font-size:7.5px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">безопасные кочки</span>
               </div>
-              <input type="checkbox" id="b-quest-opt-crossing" style="cursor:pointer;accent-color:#10b981;flex-shrink:0;margin:0;" />
+              <input type="checkbox" id="b-quest-opt-crossing" style="cursor:pointer;accent-color:#10b981;flex-shrink:0;margin:0;transform:scale(0.95);" />
             </label>
 
             <!-- 9. Трясина -->
-            <label title="Авто-Трясина («тянем!» и «руби»): Клик «тянем» по кд раз в 2с, когда вязнем, и «руби» при атаке твари" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
-              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
-                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🫧 Трясина</span>
-                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">«тянем!» & «руби»</span>
+            <label title="Авто-Трясина («тянем!» и «руби»): Клик «тянем» по кд раз в 2с, когда вязнем, и «руби» при атаке твари" style="display:flex;align-items:center;justify-content:space-between;gap:3px;cursor:pointer;background:#121026;padding:3px 5px;border-radius:5px;border:1px solid #2e284a;min-height:30px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.15;">
+                <span style="font-size:9.5px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🫧 Трясина</span>
+                <span style="font-size:7.5px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">«тянем!» & «руби»</span>
               </div>
-              <input type="checkbox" id="b-quest-opt-bog" style="cursor:pointer;accent-color:#38bdf8;flex-shrink:0;margin:0;" />
+              <input type="checkbox" id="b-quest-opt-bog" style="cursor:pointer;accent-color:#38bdf8;flex-shrink:0;margin:0;transform:scale(0.95);" />
             </label>
 
             <!-- 10. Авто-Ивенты -->
-            <label title="Авто-Ивенты (Котёл & Сладость/Гадость): Голосование за сладость (+конфеты) и сбор ингредиентов в котёл" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
-              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
-                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🎃 Авто-Ивенты</span>
-                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">котёл & конфеты</span>
+            <label title="Авто-Ивенты (Котёл & Сладость/Гадость): Голосование за сладость (+конфеты) и сбор ингредиентов в котёл" style="display:flex;align-items:center;justify-content:space-between;gap:3px;cursor:pointer;background:#121026;padding:3px 5px;border-radius:5px;border:1px solid #2e284a;min-height:30px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.15;">
+                <span style="font-size:9.5px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🎃 Авто-Ивенты</span>
+                <span style="font-size:7.5px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">котёл & конфеты</span>
               </div>
-              <input type="checkbox" id="b-quest-opt-hwevents" style="cursor:pointer;accent-color:#f59e0b;flex-shrink:0;margin:0;" />
+              <input type="checkbox" id="b-quest-opt-hwevents" style="cursor:pointer;accent-color:#f59e0b;flex-shrink:0;margin:0;transform:scale(0.95);" />
             </label>
 
             <!-- 11. Боссы & Острова -->
-            <label title="Боссы & Острова: Выбор и смена островов в Логове, срыв заклинаний, безопасные зоны на арене, фонари Джека" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
-              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
-                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">👑 Боссы & Острова</span>
-                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">острова, зоны, заклинания</span>
+            <label title="Боссы & Острова: Выбор и смена островов в Логове, срыв заклинаний, безопасные зоны на арене, фонари Джека" style="display:flex;align-items:center;justify-content:space-between;gap:3px;cursor:pointer;background:#121026;padding:3px 5px;border-radius:5px;border:1px solid #2e284a;min-height:30px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.15;">
+                <span style="font-size:9.5px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">👑 Боссы & Острова</span>
+                <span style="font-size:7.5px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">острова, зоны, фразы</span>
               </div>
-              <input type="checkbox" id="b-quest-opt-boss-mech" style="cursor:pointer;accent-color:#ef4444;flex-shrink:0;margin:0;" />
+              <input type="checkbox" id="b-quest-opt-boss-mech" style="cursor:pointer;accent-color:#ef4444;flex-shrink:0;margin:0;transform:scale(0.95);" />
             </label>
 
             <!-- 12. Мини-Ивенты -->
-            <label title="Мини-Ивенты: Странник (помощь), кости d20, колодец желаний, алтарь жреца, гадалка, ярмарка гоблинов, танец скелетов" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
-              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
-                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🎪 Мини-Ивенты</span>
-                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">странник, кости, колодец, танец</span>
+            <label title="Мини-Ивенты: Странник (помощь), кости d20, колодец желаний, алтарь жреца, гадалка, ярмарка гоблинов, танец скелетов" style="display:flex;align-items:center;justify-content:space-between;gap:3px;cursor:pointer;background:#121026;padding:3px 5px;border-radius:5px;border:1px solid #2e284a;min-height:30px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.15;">
+                <span style="font-size:9.5px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🎪 Мини-Ивенты</span>
+                <span style="font-size:7.5px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">странник, кости, танец</span>
               </div>
-              <input type="checkbox" id="b-quest-opt-mini-events" style="cursor:pointer;accent-color:#8b5cf6;flex-shrink:0;margin:0;" />
+              <input type="checkbox" id="b-quest-opt-mini-events" style="cursor:pointer;accent-color:#8b5cf6;flex-shrink:0;margin:0;transform:scale(0.95);" />
             </label>
 
             <!-- 13. Ловушки & Загадки -->
-            <label title="Ловушки & Загадки: Веревки, сундук-приманка, делёж добычи, плиты, весы, кубки с ядом, предметы" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
-              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
-                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🧩 Ловушки & Загадки</span>
-                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">веревки, сундук, весы, кубки</span>
+            <label title="Ловушки & Загадки: Веревки, сундук-приманка, делёж добычи, плиты, весы, кубки с ядом, предметы" style="display:flex;align-items:center;justify-content:space-between;gap:3px;cursor:pointer;background:#121026;padding:3px 5px;border-radius:5px;border:1px solid #2e284a;min-height:30px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.15;">
+                <span style="font-size:9.5px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🧩 Ловушки & Загадки</span>
+                <span style="font-size:7.5px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">веревки, сундук, весы</span>
               </div>
-              <input type="checkbox" id="b-quest-opt-traps-puzzles" style="cursor:pointer;accent-color:#06b6d4;flex-shrink:0;margin:0;" />
+              <input type="checkbox" id="b-quest-opt-traps-puzzles" style="cursor:pointer;accent-color:#06b6d4;flex-shrink:0;margin:0;transform:scale(0.95);" />
             </label>
 
             <!-- 14. Привал & Еда -->
-            <label title="Привал & Еда: Автоматическое поедание еды или лечебных зелий из сумки во время привала у костра при HP < 80%" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
-              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
-                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🍖 Привал & Еда</span>
-                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">авто-лечение при HP &lt; 80%</span>
+            <label title="Привал & Еда: Автоматическое поедание еды или лечебных зелий из сумки во время привала у костра при HP < 80%" style="display:flex;align-items:center;justify-content:space-between;gap:3px;cursor:pointer;background:#121026;padding:3px 5px;border-radius:5px;border:1px solid #2e284a;min-height:30px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.15;">
+                <span style="font-size:9.5px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🍖 Привал & Еда</span>
+                <span style="font-size:7.5px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">костёр при HP &lt; 80%</span>
               </div>
-              <input type="checkbox" id="b-quest-opt-camp-rest" style="cursor:pointer;accent-color:#10b981;flex-shrink:0;margin:0;" />
+              <input type="checkbox" id="b-quest-opt-camp-rest" style="cursor:pointer;accent-color:#10b981;flex-shrink:0;margin:0;transform:scale(0.95);" />
             </label>
 
             <!-- 15. Побег из данжа -->
-            <label title="Побег из данжа: Автоматическая отправка команды «бежать» при обрушении подземелья" style="display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:32px;box-sizing:border-box;">
-              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
-                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🏃 Побег из данжа</span>
-                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">авто-«бежать» при крахе</span>
+            <label title="Побег из данжа: Автоматическая отправка команды «бежать» при обрушении подземелья" style="display:flex;align-items:center;justify-content:space-between;gap:3px;cursor:pointer;background:#121026;padding:3px 5px;border-radius:5px;border:1px solid #2e284a;min-height:30px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.15;">
+                <span style="font-size:9.5px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🏃 Побег из данжа</span>
+                <span style="font-size:7.5px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">«бежать» при крахе</span>
               </div>
-              <input type="checkbox" id="b-quest-opt-dgn-escape" style="cursor:pointer;accent-color:#f97316;flex-shrink:0;margin:0;" />
+              <input type="checkbox" id="b-quest-opt-dgn-escape" style="cursor:pointer;accent-color:#f97316;flex-shrink:0;margin:0;transform:scale(0.95);" />
             </label>
 
-            <!-- 11. QA-панель (на всю ширину двух колонок внизу) -->
-            <label title="Разблокировка QA-панели: Принудительно ME.hero.qa = true (быстрые кнопки игры)" style="grid-column:span 2;display:flex;align-items:center;justify-content:space-between;gap:4px;cursor:pointer;background:#121026;padding:4px 6px;border-radius:5px;border:1px solid #2e284a;min-height:28px;box-sizing:border-box;">
-              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.2;">
-                <span style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🔓 QA-панель игры</span>
-                <span style="font-size:8px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">принудительно ME.hero.qa = true (быстрые кнопки игры)</span>
+            <!-- 16. Умный Авто-Хил -->
+            <label title="Умный Авто-Хил едой и зельями: Автоматически проверяет здоровье, кулдаун еды в игре и подбирает лучшее лечебное средство из сумки" style="display:flex;align-items:center;justify-content:space-between;gap:3px;cursor:pointer;background:rgba(16,185,129,0.12);padding:3px 5px;border-radius:5px;border:1px solid rgba(16,185,129,0.3);min-height:30px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.15;">
+                <span style="font-size:9.5px;font-weight:bold;color:#6ee7b7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">💊 Авто-Хил</span>
+                <span style="font-size:7.5px;color:#a7f3d0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">еда и зелья по кд</span>
               </div>
-              <input type="checkbox" id="b-quest-opt-qa" style="cursor:pointer;accent-color:#a855f7;flex-shrink:0;margin:0;" />
+              <input type="checkbox" id="b-quest-opt-autoheal" style="cursor:pointer;accent-color:#10b981;flex-shrink:0;margin:0;transform:scale(0.95);" />
+            </label>
+
+            <!-- 17. QA-панель (занимает 2 колонки для выравнивания сетки 3x6) -->
+            <label title="Разблокировка QA-панели: Принудительно ME.hero.qa = true (быстрые кнопки игры)" style="grid-column:span 2;display:flex;align-items:center;justify-content:space-between;gap:3px;cursor:pointer;background:#121026;padding:3px 5px;border-radius:5px;border:1px solid #2e284a;min-height:30px;box-sizing:border-box;">
+              <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.15;">
+                <span style="font-size:9.5px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🔓 QA-панель игры</span>
+                <span style="font-size:7.5px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">ME.hero.qa = true (быстрые кнопки)</span>
+              </div>
+              <input type="checkbox" id="b-quest-opt-qa" style="cursor:pointer;accent-color:#a855f7;flex-shrink:0;margin:0;transform:scale(0.95);" />
             </label>
           </div>
         </div>
 
-        <!-- Карточка 4: Быстрые действия боя и отряда (Классовые + Скиллы) -->
+        <!-- Карточка 3.5: Еда и зелья в рюкзаке (Инвентарь, КД и Авто-хил) -->
+        <div id="b-quest-food-card" style="background:#1a172e;border:1px solid #3d3759;border-radius:6px;padding:8px;margin-bottom:8px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:6px;">
+            <div style="font-size:11px;font-weight:bold;color:#10b981;display:flex;align-items:center;gap:4px;">
+              <span>🍖</span>
+              <span>Еда и зелья в сумке</span>
+            </div>
+            <!-- Таймер перезарядки еды в игре -->
+            <div id="b-quest-food-cd-badge" style="font-size:9.5px;font-weight:bold;padding:2px 6px;border-radius:4px;background:#064e3b;color:#a7f3d0;border:1px solid #10b981;white-space:nowrap;" title="Таймер кулдауна на использование еды и зелий в игре">
+              ✅ Готово
+            </div>
+          </div>
+
+          <!-- Настройка порога авто-хила -->
+          <div style="display:flex;align-items:center;justify-content:space-between;background:#121026;border:1px solid #2e284a;border-radius:5px;padding:3px 6px;margin-bottom:6px;font-size:9.5px;color:#cbd5e1;">
+            <span style="font-size:9px;">Порог авто-хила:</span>
+            <div style="display:flex;align-items:center;gap:3px;">
+              <span style="color:#94a3b8;font-size:8.5px;">при HP ниже</span>
+              <select id="b-quest-autoheal-threshold" style="background:#1a172e;border:1px solid #3d3759;border-radius:4px;color:#10b981;font-size:9.5px;font-weight:bold;padding:1px 3px;cursor:pointer;">
+                <option value="50">50%</option>
+                <option value="60">60%</option>
+                <option value="70">70%</option>
+                <option value="75" selected>75%</option>
+                <option value="80">80%</option>
+                <option value="85">85%</option>
+                <option value="90">90%</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Список доступной еды и зелий с иконками, количеством и кнопками быстрого поедания -->
+          <div id="b-quest-food-list" style="display:flex;flex-wrap:wrap;gap:4px;max-height:120px;overflow-y:auto;padding-right:2px;">
+            <div style="color:#94a3b8;font-size:9.5px;text-align:center;width:100%;padding:4px;">В сумке нет еды или лечебных зелий</div>
+          </div>
+        </div>
+<!-- Карточка 4: Быстрые действия боя и отряда (Классовые + Скиллы) -->
         <div style="background:#1a172e;border:1px solid #3d3759;border-radius:6px;padding:8px;margin-bottom:8px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
             <div style="display:flex;align-items:center;gap:6px;">
@@ -3428,7 +3472,7 @@
       tabBtnMarket.style.color = '#fff';
       tabBtnMarket.style.border = 'none';
       tabMarket.style.display = 'block';
-      if (!isMinimized && !isSquare) w.style.minWidth = '310px';
+      if (!isMinimized && !isSquare) w.style.minWidth = (activeTab === 'quest' ? '360px' : '310px');
       fetchAuctionData();
     } else if (activeTab === 'players') {
       tabBtnPlayers.style.background = '#9b59b6';
@@ -5518,6 +5562,10 @@
   const optTrapsPuzzles = w.querySelector('#b-quest-opt-traps-puzzles');
   const optCampRest = w.querySelector('#b-quest-opt-camp-rest');
   const optDgnEscape = w.querySelector('#b-quest-opt-dgn-escape');
+  const optAutoHeal = w.querySelector('#b-quest-opt-autoheal');
+  const selAutoHealThreshold = w.querySelector('#b-quest-autoheal-threshold');
+  const qFoodCdBadge = w.querySelector('#b-quest-food-cd-badge');
+  const qFoodList = w.querySelector('#b-quest-food-list');
 
   // Кнопки быстрых действий и скиллов
   const qClassBadge = w.querySelector('#b-quest-class-badge');
@@ -5547,7 +5595,9 @@
     autoMiniEvents: localStorage.getItem('lg_quest_mini_events') !== '0', // Вкл по умолчанию (странник, кости, колодец, жрец, гадалка, ярмарка, танец)
     autoTrapsAndPuzzles: localStorage.getItem('lg_quest_traps_puzzles') !== '0', // Вкл по умолчанию (веревки, сундук, делёж, весы, кубки, предметы)
     autoCampRest: localStorage.getItem('lg_quest_camp_rest') !== '0', // Вкл по умолчанию (авто-лечение едой/зельями у костра)
-    autoDungeonEscape: localStorage.getItem('lg_quest_dgn_escape') !== '0' // Вкл по умолчанию (авто-побег «бежать» при крахе данжа)
+    autoDungeonEscape: localStorage.getItem('lg_quest_dgn_escape') !== '0', // Вкл по умолчанию (авто-побег «бежать» при крахе данжа)
+    autoHeal: localStorage.getItem('lg_quest_autoheal') !== '0', // Вкл по умолчанию (умный авто-хил едой/зельями)
+    autoHealThreshold: parseInt(localStorage.getItem('lg_quest_autoheal_threshold') || '75', 10) // Порог HP в %
   };
 
   let questAutoPausedMiner = false;
@@ -6955,56 +7005,274 @@
   }
 
   // =========================================================================
-  // 🍖 Привал у костра (v.k === 'rest' & авто-лечение через /api/use)
+  // 🍖 Серверное время игры и точный кулдаун еды
   // =========================================================================
-  let lastCampRestTime = 0;
+  function getGameServerTime() {
+    if (G.__lgQuestContext && typeof G.__lgQuestContext.now === 'function') {
+      try { return G.__lgQuestContext.now(); } catch (e) {}
+    }
+    if (G.__lgCityContext && typeof G.__lgCityContext.now === 'function') {
+      try { return G.__lgCityContext.now(); } catch (e) {}
+    }
+    if (typeof window !== 'undefined' && window.X && typeof window.X.now === 'function') {
+      try { return window.X.now(); } catch (e) {}
+    }
+    return Date.now();
+  }
 
+  // =========================================================================
+  // 🍖 Привал у костра (v.k === 'rest'): делегирует умному подбору еды/зелий
+  // =========================================================================
   function checkAutoCampRest(v) {
-    if (!questSettings.autoCampRest || !v) return;
+    if (!questSettings.autoCampRest) return;
     const vObj = v || getQuestView();
-    if (!vObj || vObj.party !== 'in') return;
-    if (vObj.k !== 'rest') return;
-    if (vObj.b || vObj.bg || vObj.lair) return; // Не едим во время боя/логова
+    if (!vObj || vObj.party !== 'in' || vObj.k !== 'rest') return;
+    if (vObj.b || vObj.bg || vObj.lair) return; // Не едим как на привале во время боя/логова
+    // Делегируем умному авто-хилу для правильного подбора силы еды без избыточного оверхеда!
+    checkAutoHealFood(vObj);
+  }
 
-    const now = Date.now();
-    if (now - lastCampRestTime < 4000) return;
+  // =========================================================================
+  // 🍖 Умный Авто-Хил: подбор силы исцеления, учет таймера кулдауна в игре
+  // =========================================================================
+  let lastAutoHealTime = 0;
+
+  function useHealingItem(uid, name = '', heal = 0, hpNow = 0, maxHp = 0) {
+    if (!uid) return;
+    lastAutoHealTime = getGameServerTime();
+
+    const onHeroUpdated = (hero) => {
+      if (!hero) return;
+      if (G.ME) {
+        G.ME.hero = hero;
+      } else {
+        G.ME = { hero };
+      }
+      if (typeof window !== 'undefined' && window.ME) {
+        window.ME.hero = hero;
+      }
+      G.__lgHero = hero;
+      refreshQuestUI();
+    };
+
+    if (G.__lgQuestContext && typeof G.__lgQuestContext.eat === 'function') {
+      try {
+        const p = G.__lgQuestContext.eat(uid);
+        if (p && typeof p.then === 'function') {
+          p.then(res => {
+            if (res && res.hero) onHeroUpdated(res.hero);
+            else if (G.__lgQuestContext && typeof G.__lgQuestContext.hero === 'function') onHeroUpdated(G.__lgQuestContext.hero());
+          }).catch(() => {});
+        }
+      } catch (e) {}
+    } else {
+      gameApi('/api/use', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid })
+      }).then(data => {
+        if (data && data.hero) {
+          onHeroUpdated(data.hero);
+        }
+      }).catch(() => {});
+    }
+    if (name) {
+      addQuestLog('heart', `🍖 Авто-хил: ${name} (+${heal} ❤), здоровье: ${hpNow}/${maxHp}`);
+      showToast(`🍖 Авто-хил: ${name} (+${heal} ❤)`);
+    }
+    refreshQuestUI();
+  }
+
+  function checkAutoHealFood(v) {
+    if (!questSettings.autoHeal) return;
+    const vObj = v || getQuestView();
+    if (!vObj) return;
 
     const hero = (G.__lgQuestContext?.hero?.() || G.ME?.hero || G.__lgHero);
     if (!hero || hero.ghost) return;
 
+    // 1. Проверяем таймер перезарядки еды в игре (eatUntil) с точным серверным временем
+    const now = getGameServerTime();
+    const eatUntil = +hero.eatUntil || 0;
+    if (eatUntil > now) return; // Игра заблокирует действие, ждем окончания таймера!
+
+    // Локальный дебаунс (не чаще раза в 2.5 секунды)
+    if (now - lastAutoHealTime < 2500) return;
+
+    // 2. Расчет здоровья (с учетом обычного боя, босса гильдии и логова)
     const maxHp = (hero.stats && hero.stats.hp) || 100;
-    const hpNow = hero.hpNow != null ? hero.hpNow : maxHp;
-    const hpPct = hpNow / maxHp;
+    let hpNow = hero.hpNow != null ? hero.hpNow : maxHp;
 
-    // Если здоровье ниже 80%
-    if (hpPct < 0.8) {
-      const srvNow = (G.LG && typeof G.LG.now === 'function') ? G.LG.now() : now;
-      const eatUntil = hero.eatUntil || 0;
-      if (eatUntil <= srvNow) {
-        const items = Array.isArray(hero.items) ? hero.items : [];
-        // Фильтруем ТОЛЬКО еду или лечебные зелья (зелья баффов без исцеления не трогаем!)
-        const food = items.find(it =>
-          !it.on && !it.wearable &&
-          ((it.slot === 'food') || (it.slot === 'potion' && it.effect && +it.effect.heal > 0)) &&
-          it.effect && !it.effect.revive
-        );
+    if (vObj.b && vObj.b.hp != null && vObj.b.hp >= 0 && maxHp) {
+      hpNow = Math.round(vObj.b.hp * maxHp);
+    } else if (vObj.bg && vObj.bg.in && vObj.bg.my != null && vObj.bg.my >= 0 && maxHp) {
+      hpNow = Math.round(vObj.bg.my * maxHp);
+    } else if (vObj.lair && vObj.lair.hp != null && vObj.lair.hp >= 0 && maxHp) {
+      hpNow = Math.round(vObj.lair.hp * maxHp);
+    }
 
-        if (food && food.uid) {
-          lastCampRestTime = now;
-          addQuestLog('heart', `🍖 Привал: здоровье ${Math.round(hpPct * 100)}% → съедено «${food.name}»`);
-          if (G.__lgQuestContext && typeof G.__lgQuestContext.eat === 'function') {
-            try {
-              G.__lgQuestContext.eat(food.uid);
-            } catch (e) {}
-          } else {
-            gameApi('/api/use', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ uid: food.uid })
-            }).catch(() => {});
-          }
+    // Если персонаж пал в бою (hp <= 0) — еда не воскресит, пропускаем!
+    if (hpNow <= 0) return;
+
+    const hpPct = maxHp > 0 ? (hpNow / maxHp) : 1;
+    const thresholdPct = (+questSettings.autoHealThreshold || 75) / 100;
+
+    // Если здоровье выше порога — лечение не требуется
+    if (hpPct >= thresholdPct) return;
+
+    const missingHp = maxHp - hpNow;
+    if (missingHp <= 0) return;
+
+    // 3. Сканируем рюкзак: ищем ТОЛЬКО еду и лечебные зелья
+    const items = Array.isArray(hero.items) ? hero.items : [];
+    const healingItems = [];
+
+    for (const it of items) {
+      if (it.on || it.wearable || !it.effect || it.effect.revive) continue;
+      const isFood = (it.slot === 'food');
+      const isPotion = (it.slot === 'potion' && +it.effect.heal > 0);
+      if (!isFood && !isPotion) continue; // Боевые баффы (сила, защита) строго пропускаем!
+
+      const healVal = +it.effect.heal || (isFood ? 25 : 50);
+      healingItems.push({
+        uid: it.uid,
+        id: it.id,
+        name: it.name,
+        slot: it.slot,
+        heal: healVal
+      });
+    }
+
+    if (healingItems.length === 0) return;
+
+    // 4. Умный подбор: "что бы автозелья смотрели какая еда сколько хилит и если меньше какого то количества то он использует его"
+    let chosenItem = null;
+
+    if (hpPct < 0.35) {
+      // КРИТИЧЕСКИЙ РЕЖИМ (HP < 35%): Герой при смерти!
+      // Берем самый мощный хил для спасения жизни
+      healingItems.sort((a, b) => b.heal - a.heal);
+      chosenItem = healingItems[0];
+    } else {
+      // ОБЫЧНЫЙ РЕЖИМ (HP < порога):
+      // Ищем предмет, который закрывает дефицит без сильного оверхеда (heal <= missingHp + 15)
+      const fitting = healingItems.filter(x => x.heal <= missingHp + 15);
+      if (fitting.length > 0) {
+        // Берем максимальный из подходящих
+        fitting.sort((a, b) => b.heal - a.heal);
+        chosenItem = fitting[0];
+      } else {
+        // Если все предметы превышают дефицит — берем предмет с НАИМЕНЬШИМ оверхедом
+        healingItems.sort((a, b) => a.heal - b.heal);
+        chosenItem = healingItems[0];
+      }
+    }
+
+    if (chosenItem && chosenItem.uid) {
+      lastAutoHealTime = now;
+      useHealingItem(chosenItem.uid, chosenItem.name, chosenItem.heal, hpNow, maxHp);
+    }
+  }
+
+  function renderQuestFoodUI() {
+    const hero = (G.__lgQuestContext?.hero?.() || G.ME?.hero || G.__lgHero);
+    const now = getGameServerTime();
+    const eatUntil = hero && hero.eatUntil ? +hero.eatUntil : 0;
+    const cdActive = eatUntil > now;
+
+    if (qFoodCdBadge) {
+      if (cdActive) {
+        const sLeft = Math.max(0, Math.ceil((eatUntil - now) / 1000));
+        const m = Math.floor(sLeft / 60);
+        const s = String(sLeft % 60).padStart(2, '0');
+        qFoodCdBadge.textContent = `⏳ ${m}:${s}`;
+        qFoodCdBadge.style.background = '#78350f';
+        qFoodCdBadge.style.color = '#fef3c7';
+        qFoodCdBadge.style.borderColor = '#f59e0b';
+        qFoodCdBadge.title = `Кулдаун на использование еды и зелий в игре: ещё ${sLeft} сек`;
+      } else {
+        qFoodCdBadge.textContent = '✅ Готово';
+        qFoodCdBadge.style.background = '#064e3b';
+        qFoodCdBadge.style.color = '#a7f3d0';
+        qFoodCdBadge.style.borderColor = '#10b981';
+        qFoodCdBadge.title = 'Еда и зелья готовы к использованию (кд 0с)';
+      }
+    }
+
+    if (qFoodList) {
+      if (!hero || !Array.isArray(hero.items)) {
+        qFoodList.innerHTML = '<div style="color:#94a3b8;font-size:9.5px;text-align:center;width:100%;padding:4px;">Герой загружается...</div>';
+        return;
+      }
+
+      const bagItems = hero.items.filter(it =>
+        !it.on && !it.wearable &&
+        ((it.slot === 'food') || (it.slot === 'potion' && it.effect && +it.effect.heal > 0)) &&
+        it.effect && !it.effect.revive
+      );
+
+      if (bagItems.length === 0) {
+        qFoodList.innerHTML = '<div style="color:#94a3b8;font-size:9.5px;text-align:center;width:100%;padding:4px;">В сумке нет еды или лечебных зелий</div>';
+        return;
+      }
+
+      const groups = new Map();
+      for (const it of bagItems) {
+        const k = it.id || it.name;
+        const g = groups.get(k);
+        if (g) {
+          g.count++;
+          g.uids.push(it.uid);
+        } else {
+          const healVal = +it.effect?.heal || (it.slot === 'food' ? 25 : 50);
+          groups.set(k, {
+            it,
+            count: 1,
+            healVal,
+            uids: [it.uid]
+          });
         }
       }
+
+      qFoodList.innerHTML = [...groups.values()].map(g => {
+        const it = g.it;
+        const artHtml = getItemArtHtml({ i: it.id, en: it.en || 0 }, it, null);
+        const verb = (it.slot === 'potion' || it.drink) ? 'Выпить' : 'Съесть';
+        const tip = `${it.name} (+${g.healVal} ❤) · ${cdActive ? 'Кулдаун ещё не прошёл' : 'Кликните, чтобы ' + verb.toLowerCase()}`;
+
+        return `
+          <div class="b-food-card" data-uid="${g.uids[0]}" data-name="${it.name}" data-heal="${g.healVal}" title="${tip}" style="position:relative;background:#121026;border:1px solid ${cdActive ? '#3d3759' : '#10b981'};border-radius:6px;padding:3px 6px;display:inline-flex;align-items:center;gap:5px;cursor:${cdActive ? 'not-allowed' : 'pointer'};opacity:${cdActive ? '0.65' : '1'};transition:all 0.15s;flex-grow:1;min-width:100px;box-sizing:border-box;">
+            <div style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              ${artHtml}
+            </div>
+            <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;flex-grow:1;line-height:1.2;">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:3px;">
+                <span style="font-size:9.5px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${it.name}</span>
+                <span style="font-size:8.5px;font-weight:bold;color:#f59e0b;background:#2e284a;padding:0 3px;border-radius:3px;">×${g.count}</span>
+              </div>
+              <span style="font-size:8px;color:#10b981;font-weight:bold;">+${g.healVal} ❤</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      qFoodList.querySelectorAll('.b-food-card').forEach(card => {
+        card.onclick = () => {
+          const uid = card.dataset.uid;
+          const name = card.dataset.name || '';
+          const heal = parseInt(card.dataset.heal, 10) || 0;
+          if (!uid) return;
+          const srvNow = getGameServerTime();
+          if (hero && hero.eatUntil && hero.eatUntil > srvNow) {
+            showToast('⏳ Еда на кулдауне в игре!');
+            return;
+          }
+          const maxHp = (hero.stats && hero.stats.hp) || 100;
+          const hpNow = hero.hpNow != null ? hero.hpNow : maxHp;
+          lastAutoHealTime = srvNow;
+          useHealingItem(uid, name, heal, hpNow, maxHp);
+        };
+      });
     }
   }
 
@@ -7538,6 +7806,7 @@
     if (evData) checkAutoMiniEvents(evData, q);
     checkAutoDungeonEscape(q);
     checkAutoCampRest(q);
+    checkAutoHealFood(q);
     if (q.loot) checkAutoLoot(q.loot, q);
     checkAutoVotes(q);
 
@@ -7562,6 +7831,7 @@
   function refreshQuestUI() {
     const v = getQuestView();
     if (!qLoc) return;
+    renderQuestFoodUI();
 
     const party = v ? (v.party || 'out') : 'out';
 
@@ -8249,6 +8519,25 @@
       };
     }
 
+    if (optAutoHeal) {
+      optAutoHeal.checked = questSettings.autoHeal;
+      optAutoHeal.onchange = () => {
+        questSettings.autoHeal = optAutoHeal.checked;
+        localStorage.setItem('lg_quest_autoheal', questSettings.autoHeal ? '1' : '0');
+        addQuestLog(questSettings.autoHeal ? 'heart' : 'info', `💊 Умный Авто-Хил ${questSettings.autoHeal ? 'включен' : 'выключен'}`);
+        refreshQuestUI();
+      };
+    }
+
+    if (selAutoHealThreshold) {
+      selAutoHealThreshold.value = String(questSettings.autoHealThreshold || 75);
+      selAutoHealThreshold.onchange = () => {
+        questSettings.autoHealThreshold = parseInt(selAutoHealThreshold.value, 10) || 75;
+        localStorage.setItem('lg_quest_autoheal_threshold', String(questSettings.autoHealThreshold));
+        addQuestLog('heart', `💊 Порог авто-хила установлен: < ${questSettings.autoHealThreshold}% HP`);
+      };
+    }
+
     if (btnClearLog) {
       btnClearLog.onclick = () => {
         questLogHistory = [];
@@ -8416,6 +8705,7 @@
         if (evData) checkAutoMiniEvents(evData, v);
         checkAutoDungeonEscape(v);
         checkAutoCampRest(v);
+        checkAutoHealFood(v);
         if (v.loot) checkAutoLoot(v.loot, v);
         checkAutoVotes(v);
       } else if (v) {
@@ -8498,7 +8788,7 @@
         bSquareBtn.title = 'Свернуть в квадратик';
       }
 
-      w.style.minWidth = (activeTab === 'market' || activeTab === 'players' || activeTab === 'city' || activeTab === 'quest' ? '310px' : '250px');
+      w.style.minWidth = (activeTab === 'quest' ? '360px' : (activeTab === 'market' || activeTab === 'players' || activeTab === 'city' ? '310px' : '250px'));
       w.style.maxWidth = 'none';
       w.style.width = 'auto';
       w.style.height = 'auto';
