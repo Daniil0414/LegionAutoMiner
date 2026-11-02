@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.33
+// @version      9.1.34
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.1.33';
+  const BOT_VERSION = '9.1.34';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -2198,6 +2198,8 @@
         #b-prio-reset:hover { color: #fff !important; }
         a.lg-bot-author-link:hover { text-decoration: underline !important; }
         .b-ore-slot:hover { background: rgba(30,26,50,0.95) !important; filter: brightness(1.25); }
+        .b-food-slot:hover { background: rgba(30,26,50,0.95) !important; filter: brightness(1.25); border-color: #34d399 !important; }
+        .b-food-slot svg { width: 24px; height: 24px; max-width: 26px; max-height: 26px; display: block; overflow: visible; }
       `;
       (document.head || document.documentElement).appendChild(style);
     } catch (e) {}
@@ -7238,25 +7240,23 @@
         const it = g.it;
         const artHtml = getItemArtHtml({ i: it.id, en: it.en || 0 }, it, null);
         const verb = (it.slot === 'potion' || it.drink) ? 'Выпить' : 'Съесть';
-        const tip = `${it.name} (+${g.healVal} ❤) · ${cdActive ? 'Кулдаун ещё не прошёл' : 'Кликните, чтобы ' + verb.toLowerCase()}`;
+        const tip = `${it.name}\n\n• 💖 Исцеление: +${g.healVal} ❤\n• 🎒 В сумке: ${g.count} шт.\n\n${cdActive ? '⏳ Кулдаун ещё активен в игре' : '👉 Нажмите, чтобы ' + verb.toLowerCase()}`;
+        const borderCol = cdActive ? '#3d3759' : 'rgba(16,185,129,0.55)';
+        const bgCol = cdActive ? 'rgba(18,16,32,0.6)' : 'rgba(18,16,32,0.9)';
+        const countBadge = `<span style="position:absolute;right:2px;bottom:1px;font-size:8.5px;font-weight:bold;color:#fff;text-shadow:0 1px 2px #000, 0 0 3px #000, 0 0 4px #000;line-height:1;pointer-events:none;background:rgba(0,0,0,0.65);padding:1px 2.5px;border-radius:2px;letter-spacing:-0.2px;">${g.count}</span>`;
 
         return `
-          <div class="b-food-card" data-uid="${g.uids[0]}" data-name="${it.name}" data-heal="${g.healVal}" title="${tip}" style="position:relative;background:#121026;border:1px solid ${cdActive ? '#3d3759' : '#10b981'};border-radius:6px;padding:3px 6px;display:inline-flex;align-items:center;gap:5px;cursor:${cdActive ? 'not-allowed' : 'pointer'};opacity:${cdActive ? '0.65' : '1'};transition:all 0.15s;flex-grow:1;min-width:100px;box-sizing:border-box;">
-            <div style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <div class="b-food-slot" data-uid="${g.uids[0]}" data-name="${it.name.replace(/"/g, '&quot;')}" data-heal="${g.healVal}" title="${tip.replace(/"/g, '&quot;')}" style="position:relative;width:36px;height:36px;min-width:36px;border-radius:6px;background:${bgCol};border:1px solid ${borderCol};display:inline-flex;align-items:center;justify-content:center;cursor:${cdActive ? 'not-allowed' : 'pointer'};opacity:${cdActive ? '0.65' : '1'};flex-shrink:0;box-sizing:border-box;overflow:hidden;transition:all 0.15s ease;">
+            <div style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;pointer-events:none;">
               ${artHtml}
             </div>
-            <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;flex-grow:1;line-height:1.2;">
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:3px;">
-                <span style="font-size:9.5px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${it.name}</span>
-                <span style="font-size:8.5px;font-weight:bold;color:#f59e0b;background:#2e284a;padding:0 3px;border-radius:3px;">×${g.count}</span>
-              </div>
-              <span style="font-size:8px;color:#10b981;font-weight:bold;">+${g.healVal} ❤</span>
-            </div>
+            <span style="position:absolute;left:2px;top:1px;font-size:7.5px;font-weight:bold;color:#34d399;text-shadow:0 1px 2px #000, 0 0 3px #000;line-height:1;pointer-events:none;background:rgba(6,78,59,0.8);padding:0.5px 2px;border-radius:2px;letter-spacing:-0.2px;">+${g.healVal}</span>
+            ${countBadge}
           </div>
         `;
       }).join('');
 
-      qFoodList.querySelectorAll('.b-food-card').forEach(card => {
+      qFoodList.querySelectorAll('.b-food-slot').forEach(card => {
         card.onclick = () => {
           const uid = card.dataset.uid;
           const name = card.dataset.name || '';
