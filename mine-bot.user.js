@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.34
+// @version      9.1.35
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.1.34';
+  const BOT_VERSION = '9.1.35';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -2223,6 +2223,8 @@
     box-shadow: 0 4px 20px rgba(0,0,0,0.6);
     user-select: none;
     min-width: 250px;
+    width: max-content;
+    transform-origin: top left;
     box-sizing: border-box;
     transition: padding 0.15s ease, min-width 0.15s ease, box-shadow 0.2s ease;
   `;
@@ -2810,6 +2812,7 @@
     box-shadow: 0 8px 32px rgba(0,0,0,0.75);
     user-select: none;
     width: 320px;
+    transform-origin: top left;
     box-sizing: border-box;
     display: none;
   `;
@@ -2837,6 +2840,48 @@
     </div>
   `;
   document.body.appendChild(prioModal);
+
+  // Масштабируем живой интерфейс целиком, сохраняя исходную раскладку.
+  function getPanelViewport() {
+    const viewport = window.visualViewport;
+    return {
+      left: viewport ? viewport.offsetLeft : 0,
+      top: viewport ? viewport.offsetTop : 0,
+      width: Math.min(window.innerWidth, document.documentElement.clientWidth || window.innerWidth, viewport ? viewport.width : window.innerWidth),
+      height: Math.min(window.innerHeight, document.documentElement.clientHeight || window.innerHeight, viewport ? viewport.height : window.innerHeight),
+    };
+  }
+
+  function fitFloatingPanel(panel) {
+    if (!document.body.contains(panel) || !panel.offsetWidth || !panel.offsetHeight) return;
+    const viewport = getPanelViewport();
+    if (viewport.width <= 0 || viewport.height <= 0) return;
+    const gap = Math.min(6, viewport.width / 4, viewport.height / 4);
+    // Запас в 1px компенсирует округление offsetWidth/offsetHeight браузером.
+    const scale = Math.min(1, (viewport.width - gap * 2) / (panel.offsetWidth + 1), (viewport.height - gap * 2) / (panel.offsetHeight + 1));
+    panel.style.transform = scale < 1 ? `scale(${scale})` : 'none';
+    const rect = panel.getBoundingClientRect();
+    const left = Math.min(Math.max(viewport.left + gap, parseFloat(panel.style.left) || 0), viewport.left + viewport.width - rect.width - gap);
+    const top = Math.min(Math.max(viewport.top + gap, parseFloat(panel.style.top) || 0), viewport.top + viewport.height - rect.height - gap);
+    panel.style.left = `${left}px`;
+    panel.style.top = `${top}px`;
+  }
+
+  function fitFloatingPanels() {
+    fitFloatingPanel(w);
+    fitFloatingPanel(prioModal);
+  }
+
+  // Изменения содержимого и анимации сворачивания тоже меняют размер панели.
+  const panelResizeObserver = new ResizeObserver(fitFloatingPanels);
+  panelResizeObserver.observe(w, { box: 'border-box' });
+  panelResizeObserver.observe(prioModal, { box: 'border-box' });
+  window.addEventListener('resize', fitFloatingPanels);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', fitFloatingPanels);
+    window.visualViewport.addEventListener('scroll', fitFloatingPanels);
+  }
+  fitFloatingPanels();
 
   // Перетаскивание отдельного окна настройки руд за шапку
   const prioModalHeader = prioModal.querySelector('#b-prio-modal-header');
@@ -2876,10 +2921,12 @@
 
         if (hasPrioDragged) {
           if (me.cancelable) me.preventDefault();
-          const maxLeft = Math.max(0, window.innerWidth - prioModal.offsetWidth);
-          const maxTop = Math.max(0, window.innerHeight - prioModal.offsetHeight);
-          const newLeft = Math.min(Math.max(0, pInitL + dx), maxLeft);
-          const newTop = Math.min(Math.max(0, pInitT + dy), maxTop);
+          const viewport = getPanelViewport();
+          const rect = prioModal.getBoundingClientRect();
+          const maxLeft = Math.max(viewport.left, viewport.left + viewport.width - rect.width);
+          const maxTop = Math.max(viewport.top, viewport.top + viewport.height - rect.height);
+          const newLeft = Math.min(Math.max(viewport.left, pInitL + dx), maxLeft);
+          const newTop = Math.min(Math.max(viewport.top, pInitT + dy), maxTop);
           prioModal.style.left = `${newLeft}px`;
           prioModal.style.top = `${newTop}px`;
         }
@@ -3506,6 +3553,7 @@
       if (!isMinimized && !isSquare) w.style.minWidth = '250px';
     }
     localStorage.setItem('lg_bot_tab', activeTab);
+    fitFloatingPanel(w);
   }
 
   tabBtnMine.onclick = () => { activeTab = 'mine'; applyActiveTab(); };
@@ -3543,6 +3591,7 @@
         } catch (e) {}
         renderPriorityListUI();
         prioModal.style.display = 'block';
+        fitFloatingPanel(prioModal);
       } else {
         prioModal.style.display = 'none';
       }
@@ -8761,7 +8810,7 @@
       }
 
       w.style.minWidth = 'auto';
-      w.style.width = 'auto';
+      w.style.width = 'max-content';
       w.style.height = 'auto';
       w.style.minHeight = 'auto';
       w.style.padding = '6px 12px';
@@ -8790,7 +8839,7 @@
 
       w.style.minWidth = (activeTab === 'quest' ? '360px' : (activeTab === 'market' || activeTab === 'players' || activeTab === 'city' ? '310px' : '250px'));
       w.style.maxWidth = 'none';
-      w.style.width = 'auto';
+      w.style.width = 'max-content';
       w.style.height = 'auto';
       w.style.minHeight = 'auto';
       w.style.padding = '10px 14px';
@@ -8807,28 +8856,7 @@
     localStorage.setItem('lg_bot_square', isSquare ? '1' : '0');
     localStorage.setItem('lg_bot_min', isMinimized ? '1' : '0');
 
-    // Корректируем координаты, если окно при разворачивании вылезло за границы экрана
-    setTimeout(() => {
-      const rect = w.getBoundingClientRect();
-      let needSave = false;
-      let newLeft = rect.left;
-      let newTop = rect.top;
-      if (rect.right > window.innerWidth) {
-        newLeft = Math.max(0, window.innerWidth - rect.width - 10);
-        w.style.left = `${newLeft}px`;
-        needSave = true;
-      }
-      if (rect.bottom > window.innerHeight) {
-        newTop = Math.max(0, window.innerHeight - rect.height - 10);
-        w.style.top = `${newTop}px`;
-        needSave = true;
-      }
-      if (needSave) {
-        try {
-          localStorage.setItem('lg_bot_pos', JSON.stringify({ left: Math.round(newLeft), top: Math.round(newTop) }));
-        } catch (e) {}
-      }
-    }, 50);
+    fitFloatingPanel(w);
   }
 
   // Клик по надписи "Свернуть" в центре шапки
@@ -9003,11 +9031,13 @@
         let newTop = initialTop + dy;
 
         // Не даем окну улететь за границы видимого экрана
-        const maxLeft = Math.max(0, window.innerWidth - w.offsetWidth);
-        const maxTop = Math.max(0, window.innerHeight - w.offsetHeight);
+        const viewport = getPanelViewport();
+        const rect = w.getBoundingClientRect();
+        const maxLeft = Math.max(viewport.left, viewport.left + viewport.width - rect.width);
+        const maxTop = Math.max(viewport.top, viewport.top + viewport.height - rect.height);
 
-        newLeft = Math.min(Math.max(0, newLeft), maxLeft);
-        newTop = Math.min(Math.max(0, newTop), maxTop);
+        newLeft = Math.min(Math.max(viewport.left, newLeft), maxLeft);
+        newTop = Math.min(Math.max(viewport.top, newTop), maxTop);
 
         w.style.left = `${newLeft}px`;
         w.style.top = `${newTop}px`;
@@ -9065,25 +9095,6 @@
 
   w.addEventListener('mousedown', onDragStart);
   w.addEventListener('touchstart', onDragStart, { passive: true });
-
-  window.addEventListener('resize', () => {
-    if (!document.body.contains(w)) return;
-    const rect = w.getBoundingClientRect();
-    let needUpdate = false;
-    let l = rect.left, t = rect.top;
-    if (rect.right > window.innerWidth) {
-      l = Math.max(0, window.innerWidth - rect.width - 10);
-      needUpdate = true;
-    }
-    if (rect.bottom > window.innerHeight) {
-      t = Math.max(0, window.innerHeight - rect.height - 10);
-      needUpdate = true;
-    }
-    if (needUpdate) {
-      w.style.left = `${l}px`;
-      w.style.top = `${t}px`;
-    }
-  });
 
   // ==========================================
   // МОДУЛЬ УЧЁТА РУДЫ И РЕСУРСОВ (Мешок + Инвентарь + Склад)
@@ -10027,6 +10038,12 @@
   };
 
   window.__mineBotStop = () => {
+    panelResizeObserver.disconnect();
+    window.removeEventListener('resize', fitFloatingPanels);
+    if (window.visualViewport) {
+      window.visualViewport.removeEventListener('resize', fitFloatingPanels);
+      window.visualViewport.removeEventListener('scroll', fitFloatingPanels);
+    }
     window.__mineBotRunning = false;
     isPaused = true;
     isAutoBuy = false;
