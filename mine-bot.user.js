@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.35
+// @version      9.1.36
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.1.35';
+  const BOT_VERSION = '9.1.36';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -357,7 +357,7 @@
   let mode = 'screen'; // По умолчанию 'screen', можно переключить на 'ghost' (из города)
   let isPaused = true; // При запуске скрипт находится на паузе (не начинает копать автоматически)
   let isDrillCollect = localStorage.getItem('lg_bot_drill_collect') !== 'false'; // По умолчанию true (пассивный сбор руды с буров)
-  let isDrillBuild = localStorage.getItem('lg_bot_drill_build') !== 'false'; // По умолчанию true (отдельный тумблер авто-установки/взноса на текущем этаже)
+  let isDrillBuild = localStorage.getItem('lg_bot_drill_build') === 'true'; // По умолчанию false (отдельный тумблер авто-установки/взноса на текущем этаже)
   let isDrillBuildAllFloors = localStorage.getItem('lg_bot_drill_build_all_floors') === 'true'; // По умолчанию false (взнос в буры на ВСЕХ этажах 1..N через API)
   let autoClaimQuests = localStorage.getItem('lg_bot_auto_claim_quests') !== 'false'; // По умолчанию true (автосбор поручений)
   let isClaimingQuests = false;
@@ -397,17 +397,17 @@
 
   // =========================================================================
   // 🎯 НАСТРАИВАЕМЫЕ ПРИОРИТЕТЫ ДОБЫЧИ РУД И СУНДУКОВ (DRAG & DROP)
-  // По умолчанию: Железо ВЫШЕ Угля!
+  // По умолчанию: от самых редких ресурсов к самым обычным.
   // =========================================================================
   const DEFAULT_ORE_PRIORITIES = [
     { id: 'chest', name: '🎁 Сундук (Клад)', color: '#ffd700', enabled: true },
     { id: 'rare', name: '💎 Редкие самоцветы', color: '#c084fc', enabled: true },
-    { id: 'iron', name: '⚪ Железо', color: '#cbd5e1', enabled: true },
-    { id: 'coal', name: '⚫ Уголь', color: '#94a3b8', enabled: true },
+    { id: 'obsidian', name: '🟣 Обсидиан / Мифрил', color: '#a855f7', enabled: true },
+    { id: 'crystal', name: '🔷 Кристаллы / Сера', color: '#67e8f9', enabled: true },
     { id: 'gold', name: '🟡 Золото', color: '#facc15', enabled: true },
     { id: 'silver', name: '🪙 Серебро', color: '#e2e8f0', enabled: true },
-    { id: 'crystal', name: '🔷 Кристаллы / Сера', color: '#67e8f9', enabled: true },
-    { id: 'obsidian', name: '🟣 Обсидиан / Мифрил', color: '#a855f7', enabled: true },
+    { id: 'iron', name: '⚪ Железо', color: '#cbd5e1', enabled: true },
+    { id: 'coal', name: '⚫ Уголь', color: '#94a3b8', enabled: true },
     { id: 'other_ore', name: '⛏️ Прочая руда', color: '#fb923c', enabled: true },
     { id: 'rock', name: '🪨 Обычный камень', color: '#9ca3af', enabled: true }
   ];
@@ -766,7 +766,7 @@
     return null;
   }
 
-  // Приоритеты: 3 = Уголь, 2 = Железо, 1 = Прочая руда/сундуки, 0 = Обычный камень
+  // Чем выше ресурс в настроенной очереди, тем выше его приоритет.
   function getRockPriorityTier(rockId, group) {
     if (!oreFirst) return 0;
     const cat = getRockCategory(rockId, group);
@@ -2824,7 +2824,7 @@
         <span style="font-weight:bold;color:#ffd700;font-size:12px;">Настройка приоритетов руд</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px;">
-        <button id="b-prio-reset" style="background:#262238;border:1px solid #3d3759;color:#94a3b8;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:9.5px;font-weight:bold;transition:all 0.2s;" title="Сбросить к стандарту (Железо выше Угля)">🔄 По умолч.</button>
+        <button id="b-prio-reset" style="background:#262238;border:1px solid #3d3759;color:#94a3b8;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:9.5px;font-weight:bold;transition:all 0.2s;" title="Сбросить к стандарту (от редких ресурсов к обычным)">🔄 По умолч.</button>
         <button id="b-prio-modal-close" style="padding:1px 7px;background:#dc3545;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;line-height:16px;" title="Закрыть окно">✕</button>
       </div>
     </div>
@@ -2835,7 +2835,7 @@
       <!-- Карточки генерируются скриптом -->
     </div>
     <div style="margin-top:6px;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:center;">
-      <span style="font-size:9.5px;color:#64748b;">Железо по умолч. выше Угля</span>
+      <span style="font-size:9.5px;color:#64748b;">По умолчанию: от редких к обычным</span>
       <span style="font-size:9.5px;color:#4ade80;">💾 Сохранено</span>
     </div>
   `;
@@ -3604,7 +3604,7 @@
       customPriorities = DEFAULT_ORE_PRIORITIES.map(x => ({ ...x }));
       saveCustomPriorities(customPriorities);
       renderPriorityListUI();
-      showToast('🔄 Приоритеты сброшены по умолчанию (Железо выше Угля)');
+      showToast('🔄 Приоритеты сброшены: от редких ресурсов к обычным');
     };
   }
 
