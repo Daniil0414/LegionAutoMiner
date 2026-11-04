@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.36
+// @version      9.1.41
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.1.36';
+  const BOT_VERSION = '9.1.41';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -23,8 +23,230 @@
   if (G.__mineBotStop) {
     try { G.__mineBotStop(); } catch (e) {}
   }
-  document.querySelectorAll('#mine-bot-v3, #mine-bot-v2, #mine-bot-prio-modal, #b-auc-tooltip').forEach(el => el.remove());
+  document.querySelectorAll('#mine-bot-v3, #mine-bot-v2, #mine-bot-prio-modal, #b-auc-tooltip, #lg-quest-feedback, #lg-quest-feedback-style').forEach(el => el.remove());
   G.__mineBotRunning = true;
+
+  // Таймеры и запросы принадлежат экземпляру, а не общему флагу окна.
+  function createBotRuntime(host) {
+    let stopped = false;
+    const timeouts = new Set();
+    const intervals = new Set();
+    const requests = new Set();
+    const abortError = () => Object.assign(new Error('Бот остановлен или запрос отменён'), { name: 'AbortError' });
+    const runtime = {
+      get stopped() { return stopped; },
+      setTimeout(callback, delay, ...args) {
+        if (stopped) return null;
+        const id = host.setTimeout(() => {
+          timeouts.delete(id);
+          if (!stopped) callback(...args);
+        }, delay);
+        timeouts.add(id);
+        return id;
+      },
+      clearTimeout(id) { timeouts.delete(id); host.clearTimeout(id); },
+      setInterval(callback, delay, ...args) {
+        if (stopped) return null;
+        const id = host.setInterval(() => { if (!stopped) callback(...args); }, delay);
+        intervals.add(id);
+        return id;
+      },
+      clearInterval(id) { intervals.delete(id); host.clearInterval(id); },
+      async request(operation, { signal, timeoutMs = 20000 } = {}) {
+        if (stopped) throw abortError();
+        const controller = new host.AbortController();
+        let rejectCancellation;
+        const cancellation = new Promise((_, reject) => { rejectCancellation = reject; });
+        const cancel = error => { rejectCancellation(error); controller.abort(error); };
+        const onAbort = () => cancel(abortError());
+        requests.add(cancel);
+        const timeout = host.setTimeout(() => {
+          cancel(Object.assign(new Error('Время ожидания ответа истекло'), { name: 'TimeoutError' }));
+        }, timeoutMs);
+        if (signal) {
+          if (signal.aborted) onAbort();
+          else signal.addEventListener('abort', onAbort, { once: true });
+        }
+        try {
+          return await Promise.race([
+            cancellation,
+            new Promise((resolve, reject) => {
+              if (controller.signal.aborted || stopped) { reject(abortError()); return; }
+              resolve(operation(controller.signal));
+            })
+          ]);
+        } finally {
+          host.clearTimeout(timeout);
+          requests.delete(cancel);
+          if (signal) signal.removeEventListener('abort', onAbort);
+        }
+      },
+      stop() {
+        if (stopped) return;
+        stopped = true;
+        for (const cancel of requests) cancel(abortError());
+        requests.clear();
+        for (const id of timeouts) host.clearTimeout(id);
+        for (const id of intervals) host.clearInterval(id);
+        timeouts.clear();
+        intervals.clear();
+      }
+    };
+    return runtime;
+  }
+  const botRuntime = createBotRuntime(G);
+  const { setTimeout, clearTimeout, setInterval, clearInterval } = botRuntime;
+
+  function getRequestFailure(error) {
+    return {
+      ok: false,
+      error: error?.message || 'Сбой сети',
+      ...(error?.name === 'TimeoutError' ? { timeout: true } : {}),
+      ...(error?.name === 'AbortError' ? { cancelled: true } : {})
+    };
+  }
+
+  // Один поток уведомлений для всех команд похода, включая отложенные ответы игры.
+  const questFeedback = createQuestFeedback();
+  G.__mineQuestFeedbackResult = questFeedback.receive;
+
+  function createQuestFeedback() {
+    const queue = [], active = new Set(), sending = new Set();
+    const pending = new Map(), earlyResults = new Map();
+    let root = null, style = null, wakeup = null, nextAt = 0;
+    const lifetime = 9000, errorLifetime = 11000;
+
+    function mount() {
+      if (root?.isConnected) return;
+      style = document.createElement('style');
+      style.id = 'lg-quest-feedback-style';
+      style.textContent = `
+        #lg-quest-feedback { position:fixed; inset:0; z-index:2147483647; pointer-events:none!important; background:none!important; overflow:hidden; }
+        #lg-quest-feedback .lg-qf-slot { position:absolute; top:50%; left:50%; width:max-content; max-width:min(88vw,760px); transform:translate(-50%,calc(-50% - var(--qf-offset,0px))); transition:transform .35s ease-out; pointer-events:none!important; }
+        #lg-quest-feedback .lg-qf-text { display:block; margin:0; padding:0; border:0; background:none!important; box-shadow:none; color:#fff0aa; font:700 clamp(18px,2.1vw,27px)/1.35 system-ui,sans-serif; text-align:center; overflow-wrap:anywhere; white-space:pre-wrap; text-shadow:0 2px 3px #000,1px 0 2px #000,-1px 0 2px #000; animation:lg-quest-feedback-rise var(--qf-life) linear both; }
+        #lg-quest-feedback .lg-qf-error { color:#ff8d97; }
+        @keyframes lg-quest-feedback-rise {
+          0% { opacity:0; transform:translateY(8px); }
+          5% { opacity:1; }
+          65% { opacity:1; }
+          100% { opacity:0; transform:translateY(-150px); }
+        }
+        @media (prefers-reduced-motion:reduce) {
+          #lg-quest-feedback .lg-qf-slot { transition:none; }
+          @keyframes lg-quest-feedback-rise { 0% { opacity:0; } 5%,75% { opacity:1; } 100% { opacity:0; } }
+        }
+      `;
+      root = document.createElement('div');
+      root.id = 'lg-quest-feedback';
+      root.setAttribute('role', 'log');
+      root.setAttribute('aria-live', 'polite');
+      root.setAttribute('aria-relevant', 'additions');
+      root.setAttribute('aria-label', 'Действия похода');
+      document.head.appendChild(style);
+      document.body.appendChild(root);
+    }
+
+    function drain() {
+      wakeup = null;
+      if (botRuntime.stopped || !queue.length) return;
+      // Очередь сохраняет каждое действие при залпе команд; текст не заменяется.
+      const room = (G.innerHeight || 800) / 2 - 160;
+      const occupied = [...active].reduce((sum, item) => sum + item.height + 12, 0);
+      if (active.size && occupied > room) return;
+      const delay = nextAt - Date.now();
+      if (delay > 0) { wakeup = setTimeout(drain, delay); return; }
+      mount();
+      const message = queue.shift();
+      const slot = document.createElement('div'), text = document.createElement('span');
+      slot.className = 'lg-qf-slot';
+      text.className = 'lg-qf-text' + (message.bad ? ' lg-qf-error' : '');
+      text.textContent = message.text;
+      const duration = message.bad ? errorLifetime : lifetime;
+      text.style.setProperty('--qf-life', duration + 'ms');
+      slot.appendChild(text);
+      root.appendChild(slot);
+      const item = { slot, height: slot.offsetHeight || 38, offset: 0 };
+      for (const older of active) {
+        older.offset += item.height + 12;
+        older.slot.style.setProperty('--qf-offset', older.offset + 'px');
+      }
+      active.add(item);
+      nextAt = Date.now() + 650;
+      setTimeout(() => { slot.remove(); active.delete(item); if (wakeup == null) drain(); }, duration);
+      if (queue.length) wakeup = setTimeout(drain, 650);
+    }
+
+    function show(text, bad = false) {
+      if (botRuntime.stopped || !text) return;
+      queue.push({ text: String(text), bad });
+      if (wakeup == null) drain();
+    }
+
+    function prune() {
+      const cutoff = Date.now() - 120000;
+      for (const [id, item] of pending) if (item.at < cutoff) pending.delete(id);
+      for (const [id, item] of earlyResults) if (item.at < cutoff) earlyResults.delete(id);
+    }
+
+    function receive(result) {
+      if (botRuntime.stopped || result?.id == null) return;
+      prune();
+      const id = String(result.id), item = pending.get(id);
+      if (item) {
+        pending.delete(id);
+        if (result.ok === false) show(`Ошибка: ${item.label} — ${result.error || 'Игра не приняла действие'}`, true);
+      } else if (sending.size) {
+        earlyResults.set(id, { result, at: Date.now() });
+        if (earlyResults.size > 100) earlyResults.delete(earlyResults.keys().next().value);
+      }
+    }
+
+    return {
+      show, receive,
+      begin(label) {
+        installQuestFeedbackResultHook();
+        prune();
+        const ticket = { label, at: Date.now() };
+        sending.add(ticket);
+        show(`${label} · отправлено`);
+        return ticket;
+      },
+      sent(ticket, result) {
+        sending.delete(ticket);
+        if (botRuntime.stopped) return result;
+        if (result?.ok === false) {
+          show(`Ошибка: ${ticket.label} — ${result.error || 'Не удалось отправить действие'}`, true);
+        } else if (result?.id != null) {
+          const id = String(result.id);
+          pending.set(id, ticket);
+          const early = earlyResults.get(id);
+          earlyResults.delete(id);
+          if (early) receive(early.result);
+        }
+        if (!sending.size) earlyResults.clear();
+        return result;
+      },
+      stop() {
+        clearTimeout(wakeup);
+        queue.length = 0;
+        active.clear(); sending.clear(); pending.clear(); earlyResults.clear();
+        root?.remove(); style?.remove();
+        if (G.__mineQuestFeedbackResult === receive) G.__mineQuestFeedbackResult = null;
+      }
+    };
+  }
+
+  function installQuestFeedbackResultHook(quest = G.LGQuest) {
+    if (!quest || typeof quest.result !== 'function' || quest.result.__mineQuestFeedbackHook) return;
+    const original = quest.result;
+    const wrapped = function (result) {
+      try { return original.apply(this, arguments); }
+      finally { try { G.__mineQuestFeedbackResult?.(result); } catch (e) {} }
+    };
+    wrapped.__mineQuestFeedbackHook = true;
+    wrapped.__mineLootResultHook = !!original.__mineLootResultHook;
+    quest.result = wrapped;
+  }
 
   // =========================================================================
   // 🛡️ КРИТИЧЕСКИЙ АНТИ-ДЕТЕКТ И СТЕЛС-РЕЖИМ (30.10: РЕПОРТ #2168 «АВТО-МАЙНЕР»)
@@ -185,7 +407,7 @@
     }
     const id = ++bgRafIdCounter;
     const delay = 40;
-    const t = setTimeout(() => {
+    const t = G.setTimeout(() => {
       bgRafCallbacks.delete(id);
       try {
         cb(performance.now());
@@ -197,7 +419,7 @@
 
   function safeCAF(id) {
     if (bgRafCallbacks.has(id)) {
-      clearTimeout(bgRafCallbacks.get(id));
+      G.clearTimeout(bgRafCallbacks.get(id));
       bgRafCallbacks.delete(id);
       return;
     }
@@ -356,6 +578,7 @@
 
   let mode = 'screen'; // По умолчанию 'screen', можно переключить на 'ghost' (из города)
   let isPaused = true; // При запуске скрипт находится на паузе (не начинает копать автоматически)
+  let miningStartToken = null;
   let isDrillCollect = localStorage.getItem('lg_bot_drill_collect') !== 'false'; // По умолчанию true (пассивный сбор руды с буров)
   let isDrillBuild = localStorage.getItem('lg_bot_drill_build') === 'true'; // По умолчанию false (отдельный тумблер авто-установки/взноса на текущем этаже)
   let isDrillBuildAllFloors = localStorage.getItem('lg_bot_drill_build_all_floors') === 'true'; // По умолчанию false (взнос в буры на ВСЕХ этажах 1..N через API)
@@ -1528,6 +1751,7 @@
     };
     const hookQuest = (val) => {
       rawLGQuest = val;
+      installQuestFeedbackResultHook(val);
       if (val && !val.__hooked) {
         val.__hooked = true;
         // 1. Перехват init(ctx) -> получение нативного QX (act, say, vote, hero)
@@ -1615,6 +1839,7 @@
 
   // Универсальный вызов игрового API (парсит ответ при любом HTTP-статусе, не теряя ошибки сервера)
   async function gameApi(path, options = {}) {
+    if (botRuntime.stopped) return { ok: false, cancelled: true, error: 'Бот остановлен' };
     const p = path.startsWith('/') ? path : '/' + path;
 
     // 1. Приоритет: Нативный api-контекст игры (app.js / city.js / mine.js / auction.js / quest.js)
@@ -1623,9 +1848,10 @@
     if (p !== '/api/aucBuy' && nativeCtx && typeof nativeCtx.api === 'function' && options.body && options.method === 'POST') {
       try {
         const bodyObj = typeof options.body === 'string' ? JSON.parse(options.body) : options.body;
-        const res = await nativeCtx.api(p, bodyObj);
+        const res = await botRuntime.request(() => nativeCtx.api(p, bodyObj), { signal: options.signal });
         if (res && typeof res === 'object') return res;
       } catch (e) {
+        if (e?.name === 'TimeoutError' || e?.name === 'AbortError') return getRequestFailure(e);
       }
     }
 
@@ -1639,50 +1865,53 @@
     };
 
     async function doFetch(url) {
-      const res = await fetch(url, fetchOptions);
-      let text = '';
-      try {
-        text = await res.text();
-      } catch (e) {}
-
-      let data = null;
-      if (text) {
+      return botRuntime.request(async signal => {
+        const res = await fetch(url, { ...fetchOptions, signal });
+        let text = '';
         try {
-          data = JSON.parse(text);
+          text = await res.text();
         } catch (e) {}
-      }
 
-      if (data && typeof data === 'object') {
-        data.status = res.status;
-        if (!res.ok) data.ok = false;
-        return data;
-      }
+        let data = null;
+        if (text) {
+          try {
+            data = JSON.parse(text);
+          } catch (e) {}
+        }
 
-      // Если 304 Not Modified — данные на сервере не менялись (это нормальный статус кэша)
-      if (res.status === 304) {
-        return { ok: true, notModified: true, status: 304 };
-      }
+        if (data && typeof data === 'object') {
+          data.status = res.status;
+          if (!res.ok) data.ok = false;
+          return data;
+        }
 
-      // Если ответ не JSON, но сервер вернул статус ошибки (например, 400, 404, 500)
-      if (res.status >= 400) {
-        const cleanMsg = (text && !text.includes('<!DOCTYPE') && !text.includes('<html'))
-          ? text.trim().slice(0, 50)
-          : `Ошибка сервера (${res.status})`;
-        return { ok: false, error: cleanMsg, status: res.status };
-      }
+        // Если 304 Not Modified — данные на сервере не менялись (это нормальный статус кэша)
+        if (res.status === 304) {
+          return { ok: true, notModified: true, status: 304 };
+        }
 
-      // Если 200 OK, но не JSON
-      if (res.ok && text && !text.includes('<!DOCTYPE')) {
-        return { ok: true, text: text.trim() };
-      }
+        // Если ответ не JSON, но сервер вернул статус ошибки (например, 400, 404, 500)
+        if (res.status >= 400) {
+          const cleanMsg = (text && !text.includes('<!DOCTYPE') && !text.includes('<html'))
+            ? text.trim().slice(0, 50)
+            : `Ошибка сервера (${res.status})`;
+          return { ok: false, error: cleanMsg, status: res.status };
+        }
 
-      return null;
+        // Если 200 OK, но не JSON
+        if (res.ok && text && !text.includes('<!DOCTYPE')) {
+          return { ok: true, text: text.trim() };
+        }
+
+        return null;
+      }, { signal: options.signal });
     }
 
     try {
       const resData = await doFetch(p);
       if (resData) return resData;
     } catch (e) {
+      if (e?.name === 'TimeoutError' || e?.name === 'AbortError') return getRequestFailure(e);
     }
 
     if (basePath && !p.startsWith(basePath) && !p.startsWith('/api')) {
@@ -1690,6 +1919,7 @@
         const resData = await doFetch(basePath + p);
         if (resData) return resData;
       } catch (e) {
+        if (e?.name === 'TimeoutError' || e?.name === 'AbortError') return getRequestFailure(e);
       }
     }
 
@@ -1726,13 +1956,14 @@
 
   // Безопасный показ всплывающих уведомлений игры (через DOM #toast)
   function showToast(msg, isBad = false) {
+    if (botRuntime.stopped) return;
     try {
       const e = document.getElementById('toast');
       if (e) {
         e.textContent = msg;
         e.className = 'toast on' + (isBad ? ' err' : '');
-        clearTimeout(e._t);
-        e._t = setTimeout(() => { e.className = 'toast'; }, 2800);
+        G.clearTimeout(e._t);
+        e._t = G.setTimeout(() => { e.className = 'toast'; }, 2800);
         return;
       }
       if (typeof G.toast === 'function') {
@@ -4414,7 +4645,7 @@
   }
 
   async function processAutoBuy(evaluatedLots) {
-    if (!G.__mineBotRunning || !isAutoBuy || isAutoBuyInProgress) return;
+    if (botRuntime.stopped || !G.__mineBotRunning || !isAutoBuy || isAutoBuyInProgress) return;
     if (!Array.isArray(evaluatedLots) || evaluatedLots.length === 0) return;
 
     isAutoBuyInProgress = true;
@@ -4427,7 +4658,7 @@
 
       let boughtAny = false;
       for (const item of evaluatedLots) {
-        if (!G.__mineBotRunning || !isAutoBuy) break;
+        if (botRuntime.stopped || !G.__mineBotRunning || !isAutoBuy) break;
         const lot = item.lot;
         const ev = item.ev;
         if (!lot || !lot.id) continue;
@@ -4519,7 +4750,7 @@
       }
 
       // После скупки найденных лотов сразу обновляем витрину
-      if (boughtAny && G.__mineBotRunning && isAutoBuy) {
+      if (boughtAny && !botRuntime.stopped && G.__mineBotRunning && isAutoBuy) {
         fetchAuctionData(true);
       }
     } finally {
@@ -5656,6 +5887,45 @@
   let lastAutoJoinKey = null;
   let lastDgnVoteId = null;
   let lastMapVoteId = null;
+  const autoVoteStates = {};
+
+  function queueAutoQuestVote(kind, voteId, chosenNum, chosenName, reason) {
+    if (botRuntime.stopped) return;
+    let state = autoVoteStates[kind];
+    if (!state || state.id !== voteId) {
+      state = autoVoteStates[kind] = { id: voteId, pending: false, attempts: 0, retryAt: 0 };
+    }
+    if (state.pending || state.attempts >= 3 || Date.now() < state.retryAt) return;
+    state.pending = true;
+    setTimeout(async () => {
+      try {
+        if (botRuntime.stopped || !questSettings.dungeonAutoVote || autoVoteStates[kind] !== state) return;
+        const view = getQuestView();
+        if (!view || !view.on || view.party !== 'in') return;
+        const vote = kind === 'dungeon' ? view.dgn?.vote : view.vote;
+        if (!vote || vote.done || vote.my != null || !Array.isArray(vote.opts)) return;
+        const currentId = String(vote.id || (kind === 'dungeon'
+          ? `${view.dgn.room?.seed || 'rm'}:${vote.opts.length}` : `v_${vote.opts.length}`));
+        if (currentId !== voteId || (vote.end && vote.end <= Date.now()) || !vote.opts.some(o => o[0] === chosenNum)) return;
+        state.attempts++;
+        let result;
+        try { result = await sendQuestVote(vote.id, chosenNum); }
+        catch (error) { result = getRequestFailure(error); }
+        if (botRuntime.stopped || autoVoteStates[kind] !== state) return;
+        if (result && result.ok) {
+          if (kind === 'dungeon') lastDgnVoteId = voteId;
+          else lastMapVoteId = voteId;
+          addQuestLog(kind === 'dungeon' ? 'puzzle' : 'map', `${kind === 'dungeon' ? '🚪 Данж' : '🗺️ Развилка'}: авто-выбор «${chosenName}» (${reason}, вариант ${chosenNum})`);
+        } else {
+          state.retryAt = Date.now() + 2000;
+          addQuestLog('warn', `🗳️ Голос не принят: ${result?.error || 'нет подтверждения игры'}${state.attempts < 3 ? ' — повторим' : ' — исчерпаны 3 попытки'}`);
+        }
+      } finally {
+        state.pending = false;
+        if (!botRuntime.stopped) refreshQuestUI();
+      }
+    }, 1200);
+  }
 
   function checkAutoJoinSquad(v) {
     if (!questSettings.autoJoin || !v || !v.on) return;
@@ -5697,7 +5967,7 @@
         st.textContent = '⚔️ В походе с отрядом (шахта на авто-паузе)';
         st.style.color = '#f43f5e';
         addQuestLog('info', '⏸️ Авто-пауза майнера на время похода');
-        showToast('⚔️ Герой в походе! Шахта временно поставлена на паузу.');
+        questFeedback.show('⚔️ Герой в походе! Шахта временно поставлена на паузу.');
       }
     } else {
       if (questAutoPausedMiner) {
@@ -5705,7 +5975,7 @@
         st.textContent = '⛏️ Возврат в шахту после похода...';
         st.style.color = '#38bdf8';
         addQuestLog('info', '▶️ Поход окончен, возобновление авто-добычи');
-        showToast('🎉 Поход завершен! Возобновляем авто-копание в шахте.');
+        questFeedback.show('🎉 Поход завершен! Возобновляем авто-копание в шахте.');
         setTimeout(() => {
           tryOpenMineOnScreen(currentMineId, true);
         }, 1200);
@@ -5714,7 +5984,7 @@
   }
 
   function checkAutoVotes(q) {
-    if (!questSettings.dungeonAutoVote || !q) return;
+    if (botRuntime.stopped || !questSettings.dungeonAutoVote || !q) return;
     const party = q?.party || (lastQuestData && lastQuestData.party);
     if (party !== 'in') return;
 
@@ -5724,7 +5994,6 @@
       if (!V.done && V.my == null && Array.isArray(V.opts) && V.opts.length > 0) {
         const voteId = String(V.id || `${q.dgn.room?.seed || 'rm'}:${V.opts.length}`);
         if (lastDgnVoteId !== voteId) {
-          lastDgnVoteId = voteId;
 
           // Исключаем проходы назад (opt[5] === true) при первичном выборе
           const forwardOpts = V.opts.filter(o => !o[5]);
@@ -5762,14 +6031,7 @@
           const chosenNum = chosenOpt[0];
           const chosenName = chosenOpt[2] || chosenOpt[1] || `Дверь №${chosenNum}`;
 
-          setTimeout(() => {
-            sendQuestVote(V.id, chosenNum).then(res => {
-              if (res && res.ok !== false) {
-                addQuestLog('puzzle', `🚪 Данж: авто-выбор «${chosenName}» (${reason}, вариант ${chosenNum})`);
-              }
-              refreshQuestUI();
-            });
-          }, 1200);
+          queueAutoQuestVote('dungeon', voteId, chosenNum, chosenName, reason);
           return;
         }
       }
@@ -5780,7 +6042,6 @@
       const V = q.vote;
       const voteId = String(V.id || `v_${V.opts.length}`);
       if (lastMapVoteId !== voteId) {
-        lastMapVoteId = voteId;
 
         // В q.vote: opt[3] — голоса, opt[4] — назад
         const forwardOpts = V.opts.filter(o => !o[4]);
@@ -5800,14 +6061,7 @@
         const chosenName = bestOpt[1] || `Вариант №${chosenNum}`;
         const reason = maxVotes > 0 ? `большинство (${maxVotes} голосов)` : 'первый верный путь';
 
-        setTimeout(() => {
-          sendQuestVote(V.id, chosenNum).then(res => {
-            if (res && res.ok !== false) {
-              addQuestLog('map', `🗺️ Развилка: авто-выбор «${chosenName}» (${reason}, вариант ${chosenNum})`);
-            }
-            refreshQuestUI();
-          });
-        }, 1200);
+        queueAutoQuestVote('map', voteId, chosenNum, chosenName, reason);
       }
     }
   }
@@ -6125,69 +6379,92 @@
   }
 
   async function sendQuestSay(line) {
+    if (botRuntime.stopped) return { ok: false, cancelled: true, error: 'Бот остановлен' };
     const clean = String(line || '').trim();
-    if (!clean) return { ok: false };
+    if (!clean) {
+      questFeedback.show('Ошибка: пустая команда похода', true);
+      return { ok: false };
+    }
 
     // 🛡️ Предохранитель от ядовитого газа, финтов босса и безмолвия
     const v = (typeof getQuestView === 'function' ? getQuestView() : null) || (typeof lastQuestData !== 'undefined' ? lastQuestData : null);
     const hushReason = typeof isQuestHush === 'function' ? isQuestHush(v) : null;
     if (hushReason) {
+      questFeedback.show(`Нельзя отправить «${clean}»: ${hushReason}`, true);
       if (typeof addQuestLog === 'function') {
         addQuestLog('warn', `🤫 Блокировка отправки («${clean}»): ${hushReason}`);
       }
       return { ok: false, hush: true, reason: hushReason };
     }
 
-    if (G.__lgQuestContext && typeof G.__lgQuestContext.say === 'function') {
-      try {
-        const res = await G.__lgQuestContext.say(clean);
-        return res || { ok: true };
-      } catch (e) {
-      }
-    }
-    try {
-      return await gameApi('/api/qsay', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ line: clean })
-      });
-    } catch (err) {
-      return { ok: false, error: err?.message || err };
-    }
+    return sendQuestCommand('say', { line: clean });
   }
 
   async function sendQuestAct(p) {
-    if (G.__lgQuestContext && typeof G.__lgQuestContext.act === 'function') {
-      try {
-        const res = await G.__lgQuestContext.act(p);
-        return res || { ok: true };
-      } catch (e) {
-      }
-    }
-    try {
-      return await gameApi('/api/qact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(p)
-      });
-    } catch (err) {
-      return { ok: false, error: err?.message || err };
-    }
+    return sendQuestCommand('act', p);
   }
 
   async function sendQuestVote(vid, n) {
-    if (G.__lgQuestContext && typeof G.__lgQuestContext.vote === 'function') {
-      try {
-        const res = await G.__lgQuestContext.vote(vid, n);
-        return res || { ok: true };
-      } catch (e) {
-      }
+    return sendQuestCommand('vote', { vid, n });
+  }
+
+  function getQuestCommandLabel(method, p) {
+    if (method === 'say') return p.line.charAt(0).toUpperCase() + p.line.slice(1);
+    if (method === 'vote') {
+      const v = getQuestView();
+      const vote = [v?.dgn?.vote, v?.vote].find(x => x && String(x.id) === String(p.vid));
+      const option = vote?.opts?.find(x => String(x[0]) === String(p.n));
+      return `Голос: ${option?.[1] || `вариант ${p.n}`}`;
     }
-    return await gameApi('/api/qvote', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ vid, n })
-    });
+    const names = {
+      join: 'Вступление в поход', leave: 'Выход из отряда',
+      'b:base': 'Удар', 'b:melee': 'Ближний бой',
+      'tr:hold': 'Удержать потолок', 'tr:rope': 'Разрезать верёвку',
+      'tr:take': 'Взять сундук', 'tr:eq': 'Разделить поровну',
+      'tr:path': 'Пройти по плитам', 'tr:code': 'Ввести код',
+      'tr:keep': 'Забрать награду', 'tr:next': 'Идти дальше (награда ×2)',
+      'ev:help': 'Помочь', 'ev:bet': 'Сделать ставку', 'ev:coin': 'Бросить монету',
+      'ev:heal': 'Лечение', 'ev:bless': 'Благословение'
+    };
+    const key = p.a ? `${p.k}:${p.a}` : p.k;
+    let label = names[key] || `Действие: ${key || 'поход'}`;
+    if (key === 'b:base') label = getClassBaseAttack(getHeroRole()).name;
+    if (key === 'b:sk') label = getSkillInfo(p.w).name || String(p.w || 'Скилл');
+    // Показываем и неизвестные новые действия с параметрами — без списка исключений.
+    const known = names[key] || key === 'b:sk';
+    for (const [field, value] of Object.entries(p)) {
+      if (field === 'k' || field === 'a' || (field === 'w' && key === 'b:sk')) continue;
+      if (field === 't') label += ` → ${value === 'lead' ? 'Вожак' : value}`;
+      else if (field === 's' && p.k === 'b') label += ` (${value})`;
+      else label += known ? `: ${value}` : ` · ${field}=${typeof value === 'object' ? JSON.stringify(value) : value}`;
+    }
+    return label;
+  }
+
+  async function sendQuestCommand(method, payload) {
+    if (botRuntime.stopped) return { ok: false, cancelled: true, error: 'Бот остановлен' };
+    const ticket = questFeedback.begin(getQuestCommandLabel(method, payload));
+    try {
+      const native = G.__lgQuestContext;
+      if (native && typeof native[method] === 'function') {
+        const args = method === 'say' ? [payload.line] : method === 'vote' ? [payload.vid, payload.n] : [payload];
+        try {
+          const result = await botRuntime.request(() => native[method](...args));
+          return questFeedback.sent(ticket, result || { ok: true });
+        } catch (error) {
+          if (error?.name === 'TimeoutError' || error?.name === 'AbortError') {
+            return questFeedback.sent(ticket, getRequestFailure(error));
+          }
+        }
+      }
+      const path = { say: '/api/qsay', act: '/api/qact', vote: '/api/qvote' }[method];
+      const result = await gameApi(path, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+      });
+      return questFeedback.sent(ticket, result);
+    } catch (error) {
+      return questFeedback.sent(ticket, getRequestFailure(error));
+    }
   }
 
   function ensureQaMode() {
@@ -6280,7 +6557,6 @@
     sendQuestSay(cmd).then(res => {
       if (res && res.ok !== false) {
         addQuestLog('warn', `🎃 Горячая тыква передана игроку @${randomTarget} (случайный выбор)!`);
-        showToast(`🎃 Тыква передана игроку @${randomTarget}!`);
       } else {
         addQuestLog('warn', `⚠️ Передача тыквы @${randomTarget}: ${res?.error || 'ошибка отправки'}`);
       }
@@ -6299,6 +6575,7 @@
       const hushKey = `hush:${b.id || 'b'}:${b.round || 0}`;
       if (lastParriedKey !== hushKey) {
         lastParriedKey = hushKey;
+        questFeedback.show(`Парирование заблокировано: ${hush}`, true);
         addQuestLog('warn', `⛔ Обнаружен ${hush} — слово парирования заблокировано во избежание урона.`);
       }
       return;
@@ -6457,16 +6734,126 @@
   }
 
   // 2.3. Делёж добычи (v.loot)
-  let lastLootVoteTime = 0;
-  function checkAutoLoot(loot, q) {
-    if (!questSettings.autoJoin || !loot || loot.my) return;
+  let lootVoteState = null;
+  const lootVoteResults = new Map();
+
+  function getLootVoteKey(loot) {
+    return loot.id != null ? `id:${loot.id}` : `${loot.until ?? ''}|${loot.name || ''}`;
+  }
+
+  function installLootVoteResultHook() {
+    const quest = G.LGQuest;
+    if (!quest || typeof quest.result !== 'function' || quest.result.__mineLootResultHook) return;
+    const original = quest.result;
+    const wrapped = function (result) {
+      try { return original.apply(this, arguments); }
+      finally {
+        try { G.__mineLootVoteResult?.(result); } catch (e) {}
+      }
+    };
+    wrapped.__mineLootResultHook = true;
+    wrapped.__mineQuestFeedbackHook = !!original.__mineQuestFeedbackHook;
+    quest.result = wrapped;
+  }
+
+  function handleLootVoteResult(result) {
+    const state = lootVoteState;
+    if (botRuntime.stopped || !state || result?.id == null || state.confirmed) return;
+    const id = String(result.id);
+    if (!state.commandId && state.sending && result.x?.k === 'say') {
+      lootVoteResults.set(id, result);
+      if (lootVoteResults.size > 10) lootVoteResults.delete(lootVoteResults.keys().next().value);
+      return;
+    }
+    if (!state.commandId || id !== state.commandId || state.resultReceived) return;
+    state.resultReceived = true;
+    state.serverAccepted = !!result.ok;
+    state.awaiting = !!result.ok;
+    if (result.ok) {
+      addQuestLog('info', '🎁 Игра приняла команду за Strannik_144; ждём отметку учтённого голоса');
+      const view = getQuestView();
+      if (view?.loot && getLootVoteKey(view.loot) === state.key && view.loot.my) {
+        state.confirmed = true;
+        state.awaiting = false;
+        addQuestLog('speed', `🎁 Голос за Strannik_144 подтверждён игрой: «${state.name}»`);
+      }
+    } else {
+      state.retryAt = Date.now() + 4000;
+      addQuestLog('warn', `🎁 Игра не приняла голос за Strannik_144: ${result.error || 'причина не указана'}${state.attempts < 3 ? ' — повторим' : ' — исчерпаны 3 попытки'}`);
+    }
+  }
+  G.__mineLootVoteResult = handleLootVoteResult;
+
+  async function checkAutoLoot(loot, q) {
+    if (botRuntime.stopped) return;
+    const key = loot ? getLootVoteKey(loot) : null;
+    if (lootVoteState && lootVoteState.key !== key) {
+      if (lootVoteState.attempts && !lootVoteState.confirmed) {
+        questFeedback.show(`Делёж «${lootVoteState.name}» завершился без подтверждения голоса за Strannik_144`, true);
+        addQuestLog('warn', `🎁 Делёж «${lootVoteState.name}» завершился без подтверждения голоса за Strannik_144`);
+      }
+      lootVoteState = null;
+      lootVoteResults.clear();
+    }
+    if (!loot) return;
+    if (!lootVoteState) {
+      lootVoteState = { key, name: loot.name || 'вещь', attempts: 0, sending: false,
+        awaiting: false, serverAccepted: false, confirmed: false, commandId: '', retryAt: 0, sentAt: 0 };
+    }
+    const state = lootVoteState;
+    if (loot.my) {
+      if (state.serverAccepted && !state.confirmed) {
+        state.confirmed = true;
+        state.awaiting = false;
+        addQuestLog('speed', `🎁 Голос за Strannik_144 подтверждён игрой: «${state.name}»`);
+      }
+      return;
+    }
+    if (state.confirmed || state.sending || !questSettings.autoJoin || q?.on === false) return;
     const party = q?.party || (lastQuestData && lastQuestData.party);
-    if (party !== 'in') return;
     const now = Date.now();
-    if (now - lastLootVoteTime < 4000) return;
-    lastLootVoteTime = now;
-    addQuestLog('speed', `🎁 Делёж добычи «${loot.name || 'вещь'}»: голос «случайно»`);
-    sendQuestSay('случайно');
+    if (party !== 'in' || (loot.until && loot.until <= now)) return;
+    installLootVoteResultHook();
+    if (state.awaiting) {
+      if (now - state.sentAt < 15000) return;
+      state.awaiting = false;
+      state.retryAt = now + 4000;
+      questFeedback.show(state.serverAccepted
+        ? 'Голос за Strannik_144: команда принята, но отметка учтённого голоса не появилась'
+        : 'Нет подтверждения голоса за Strannik_144 от игры', true);
+      addQuestLog('warn', state.serverAccepted
+        ? '🎁 Команда за Strannik_144 принята, но отметка учтённого голоса не появилась'
+        : '🎁 Нет подтверждения голоса за Strannik_144 от игры');
+    }
+    if (state.serverAccepted || state.attempts >= 3 || now < state.retryAt) return;
+    state.sending = true;
+    state.attempts++;
+    state.commandId = '';
+    state.resultReceived = false;
+    lootVoteResults.clear();
+    addQuestLog('info', `🎁 Делёж «${state.name}»: отправляем Strannik_144 (попытка ${state.attempts}/3)`);
+    try {
+      const response = await sendQuestSay('Strannik_144');
+      if (botRuntime.stopped || lootVoteState !== state) return;
+      if (response && response.ok) {
+        state.commandId = response.id != null ? String(response.id) : '';
+        state.awaiting = true;
+        state.sentAt = Date.now();
+        addQuestLog('info', '🎁 Команда Strannik_144 отправлена; ждём ответ игры');
+        const earlyResult = lootVoteResults.get(state.commandId);
+        if (earlyResult) handleLootVoteResult(earlyResult);
+      } else {
+        state.retryAt = Date.now() + 4000;
+        addQuestLog('warn', `🎁 Не удалось отправить голос за Strannik_144: ${response?.error || 'нет ответа'}${state.attempts < 3 ? ' — повторим' : ' — исчерпаны 3 попытки'}`);
+      }
+    } catch (error) {
+      if (!botRuntime.stopped && lootVoteState === state) {
+        state.retryAt = Date.now() + 4000;
+        addQuestLog('warn', `🎁 Ошибка отправки голоса за Strannik_144: ${error?.message || error}`);
+      }
+    } finally {
+      state.sending = false;
+    }
   }
 
   // 3. Авто-Ивенты: Котёл ведьмы и Сладость/Гадость
@@ -7088,9 +7475,10 @@
   // =========================================================================
   let lastAutoHealTime = 0;
 
-  function useHealingItem(uid, name = '', heal = 0, hpNow = 0, maxHp = 0) {
-    if (!uid) return;
+  async function useHealingItem(uid, name = '', heal = 0, hpNow = 0, maxHp = 0) {
+    if (!uid || botRuntime.stopped) return;
     lastAutoHealTime = getGameServerTime();
+    const ticket = questFeedback.begin(`Лечение: ${name || uid}${heal ? ` (+${heal} ❤)` : ''}`);
 
     const onHeroUpdated = (hero) => {
       if (!hero) return;
@@ -7106,32 +7494,23 @@
       refreshQuestUI();
     };
 
-    if (G.__lgQuestContext && typeof G.__lgQuestContext.eat === 'function') {
-      try {
-        const p = G.__lgQuestContext.eat(uid);
-        if (p && typeof p.then === 'function') {
-          p.then(res => {
-            if (res && res.hero) onHeroUpdated(res.hero);
-            else if (G.__lgQuestContext && typeof G.__lgQuestContext.hero === 'function') onHeroUpdated(G.__lgQuestContext.hero());
-          }).catch(() => {});
-        }
-      } catch (e) {}
-    } else {
-      gameApi('/api/use', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid })
-      }).then(data => {
-        if (data && data.hero) {
-          onHeroUpdated(data.hero);
-        }
-      }).catch(() => {});
+    try {
+      const native = G.__lgQuestContext;
+      const data = native && typeof native.eat === 'function'
+        ? await botRuntime.request(() => native.eat(uid))
+        : await gameApi('/api/use', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid })
+        });
+      questFeedback.sent(ticket, data);
+      if (botRuntime.stopped) return;
+      if (data?.ok !== false) {
+        onHeroUpdated(data?.hero || native?.hero?.());
+        if (name) addQuestLog('heart', `🍖 Авто-хил: ${name} (+${heal} ❤), здоровье: ${hpNow}/${maxHp}`);
+      }
+    } catch (error) {
+      questFeedback.sent(ticket, getRequestFailure(error));
     }
-    if (name) {
-      addQuestLog('heart', `🍖 Авто-хил: ${name} (+${heal} ❤), здоровье: ${hpNow}/${maxHp}`);
-      showToast(`🍖 Авто-хил: ${name} (+${heal} ❤)`);
-    }
-    refreshQuestUI();
+    if (!botRuntime.stopped) refreshQuestUI();
   }
 
   function checkAutoHealFood(v) {
@@ -7313,7 +7692,7 @@
           if (!uid) return;
           const srvNow = getGameServerTime();
           if (hero && hero.eatUntil && hero.eatUntil > srvNow) {
-            showToast('⏳ Еда на кулдауне в игре!');
+            questFeedback.show('⏳ Еда на кулдауне в игре!', true);
             return;
           }
           const maxHp = (hero.stats && hero.stats.hp) || 100;
@@ -7818,7 +8197,6 @@
     sendQuestAct({ k: 'tr', a: 'code', s: solver.bestGuess }).then(res => {
       if (res && res.ok !== false) {
         addQuestLog('puzzle', `🔮 Декодер сокровищницы: отправлен код "${solver.bestGuess}" (неразгадано: ${solver.unrevealedCount} цифр, вариантов: ${solver.candidates.length})`);
-        showToast(`🔮 Декодер сокровищницы: отправлен код ${solver.bestGuess}`);
       } else {
         addQuestLog('warn', `⚠️ Код "${solver.bestGuess}" не принят: ${res?.error || 'ошибка'}`);
       }
@@ -8106,7 +8484,6 @@
                   sendQuestAct({ k: 'tr', a: 'code', s: solver.bestGuess }).then(res => {
                     if (res && res.ok !== false) {
                       addQuestLog('puzzle', `🔮 Декодер: отправлен код "${solver.bestGuess}"`);
-                      showToast(`🔮 Отправлен код ${solver.bestGuess}`);
                     } else {
                       addQuestLog('warn', `⚠️ Код "${solver.bestGuess}" не принят: ${res?.error || 'ошибка'}`);
                     }
@@ -8310,15 +8687,15 @@
             const info = getSkillInfo(skKey, kind);
 
             if (cd > 0) {
-              showToast(`Скилл «${info.name}» на перезарядке: ещё ${pluralRounds(cd)}`);
+              questFeedback.show(`Скилл «${info.name}» на перезарядке: ещё ${pluralRounds(cd)}`, true);
               return;
             }
             if (!v.b || v.b.st !== 'party') {
-              showToast('Сейчас не фаза хода отряда!');
+              questFeedback.show('Сейчас не фаза хода отряда!', true);
               return;
             }
             if (v.b.turn) {
-              showToast('Ход в этом раунде уже сделан');
+              questFeedback.show('Ход в этом раунде уже сделан', true);
               return;
             }
 
@@ -8369,7 +8746,7 @@
             const skKey = btn.dataset.qsk;
             const kind = btn.dataset.qkind;
             const info = getSkillInfo(skKey, kind);
-            showToast(`${info.icon} Боевой скилл «${info.name}». Дождитесь начала боя для использования!`);
+            questFeedback.show(`${info.icon} Боевой скилл «${info.name}». Дождитесь начала боя для использования!`, true);
           };
         });
       }
@@ -8377,6 +8754,7 @@
   }
 
   function initQuestModule() {
+    installQuestFeedbackResultHook();
     if (G.LGQuest && G.__lgHookQuest && !G.LGQuest.__hooked) {
       G.__lgHookQuest(G.LGQuest);
     }
@@ -8601,15 +8979,15 @@
         const classAtk = getClassBaseAttack(heroRole);
         const v = getQuestView();
         if (!v || !v.b) {
-          showToast(`${classAtk.icon} Атака «${classAtk.name}» готова. Дождитесь начала боя!`);
+          questFeedback.show(`${classAtk.icon} Атака «${classAtk.name}» готова. Дождитесь начала боя!`, true);
           return;
         }
         if (v.b.st !== 'party') {
-          showToast('Сейчас не ваш ход!');
+          questFeedback.show('Сейчас не ваш ход!', true);
           return;
         }
         if (v.b.turn) {
-          showToast('Ход в этом раунде уже сделан');
+          questFeedback.show('Ход в этом раунде уже сделан', true);
           return;
         }
         const isPriest = (heroRole === 'priest' || heroRole.includes('жрец'));
@@ -8650,15 +9028,15 @@
         if (isPriest) {
           const v = getQuestView();
           if (!v || !v.b) {
-            showToast('⚔️ Ближний бой жреца готов. Дождитесь начала боя!');
+            questFeedback.show('⚔️ Ближний бой жреца готов. Дождитесь начала боя!', true);
             return;
           }
           if (v.b.st !== 'party') {
-            showToast('Сейчас не ваш ход!');
+            questFeedback.show('Сейчас не ваш ход!', true);
             return;
           }
           if (v.b.turn) {
-            showToast('Ход в этом раунде уже сделан');
+            questFeedback.show('Ход в этом раунде уже сделан', true);
             return;
           }
           const targetInfo = resolveCombatTarget(v.b, { preferLead: manualTargetLead, isPriest: false });
@@ -8686,7 +9064,7 @@
         if (v && v.b && v.b.tele && v.b.tele.word) {
           const hush = isQuestHush(v);
           if (hush) {
-            showToast(`⚠️ ${hush}: говорить запрещено!`);
+            questFeedback.show(`⚠️ ${hush}: говорить запрещено!`, true);
             return;
           }
           sendQuestSay(v.b.tele.word).then(() => {
@@ -8694,7 +9072,7 @@
             refreshQuestUI();
           });
         } else {
-          showToast('🛡️ Атаки босса сейчас нет (блок парированием срабатывает во время атаки босса)');
+          questFeedback.show('🛡️ Атаки босса сейчас нет (блок парированием срабатывает во время атаки босса)', true);
         }
       };
     }
@@ -8730,6 +9108,7 @@
       if (!G.__mineBotRunning) return;
       ensureQaMode();
       const v = getQuestView();
+      checkAutoLoot(v?.loot || null, v);
       if (v && v.on) {
         checkAutoJoinSquad(v);
         checkQuestMinerCoordination(v);
@@ -8755,7 +9134,6 @@
         checkAutoDungeonEscape(v);
         checkAutoCampRest(v);
         checkAutoHealFood(v);
-        if (v.loot) checkAutoLoot(v.loot, v);
         checkAutoVotes(v);
       } else if (v) {
         checkQuestMinerCoordination(v);
@@ -9988,8 +10366,58 @@
     return true;
   }
 
-  function startBot() {
-    if (!isPaused) return;
+  async function ensureMiningHelmetEquipped(startToken) {
+    try {
+      const ctx = getMineContext();
+      const snapshot = await gameApi('/api/me');
+      if (miningStartToken !== startToken || !G.__mineBotRunning) return;
+      const hero = (snapshot && snapshot.ok !== false && snapshot.hero) ||
+        (typeof ctx.hero === 'function' && ctx.hero()) || G.__lgHero || (G.ME && G.ME.hero);
+      if (!hero || !Array.isArray(hero.items)) {
+        showToast('Не удалось проверить каску с фонариком', true);
+        return;
+      }
+      G.ME = { ...(G.ME || {}), hero };
+      G.__lgHero = hero;
+      if (hero.items.some(it => it.id === 'miner_helmet' && it.on)) return;
+      const helmet = hero.items.find(it => it.id === 'miner_helmet' && it.uid);
+      if (!helmet) {
+        showToast('Каска с фонариком не найдена в сумке', true);
+        return;
+      }
+      const result = typeof ctx.equip === 'function'
+        ? await ctx.equip(helmet.uid)
+        : await gameApi('/api/equip', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid: helmet.uid })
+        });
+      if (miningStartToken !== startToken || !G.__mineBotRunning) return;
+      if (!result || !result.ok) {
+        showToast(`Не удалось надеть каску с фонариком: ${(result && result.error) || 'нет ответа игры'}`, true);
+        return;
+      }
+      if (result.hero) {
+        G.ME = { ...(G.ME || {}), hero: result.hero };
+        G.__lgHero = result.hero;
+      }
+      showToast('Каска с фонариком надета');
+    } catch (e) {
+      if (miningStartToken === startToken && G.__mineBotRunning) {
+        showToast('Не удалось надеть каску с фонариком', true);
+      }
+    }
+  }
+
+  async function startBot() {
+    if (!isPaused || miningStartToken) return;
+    const startToken = {};
+    miningStartToken = startToken;
+    btn.textContent = 'Пауза';
+    st.textContent = 'Надеваем каску с фонариком…';
+    st.style.color = '#66ccff';
+    await ensureMiningHelmetEquipped(startToken);
+    if (miningStartToken !== startToken || !G.__mineBotRunning) return;
+    miningStartToken = null;
     isPaused = false;
     btn.textContent = 'Пауза';
     btn.style.background = '#28a745';
@@ -10014,7 +10442,8 @@
   }
 
   function pauseBot() {
-    if (isPaused) return;
+    if (isPaused && !miningStartToken) return;
+    miningStartToken = null;
     isPaused = true;
     btn.textContent = 'Старт';
     btn.style.background = '#007bff';
@@ -10030,7 +10459,7 @@
   }
 
   btn.onclick = () => {
-    if (isPaused) {
+    if (isPaused && !miningStartToken) {
       startBot();
     } else {
       pauseBot();
@@ -10038,6 +10467,9 @@
   };
 
   window.__mineBotStop = () => {
+    if (botRuntime.stopped) return;
+    botRuntime.stop();
+    questFeedback.stop();
     panelResizeObserver.disconnect();
     window.removeEventListener('resize', fitFloatingPanels);
     if (window.visualViewport) {
@@ -10045,6 +10477,7 @@
       window.visualViewport.removeEventListener('scroll', fitFloatingPanels);
     }
     window.__mineBotRunning = false;
+    miningStartToken = null;
     isPaused = true;
     isAutoBuy = false;
     if (bAucAutoBuy) bAucAutoBuy.checked = false;
@@ -11639,6 +12072,7 @@
   // 🎁 АВТО-ОТПРАВКА «МОНЕТЫ ДНЯ» ДРУЗЬЯМ (Friendcoin 29.10)
   // =========================================================================
   async function autoSendFriendCoins() {
+    if (botRuntime.stopped) return;
     try {
       const today = new Date().toDateString();
       const lastSent = localStorage.getItem('lg_last_friendcoin_date');
