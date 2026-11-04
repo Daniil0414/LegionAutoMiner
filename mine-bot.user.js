@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.41
+// @version      9.1.42
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.1.41';
+  const BOT_VERSION = '9.1.42';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -590,6 +590,7 @@
   let isCheckingLiftFloors = false;
   let isRidingLift = false;
   let pendingLiftRide = null;
+  let autoTpMine = localStorage.getItem('lg_bot_auto_tp_mine') !== 'false'; // По умолчанию true (мгновенный ТП к шахте без ходьбы)
   // Восстановление профинансированных буров из localStorage
   let savedFundedDrills = [];
   try {
@@ -2244,6 +2245,17 @@
     if (G.LGCity && !G.LGCity.__cityHooked) {
       G.LGCity.__cityHooked = true;
       const origCityOpen = G.LGCity.open;
+      const origGoBuilding = G.LGCity.goBuilding;
+      if (typeof origGoBuilding === 'function' && !G.LGCity.__goBuildingHooked) {
+        G.LGCity.__goBuildingHooked = true;
+        G.LGCity.goBuilding = function (id) {
+          if (id === 'mine' && autoTpMine) {
+            teleportToMine();
+            return;
+          }
+          return origGoBuilding.apply(this, arguments);
+        };
+      }
       G.LGCity.open = function (root, ctx) {
         if (ctx) G.__lgCityContext = ctx;
         if (ctx && ctx.openMine) G.__lgCityOpenMine = ctx.openMine;
@@ -2589,6 +2601,15 @@
               <input type="checkbox" id="b-auto-lift" ${autoLiftBestFloor ? 'checked' : ''} style="accent-color:#a78bfa;cursor:pointer;width:14px;height:14px;">
               <span>🛗 Авто-лифт на людный этаж (+30%)</span>
             </label>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);">
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:#34d399;font-size:10.5px;font-weight:bold;user-select:none;" title="Мгновенный телепорт к шахте из любой точки города без долгой ходьбы пешком. Перехватывает клик по шахте в городе и мгновенно открывает её.">
+              <input type="checkbox" id="b-auto-tp-mine" ${autoTpMine ? 'checked' : ''} style="accent-color:#34d399;cursor:pointer;width:14px;height:14px;">
+              <span>⚡ ТП к шахте (без ходьбы)</span>
+            </label>
+            <button id="b-btn-tp-mine" style="background:#132e27;border:1px solid #34d399;color:#34d399;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:10px;font-weight:bold;display:flex;align-items:center;gap:3px;white-space:nowrap;transition:all 0.2s;" title="Телепортироваться к шахте прямо сейчас">
+              <span>⚡ ТП</span>
+            </button>
           </div>
 
         </div>
@@ -3218,6 +3239,8 @@
   const checkDrillBuildAllFloors = w.querySelector('#b-drill-all-floors');
   const checkAutoClaimQuests = w.querySelector('#b-auto-claim-quests');
   const checkAutoLift = w.querySelector('#b-auto-lift');
+  const checkAutoTpMine = w.querySelector('#b-auto-tp-mine');
+  const btnTpMine = w.querySelector('#b-btn-tp-mine');
 
   if (checkRatingMode) {
     checkRatingMode.onchange = () => {
@@ -3316,6 +3339,20 @@
         lastLiftCheckTime = 0;
         checkAndSelectBestFloor();
       }
+    };
+  }
+  if (checkAutoTpMine) {
+    checkAutoTpMine.onchange = () => {
+      autoTpMine = checkAutoTpMine.checked;
+      localStorage.setItem('lg_bot_auto_tp_mine', autoTpMine ? 'true' : 'false');
+      showToast(autoTpMine ? '⚡ ТП к шахте ВКЛЮЧЁН (без ходьбы)' : 'ТП к шахте выключен (обычная ходьба)');
+    };
+  }
+  if (btnTpMine) {
+    btnTpMine.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      teleportToMine();
     };
   }
 
@@ -10286,6 +10323,59 @@
     return true;
   }
 
+  // =========================================================================
+  // ⚡ МГНОВЕННЫЙ ТЕЛЕПОРТ К ШАХТЕ (без долгой ходьбы через весь город)
+  // =========================================================================
+  function setMineDoorSpawn() {
+    try {
+      const keys = ['lgCityPos', 'lgCityPos:fair'];
+      if (G.LGCity && G.LGCity.town && G.LGCity.town !== 'fair') {
+        keys.push('lgCityPos:' + G.LGCity.town);
+      }
+      for (const k of keys) {
+        sessionStorage.setItem(k, JSON.stringify([1310, 1366]));
+      }
+    } catch (e) {}
+  }
+
+  function teleportToMine(targetMineId) {
+    const mineId = targetMineId || currentMineId || 'home';
+    setMineDoorSpawn();
+
+    let opened = false;
+    // 1. Быстрый вызов через панель города (загружает mine.js, усыпляет город и открывает шахту без ходьбы)
+    if (G.LGCity && typeof G.LGCity.panel === 'function') {
+      try {
+        G.LGCity.panel('mine');
+        opened = true;
+      } catch (e) {}
+    }
+    // 2. Если есть прямой метод openMine от контекста города
+    if (!opened && typeof G.__lgCityOpenMine === 'function') {
+      try {
+        G.__lgCityOpenMine(mineId);
+        opened = true;
+      } catch (e) {}
+    }
+    // 3. Прямой вызов через LGMine.open / tryOpenMineOnScreen
+    if (!opened) {
+      try {
+        opened = tryOpenMineOnScreen(mineId, true);
+      } catch (e) {}
+    }
+
+    // 4. Если открылось окно выбора шахт (openMines), выбираем нужную шахту
+    setTimeout(() => {
+      const targetBtn = document.querySelector(`[data-go="${mineId}"]`);
+      if (targetBtn && typeof targetBtn.click === 'function') {
+        targetBtn.click();
+      }
+    }, 150);
+
+    showToast('⚡ Телепорт к шахте выполнен!');
+    return opened;
+  }
+
   function tryOpenMineOnScreen(mineId, force = false) {
     let targetMine = mineId || currentMineId || 'home';
     // Если передан псевдоним 'ryabinen', сопоставляем с реальным ID шахты из списка
@@ -10325,6 +10415,12 @@
 
     // Если код шахты еще не загружен на страницу, пробуем нажать кнопку в городе
     if (!G.LGMine) {
+      if (autoTpMine && G.LGCity && typeof G.LGCity.panel === 'function') {
+        try {
+          G.LGCity.panel('mine');
+          return true;
+        } catch (e) {}
+      }
       const enterBtn = document.querySelector('[data-b="mine"]') ||
         Array.from(document.querySelectorAll('button, .btn, .cy-entry, [data-go]'))
           .find(b => b.textContent.trim() === 'Шахта' || b.textContent.includes('Шахта'));
@@ -12065,6 +12161,28 @@
       e.stopPropagation();
       btnGhost.click();
       ensureCityVisible(true);
+    }
+  }, true);
+
+  // ⚡ ПЕРЕХВАТ КЛИКА ПО ШАХТЕ В ГОРОДЕ (мгновенный ТП без ходьбы)
+  document.addEventListener('click', (e) => {
+    if (!autoTpMine) return;
+    const b = e.target && e.target.closest && e.target.closest('[data-b="mine"]');
+    if (b && !e.target.closest('.cy-room')) {
+      e.preventDefault();
+      e.stopPropagation();
+      teleportToMine();
+      return;
+    }
+    // Клик по шахте на карте города
+    const hov = document.querySelector('.cy-hov.on');
+    if (hov && hov.textContent && hov.textContent.includes('Шахта')) {
+      const view = e.target && e.target.closest && e.target.closest('.cy-view');
+      if (view) {
+        e.preventDefault();
+        e.stopPropagation();
+        teleportToMine();
+      }
     }
   }, true);
 
