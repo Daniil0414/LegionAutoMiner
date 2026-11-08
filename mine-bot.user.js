@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.42
+// @version      9.1.44
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.1.42';
+  const BOT_VERSION = '9.1.44';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -1822,6 +1822,7 @@
   let lastMineOpenAttempt = 0;
   let lastFloorTransitionTime = 0;
   const NEIGHBOR_MINES = [
+    { id: 't-v3', name: '🧪 Новая шахта (Шахта 3.0)', danger: 1, test: true },
     { id: 'camp', name: '⛺ Перепутье (Лагерь)', danger: 1, test: true },
     { id: 'd04', name: 'Рябиново (Склоны меча)', danger: 1, test: true },
     { id: 'd02', name: 'Ключино (Дубрава)', danger: 1, test: true },
@@ -6529,7 +6530,8 @@
     if (M && (M.fake || (M.fam === 'silence' && M.id !== 'M94' && M.id !== 'M55') || /ничего не пиш|молчите|не пишите/i.test(M.tip || '') || /ничего не пиш|молчите|не пишите/i.test(M.text || ''))) {
       return M.fake ? 'Финт босса (обманный удар — молчите!)' : 'Тишина босса (нельзя писать!)';
     }
-    if (v.b && v.b.tele && (v.b.tele.fake || v.b.tele.hush)) return 'Финт атаки (обманный удар — молчите!)';
+    // Финт атаки актуален ТОЛЬКО во время хода врага (tele), не должен блокировать ход отряда (party)
+    if (v.b && v.b.st === 'tele' && v.b.tele && (v.b.tele.fake || v.b.tele.hush)) return 'Финт атаки (обманный удар — молчите!)';
     // Безмолвие острова в Логове
     if (v.lair && v.lair.is && v.lair.is.sil) {
       const myIsl = (v.lair.is.at && v.lair.is.at.my) || (v.lair.is.pick && v.lair.is.pick.my) || v.lair.is.my || 0;
@@ -7160,6 +7162,111 @@
   // =========================================================================
   // 🎪 Мини-Ивенты: Странник, кости d20, колодец, жрец, гадалка, танец, ярмарка
   // =========================================================================
+  // 👑 Автобой с Главным / Рейдовым боссом округа (v.bg / bossgen / Jack)
+  // В официальном quest.js (строка 353) бой ведется через команды чата: «удар», «выстрел», «магия», «лечить»
+  function checkAutoBossCombat(v) {
+    if (!questSettings.autoCombat || !v) return;
+    const vObj = v || getQuestView();
+    if (!vObj || vObj.party !== 'in') return;
+    if (isQuestHush(vObj)) return;
+    const g = vObj.bg;
+    if (!g || g.st !== 'party') return;
+    if (g.acted) return;
+    if (g.my != null && g.my <= 0) return; // Мертвый герой не действует
+
+    const turnKey = `bg:${g.id || 'bg'}:${g.round || 1}:${g.ph || 1}`;
+    if (lastCombatTurnKey === turnKey) return;
+    if (combatPending && Date.now() - combatPendingAt < 6000) return;
+    if (Date.now() < combatErrorCooldownUntil) return;
+
+    const role = getHeroRole();
+    let cmd = 'удар';
+    if (g.forbid) {
+      cmd = role === 'archer' ? 'стрелять' : (role === 'mage' || role === 'necromancer') ? 'заклинание' : role === 'priest' ? 'исцеление' : 'атака';
+    } else {
+      if (role === 'archer') cmd = 'выстрел';
+      else if (role === 'mage' || role === 'necromancer') cmd = 'магия';
+      else if (role === 'priest') cmd = 'лечить';
+      else cmd = 'удар';
+    }
+
+    lastCombatTurnKey = turnKey;
+    combatPending = true;
+    combatPendingAt = Date.now();
+
+    addQuestLog('sword', `👑 Рейдовый босс: отправка «${cmd}» (фаза ${g.ph || 1}, раунд ${g.round || 1})`);
+    sendQuestSay(cmd).then(res => {
+      if (res && res.ok !== false) {
+        combatErrorCooldownUntil = 0;
+      } else {
+        const err = String(res?.error || 'ошибка');
+        addQuestLog('warn', `⚠️ Ход по боссу не принят: ${err}`);
+        combatErrorCooldownUntil = Date.now() + 2500;
+        lastCombatTurnKey = null;
+      }
+    }).catch(err => {
+      addQuestLog('warn', `⚠️ Ошибка хода по боссу: ${err?.message || err}`);
+      combatErrorCooldownUntil = Date.now() + 2500;
+      lastCombatTurnKey = null;
+    }).finally(() => {
+      combatPending = false;
+      refreshQuestUI();
+    });
+  }
+
+  // 🕳️ Автобой с боссом Логова (v.lair)
+  function checkAutoLairCombat(v) {
+    if (!questSettings.autoCombat || !v) return;
+    const vObj = v || getQuestView();
+    if (!vObj || vObj.party !== 'in') return;
+    if (isQuestHush(vObj)) return;
+    const L = vObj.lair;
+    if (!L || L.st !== 'party') return;
+    if (L.acted) return;
+    if (L.hp != null && L.hp <= 0) return;
+
+    const turnKey = `lair:${L.id || 'lair'}:${L.round || 1}:${L.phase || 1}`;
+    if (lastCombatTurnKey === turnKey) return;
+    if (combatPending && Date.now() - combatPendingAt < 6000) return;
+    if (Date.now() < combatErrorCooldownUntil) return;
+
+    const role = getHeroRole();
+    const baseAction = role === 'priest' ? 'melee' : 'base';
+    const cmd = role === 'archer' ? 'выстрел' : (role === 'mage' || role === 'necromancer') ? 'магия' : role === 'priest' ? 'лечить' : 'удар';
+
+    lastCombatTurnKey = turnKey;
+    combatPending = true;
+    combatPendingAt = Date.now();
+
+    addQuestLog('sword', `🕳️ Босс Логова: атака «${cmd}» (фаза ${L.phase || 1}, раунд ${L.round || 1})`);
+    sendQuestAct({ k: 'b', a: baseAction }).then(res => {
+      if (res && res.ok !== false) {
+        combatErrorCooldownUntil = 0;
+      } else {
+        return sendQuestSay(cmd).then(sayRes => {
+          if (sayRes && sayRes.ok !== false) {
+            combatErrorCooldownUntil = 0;
+          } else {
+            combatErrorCooldownUntil = Date.now() + 2500;
+            lastCombatTurnKey = null;
+          }
+        });
+      }
+    }).catch(() => {
+      return sendQuestSay(cmd).then(sayRes => {
+        if (sayRes && sayRes.ok !== false) {
+          combatErrorCooldownUntil = 0;
+        } else {
+          combatErrorCooldownUntil = Date.now() + 2500;
+          lastCombatTurnKey = null;
+        }
+      });
+    }).finally(() => {
+      combatPending = false;
+      refreshQuestUI();
+    });
+  }
+
   let lastMiniEventKey = null;
   let lastMiniEventTime = 0;
   let lastSkelDanceSeq = [];
@@ -7792,7 +7899,13 @@
       canTargetLead = true;
       // Если у вожака есть явный фланг, атакуем строго с его фланга
       if (leaderSides.length > 0) {
-        chosenSide = leaderSides[0];
+        if (!heroSide || leaderSides.includes(heroSide)) {
+          chosenSide = heroSide || leaderSides[0];
+        } else if (leaderSides.length === 1 && !isMulti) {
+          chosenSide = '';
+        } else {
+          chosenSide = heroSide || '';
+        }
       }
     } else {
       // Б. Обычная цель (рядовые или вожак уже пал)
@@ -7841,7 +7954,25 @@
     const role = p ? p[1] : mf ? mf[0] : (G.ME?.hero?.role) || getHeroRole() || 'legionary';
     const st = b.hp == null ? 'out' : b.hp === 0 ? 'dead' : b.hp < 0 ? 'fled' : (heroIdx >= 0 || mf ? 'on' : 'reserve');
 
-    if (st === 'dead' || st === 'fled' || st === 'out') return;
+    // Герой в отряде (vObj.party === 'in') имеет право бить, даже если st === 'out' (в резерве/вне кадра на боссах)
+    if (st === 'dead' || st === 'fled' || (st === 'out' && vObj?.party !== 'in')) return;
+
+    // Особый случай босса: gb.forbid («Босс запретил прямые слова - пиши в чат синонимом»)
+    if (b.gb && b.gb.forbid) {
+      const synCmd = role === 'archer' ? 'стрелять' : (role === 'mage' || role === 'necromancer') ? 'заклинание' : role === 'priest' ? 'исцеление' : 'атака';
+      addQuestLog('sword', `👑 Босс запретил прямые слова: отправка синонима «${synCmd}»`);
+      lastCombatTurnKey = turnKey;
+      sendQuestSay(synCmd).then(res => {
+        if (res && res.ok !== false) {
+          combatErrorCooldownUntil = 0;
+        } else {
+          lastCombatTurnKey = null;
+        }
+      }).finally(() => {
+        refreshQuestUI();
+      });
+      return;
+    }
 
     // Кешируем реальные скиллы персонажа, подтверждённые сервером в b.sk
     if (Array.isArray(b.sk) && b.sk.length > 0) {
@@ -8254,6 +8385,8 @@
     if (q.lair) checkAutoLairMechanics(q.lair, q);
     checkAutoBossMechanics(q);
     if (q.b) checkAutoCombat(q.b, q);
+    if (q.bg && (!q.b || q.b.st !== 'party')) checkAutoBossCombat(q);
+    if (q.lair && (!q.b || q.b.st !== 'party')) checkAutoLairCombat(q);
     checkHotPumpkin(q);
 
     // Новые механики похода
@@ -8314,7 +8447,7 @@
       if (qDgnCard) qDgnCard.style.display = 'none';
       if (qTurnStatus) qTurnStatus.textContent = 'Вне боя';
     } else {
-      const kind = v.k || v.kind || (v.b ? (v.b.gb ? 'bossgen' : 'battle') : v.dgn ? 'dungeon' : v.ev ? 'event' : v.tr ? 'trap' : v.sh ? 'shop' : v.pz ? 'puzzle' : v.loot ? 'loot' : 'travel');
+      const kind = v.k || v.kind || (v.b ? (v.b.gb ? 'bossgen' : 'battle') : v.bg ? 'bossgen' : v.lair ? 'lair' : v.dgn ? 'dungeon' : v.ev ? 'event' : v.tr ? 'trap' : v.sh ? 'shop' : v.pz ? 'puzzle' : v.loot ? 'loot' : 'travel');
       const kindTitle = KIND_TITLES[kind] || KIND_TITLES[v.k] || KIND_TITLES[v.kind] || '⚔️ Поход';
       qLoc.textContent = v.t || v.rn || v.name || kindTitle;
       qLoc.style.color = '#f43f5e';
@@ -8533,10 +8666,53 @@
         } else {
           if (qAlert) qAlert.style.display = 'none';
         }
-        qPhase.textContent = `Этап: ${kindTitle}`;
-        qPhase.style.color = '#cbd5e1';
-        qBossInfo.textContent = '';
-        if (qTurnStatus) qTurnStatus.textContent = 'Вне боя';
+        if (v.bg) {
+          const g = v.bg;
+          qPhase.textContent = `Фаза: ${g.st || 'бой'} · Фаза ${g.ph || 1}/${g.phs || 1}${g.round ? ' · Раунд ' + g.round : ''}`;
+          qPhase.style.color = g.st === 'party' ? '#10b981' : '#f43f5e';
+          const hpPct = Math.round((g.hp || 0) * 100);
+          let extraHw = '';
+          const gHw = g.hw;
+          if (gHw && gHw.lan && Array.isArray(gHw.lan.lit)) {
+            const litCount = gHw.lan.lit.filter(Boolean).length;
+            extraHw = ` · 🎃 Фонари: ${litCount}/6${litCount <= 1 ? ' ⚠️ ТЬМА!' : ''}`;
+          }
+          qBossInfo.textContent = `👑 ${g.name || 'Босс'}: ${hpPct}% HP${extraHw}`;
+          if (qTurnStatus) {
+            if (g.acted) {
+              qTurnStatus.textContent = 'Ход принят ✓';
+              qTurnStatus.style.color = '#10b981';
+            } else if (g.st === 'party') {
+              qTurnStatus.textContent = 'Ждёт выбора хода...';
+              qTurnStatus.style.color = '#fbbf24';
+            } else {
+              qTurnStatus.textContent = 'Ожидание хода босса';
+              qTurnStatus.style.color = '#94a3b8';
+            }
+          }
+        } else if (v.lair) {
+          const L = v.lair;
+          qPhase.textContent = `Логово · Фаза ${L.phase || 1}${L.round ? ' · Раунд ' + L.round : ''}`;
+          qPhase.style.color = L.st === 'party' ? '#10b981' : '#cbd5e1';
+          qBossInfo.textContent = L.hp != null ? `🕳️ Босс Логова: ${Math.round(L.hp * 100)}% HP` : '🕳️ Логово';
+          if (qTurnStatus) {
+            if (L.acted) {
+              qTurnStatus.textContent = 'Ход принят ✓';
+              qTurnStatus.style.color = '#10b981';
+            } else if (L.st === 'party') {
+              qTurnStatus.textContent = 'Ждёт выбора хода...';
+              qTurnStatus.style.color = '#fbbf24';
+            } else {
+              qTurnStatus.textContent = 'Фаза логова';
+              qTurnStatus.style.color = '#94a3b8';
+            }
+          }
+        } else {
+          qPhase.textContent = `Этап: ${kindTitle}`;
+          qPhase.style.color = '#cbd5e1';
+          qBossInfo.textContent = '';
+          if (qTurnStatus) qTurnStatus.textContent = 'Вне боя';
+        }
       }
 
       // Радар Данжа и Выбор пути (Данж / Развилки карты)
@@ -9155,7 +9331,9 @@
         }
         if (v.lair && v.lair.tele) checkAutoParryLair(v.lair, v);
         if (v.lair) checkAutoLairMechanics(v.lair, v);
+        if (v.lair && (!v.b || v.b.st !== 'party') && v.lair.st === 'party') checkAutoLairCombat(v);
         checkAutoBossMechanics(v);
+        if (v.bg && (!v.b || v.b.st !== 'party') && v.bg.st === 'party') checkAutoBossCombat(v);
         checkHotPumpkin(v);
         const trData = v.tr || (G.LGQuest && G.LGQuest._view && G.LGQuest._view()?.tr);
         const evData = v.ev || (G.LGQuest && G.LGQuest._view && G.LGQuest._view()?.ev);
@@ -10122,6 +10300,7 @@
   function getMineLabel(id) {
     if (!id || id === 'home') return 'Домашняя ★';
     if (id.startsWith('home.')) return `Домашняя (Этаж ${id.split('.')[1]}) ★`;
+    if (id === 't-v3') return 'Новая шахта (3.0) ★';
     const m = availableMines.find(item => item.id === id);
     if (!m) return id;
     const stars = '★'.repeat(Math.max(1, Math.min(5, m.danger || 1)));
