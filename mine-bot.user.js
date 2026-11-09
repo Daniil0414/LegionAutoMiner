@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.2.1
+// @version      9.2.2
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.2.1';
+  const BOT_VERSION = '9.2.2';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -12565,6 +12565,125 @@
   let lastFishMePollAt = 0;
   let lastDryWarnAt = 0;
   let lastCapWarnAt = 0;
+  let lastFish2CastAt = 0;
+  let lastFish2SellAt = 0;
+  let lastCatShooAt = 0;
+  let passiveCraftBlockedHere = false;
+  let lastObservedTown = '';
+
+  function tickFish2Loop() {
+    if (botRuntime.stopped) return;
+    const F2 = (typeof window !== 'undefined' && window.LGFish2) || null;
+    if (!F2 || !F2.on) return;
+    const S = F2._S;
+    if (!S) return;
+
+    // 1. АВТО-ВЫВАЖИВАНИЕ РЫБЫ (Удержание натяжения лески точно в середине зелёной зоны)
+    if (S.st === 'fight') {
+      const F = S.fish;
+      if (F) {
+        const zone = (F.m && F.m.sim && F.m.sim.S && F.m.sim.S.zone) || F.zone || [0.35, 0.75];
+        const target = (zone[0] + zone[1]) / 2;
+        const curT = (typeof S.T === 'number') ? S.T : target;
+        if (curT < target - 0.02) {
+          if (!S.held) {
+            window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
+          }
+        } else if (curT > target + 0.02) {
+          if (S.held) {
+            window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
+          }
+        }
+      }
+      return;
+    }
+
+    // 2. АВТО-ПОДСЕЧКА ПРИ КЛЁВЕ НА ОЗЕРЕ
+    if (S.st === 'bite') {
+      if (fishSettings.autoHook && !S.held) {
+        playFishBiteSound();
+        addFishLog('🐟⚡ Поклёвка на озере! Выполняем авто-подсечку...', '#fbbf24');
+        window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
+        setTimeout(() => {
+          window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
+        }, 80);
+      }
+      return;
+    }
+
+    // 3. АВТО-ЗАБРОС УДОЧКИ НА ОЗЕРЕ
+    if (S.st === 'idle' && fishSettings.autoCast) {
+      const V = F2._V;
+      const casts = (V && typeof V.casts === 'number') ? V.casts : 0;
+      if (casts > 0 && Date.now() - lastFish2CastAt > 4000) {
+        lastFish2CastAt = Date.now();
+        addFishLog(`🎣 Замахиваемся удочкой на озере (${casts} забросов осталось)...`, '#38bdf8');
+        window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
+        const aimStart = Date.now();
+        const aimInterval = setInterval(() => {
+          if (!F2.on || S.st !== 'aim' || Date.now() - aimStart > 1200) {
+            clearInterval(aimInterval);
+            window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
+            return;
+          }
+          if (S.power >= 0.6) {
+            clearInterval(aimInterval);
+            window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
+            addFishLog(`🌊 Удочка заброшена в озеро на дальность ${Math.round(S.power * 100)}%!`, '#22c55e');
+          }
+        }, 30);
+      }
+      return;
+    }
+
+    // 4. ЗАЩИТА ОТ КОТА (Анти-кот)
+    if (S.cat && (S.cat.st === 'come' || S.cat.st === 'reach')) {
+      if (Date.now() - lastCatShooAt > 4000) {
+        lastCatShooAt = Date.now();
+        addFishLog('🐱 Кыш! Отогнали кота от садка с рыбой!', '#fbbf24');
+        try {
+          gameApi('/api/craftF2', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ k: 'fish', a: 'cat', shoo: 1 })
+          });
+        } catch (e) {}
+      }
+    }
+
+    // 5. ЛОГИРОВАНИЕ ВЫЛОВЛЕННОЙ РЫБЫ
+    if (S.st === 'catch' && S.catchA && S.catchA.it && !S.catchA._botLogged) {
+      S.catchA._botLogged = true;
+      const it = S.catchA.it;
+      const kgStr = it.kg ? ` (${it.kg} кг)` : '';
+      addFishLog(`✨ Успешно выловлено на озере: «${it.n || it.id}»${kgStr}!`, '#22c55e');
+    }
+
+    // 6. АВТО-ПРОДАЖА УЛОВА С ОЗЕРА
+    if (fishSettings.autoSell && S.st === 'idle' && Date.now() - lastFish2SellAt > 45000) {
+      const V = F2._V;
+      const bag = (V && Array.isArray(V.bag)) ? V.bag : [];
+      if (bag.length >= 5 || (bag.length > 0 && (V.casts <= 0))) {
+        lastFish2SellAt = Date.now();
+        addFishLog('💰 Авто-продажа улова Рыбаку Сому...', '#38bdf8');
+        try {
+          const sellBtn = document.querySelector('#fish2 [data-i="mBag"] #sell') || document.querySelector('#sell');
+          if (sellBtn && !sellBtn.disabled) {
+            sellBtn.click();
+            addFishLog('💵 Улов с озера продан!', '#22c55e');
+          } else {
+            const bBag = document.querySelector('#bBag') || document.querySelector('[data-i="bBag"]');
+            if (bBag) bBag.click();
+            setTimeout(() => {
+              const sBtn = document.querySelector('#sell');
+              if (sBtn) sBtn.click();
+              addFishLog('💵 Улов с озера продан!', '#22c55e');
+            }, 300);
+          }
+        } catch (e) {}
+      }
+    }
+  }
 
   function getFishData() {
     return (G.ME?.hero?.cr?.fish) ||
@@ -12693,10 +12812,122 @@
     const btnHook = tab.querySelector('#b-fish-act-hook');
     const btnStop = tab.querySelector('#b-fish-act-stop');
     const btnSell = tab.querySelector('#b-fish-act-sell');
+    const btnTravel = tab.querySelector('#b-fish-act-travel');
 
+    // Проверка режима: открыто ли интерактивное Озеро игры (LGFish2)
+    const F2 = (typeof window !== 'undefined' && window.LGFish2 && window.LGFish2.on) ? window.LGFish2 : null;
+    const S2 = F2 ? F2._S : null;
+    const V2 = F2 ? F2._V : null;
+
+    if (F2 && S2) {
+      // РЕЖИМ 1: ИНТЕРАКТИВНОЕ ОЗЕРО ИГРЫ (LGFish2)
+      if (locName) {
+        locName.textContent = 'Озеро Рябиненя (Активная рыбалка 2.0)';
+        locName.style.color = '#38bdf8';
+      }
+      if (btnTravel) btnTravel.style.display = 'none';
+
+      const f2Casts = (V2 && typeof V2.casts === 'number') ? V2.casts : 0;
+      if (limitVal) {
+        limitVal.textContent = `${f2Casts} забросов (+1 / 10м)`;
+        limitVal.style.color = f2Casts > 0 ? '#38bdf8' : '#fbbf24';
+      }
+      if (limitBar) {
+        const pct = Math.min(100, Math.round((f2Casts / 10) * 100));
+        limitBar.style.width = `${pct}%`;
+        limitBar.style.background = '#38bdf8';
+      }
+
+      if (lvlText && V2) {
+        const mlv = V2.mlvl || 1;
+        const mxp = V2.xp || 0;
+        lvlText.textContent = `${mlv} ур. (${mxp} xp)`;
+      }
+
+      if (S2.st === 'bite') {
+        if (stIcon) stIcon.textContent = '🐟⚡';
+        if (stText) { stText.textContent = 'КЛЮЁТ НА ОЗЕРЕ! ПОДСЕКАЙТЕ!'; stText.style.color = '#ef4444'; }
+        if (timeBadge) { timeBadge.textContent = 'КЛЁВ!'; timeBadge.style.color = '#ef4444'; timeBadge.style.background = 'rgba(239,68,68,0.2)'; }
+        if (biteAlert) biteAlert.style.display = 'flex';
+        if (badge) { badge.style.display = 'inline-block'; badge.style.background = '#ef4444'; badge.textContent = '!'; }
+      } else if (S2.st === 'fight') {
+        const F = S2.fish;
+        const fishName = (F && (F.n || F.id)) || 'Рыба';
+        const progPct = (F && F.need) ? Math.min(100, Math.round(((S2.prog || 0) / F.need) * 100)) : 50;
+        if (stIcon) stIcon.textContent = '⚡';
+        if (stText) { stText.textContent = `Вываживание: ${fishName} (${progPct}%)`; stText.style.color = '#eab308'; }
+        if (timeBadge) { timeBadge.textContent = `${Math.round((S2.T || 0.5) * 100)}%`; timeBadge.style.color = '#eab308'; timeBadge.style.background = 'rgba(234,179,8,0.2)'; }
+        if (biteAlert) biteAlert.style.display = 'none';
+        if (badge) badge.style.display = 'none';
+      } else if (S2.st === 'wait') {
+        if (stIcon) stIcon.textContent = '👀';
+        if (stText) { stText.textContent = 'Поплавок в воде — ждём поклёвку...'; stText.style.color = '#38bdf8'; }
+        if (timeBadge) { timeBadge.textContent = 'ЖДЁМ'; timeBadge.style.color = '#38bdf8'; timeBadge.style.background = 'rgba(56,189,248,0.15)'; }
+        if (biteAlert) biteAlert.style.display = 'none';
+        if (badge) badge.style.display = 'none';
+      } else if (S2.st === 'aim') {
+        if (stIcon) stIcon.textContent = '🎯';
+        if (stText) { stText.textContent = `Замах удочки: ${Math.round((S2.power || 0) * 100)}%`; stText.style.color = '#a855f7'; }
+        if (timeBadge) { timeBadge.textContent = `${Math.round((S2.power || 0) * 100)}%`; timeBadge.style.color = '#a855f7'; timeBadge.style.background = 'rgba(168,85,247,0.15)'; }
+        if (biteAlert) biteAlert.style.display = 'none';
+        if (badge) badge.style.display = 'none';
+      } else {
+        if (stIcon) stIcon.textContent = '💤';
+        if (stText) { stText.textContent = `Удочка в руках (Свободен) · ${f2Casts} забр.`; stText.style.color = '#94a3b8'; }
+        if (timeBadge) { timeBadge.textContent = '--:--'; timeBadge.style.color = '#94a3b8'; timeBadge.style.background = 'rgba(255,255,255,0.05)'; }
+        if (biteAlert) biteAlert.style.display = 'none';
+        if (badge) badge.style.display = 'none';
+      }
+
+      // Садок на озере
+      const bag = (V2 && Array.isArray(V2.bag)) ? V2.bag : [];
+      if (bagVal) {
+        const val = bag.reduce((sum, item) => sum + (+item.price || +item.p || 0), 0);
+        bagVal.textContent = val > 0 ? `≈ ${val} монет (${bag.length} шт.)` : (bag.length ? `${bag.length} шт.` : '0 монет');
+      }
+      if (bagList) {
+        if (!bag.length) {
+          bagList.innerHTML = '<div style="color:#64748b;font-style:italic;">Садок на озере пуст.</div>';
+        } else {
+          bagList.innerHTML = bag.map(item => {
+            const n = item.n || item.name || item.id || 'Рыба';
+            const kg = item.kg ? ` (${item.kg} кг)` : '';
+            const p = (item.price || item.p) ? `+${item.price || item.p} 🪙` : '';
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;border-bottom:1px solid #231f38;">
+              <span style="color:#cbd5e1;">🐟 ${n} <small style="color:#64748b;">${kg}</small></span>
+              <b style="color:#38bdf8;">${p}</b>
+            </div>`;
+          }).join('');
+        }
+      }
+
+      if (btnCast) {
+        btnCast.disabled = (S2.st !== 'idle') || f2Casts <= 0;
+        btnCast.style.opacity = btnCast.disabled ? '0.45' : '1';
+        btnCast.style.cursor = btnCast.disabled ? 'not-allowed' : 'pointer';
+      }
+      if (btnHook) {
+        btnHook.disabled = (S2.st !== 'bite');
+        btnHook.style.background = (S2.st === 'bite') ? '#ef4444' : '#262238';
+        btnHook.style.color = (S2.st === 'bite') ? '#fff' : '#94a3b8';
+        btnHook.style.cursor = (S2.st === 'bite') ? 'pointer' : 'not-allowed';
+      }
+      if (btnStop) {
+        btnStop.disabled = true;
+        btnStop.style.opacity = '0.45';
+        btnStop.style.cursor = 'not-allowed';
+      }
+      if (btnSell) {
+        btnSell.disabled = !bag.length;
+        btnSell.style.opacity = btnSell.disabled ? '0.45' : '1';
+        btnSell.style.cursor = btnSell.disabled ? 'not-allowed' : 'pointer';
+      }
+      return;
+    }
+
+    // РЕЖИМ 2: ПАССИВНОЕ РЕМЕСЛО ГОРОДА (craft.js)
     // Текущий город и наличие водоёма
     const { here, pls, dry, dryHere, atHere, noGo } = getFishingWaterStatus();
-    const btnTravel = tab.querySelector('#b-fish-act-travel');
     const curObj = pls.find(x => x.id === here) || pls[0];
 
     if (locName) {
@@ -12853,6 +13084,20 @@
     const m = getFishData();
     const t = Date.now();
 
+    // Сброс флага блокировки пассивного ремесла при смене города
+    const curTown = getHeroCurrentTown();
+    if (curTown !== lastObservedTown) {
+      lastObservedTown = curTown;
+      passiveCraftBlockedHere = false;
+    }
+
+    // Если открыто интерактивное озеро (LGFish2) - активная рыбалка идёт там
+    const isLakeActive = Boolean(typeof window !== 'undefined' && window.LGFish2 && window.LGFish2.on);
+    if (isLakeActive) {
+      updateFishingUI();
+      return; // СТРОГО ВЫХОДИМ! На озере работает tickFish2Loop
+    }
+
     // Фоновый поллинг данных героя раз в 45 сек, если данных нет
     if (!m && t - lastFishMePollAt > 45000) {
       lastFishMePollAt = t;
@@ -12907,6 +13152,14 @@
 
     // 3. АВТО-ЗАБРОС УДОЧКИ ПРИ ПРОСТОЕ
     if (fishSettings.autoCast && st === 'idle' && !capReached && (t - lastFishActionAt > 6000)) {
+      if (passiveCraftBlockedHere) {
+        if (t - lastDryWarnAt > 60000) {
+          lastDryWarnAt = t;
+          addFishLog('ℹ️ В текущем городе пассивное ремесло (20 мин) отключено сервером. Нажмите «Озеро игры» для ловли рыбы!', '#38bdf8');
+        }
+        return;
+      }
+
       const { here, pls, dryHere, atHere, noGo } = getFishingWaterStatus();
 
       if (dryHere || (here && !atHere) || noGo) {
@@ -12936,7 +13189,12 @@
         const msg = (r.x && r.x.t) ? r.x.t : `Удочка заброшена на ${m.len || 20} мин!`;
         addFishLog(`✅ ${msg}`, '#22c55e');
       } else {
-        addFishLog(`⚠️ Не удалось забросить удочку: ${(r && r.error) || 'ошибка'}`, '#f87171');
+        if (r && r.error && r.error.includes('ремесло только в своих городах')) {
+          passiveCraftBlockedHere = true;
+          addFishLog(`ℹ️ На Ярмарке пассивное ремесло (20 мин) отключено сервером. Для ловли рыбы нажмите «Озеро игры» — там рыбалка доступна всем!`, '#38bdf8');
+        } else {
+          addFishLog(`⚠️ Не удалось забросить удочку: ${(r && r.error) || 'ошибка'}`, '#f87171');
+        }
       }
       return;
     }
@@ -13028,6 +13286,31 @@
 
     if (btnCast) {
       btnCast.onclick = async () => {
+        const F2 = (typeof window !== 'undefined' && window.LGFish2 && window.LGFish2.on) ? window.LGFish2 : null;
+        const S2 = F2 ? F2._S : null;
+        if (F2 && S2) {
+          if (S2.st === 'idle') {
+            addFishLog('🎣 Замахиваемся удочкой на озере...', '#38bdf8');
+            window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
+            const aimStart = Date.now();
+            const aimInterval = setInterval(() => {
+              if (!F2.on || S2.st !== 'aim' || Date.now() - aimStart > 1200) {
+                clearInterval(aimInterval);
+                window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
+                return;
+              }
+              if (S2.power >= 0.6) {
+                clearInterval(aimInterval);
+                window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
+                addFishLog(`🌊 Удочка заброшена в озеро (сила ${Math.round(S2.power * 100)}%)!`, '#22c55e');
+              }
+            }, 30);
+          } else {
+            addFishLog(`ℹ️ На озере удочка уже в процессе ловли (статус: ${S2.st})`, '#94a3b8');
+          }
+          return;
+        }
+
         const m = getFishData();
         const { here, pls, dryHere, atHere, noGo } = getFishingWaterStatus();
         if (dryHere || (here && !atHere) || noGo) {
@@ -13044,6 +13327,21 @@
     }
 
     const hookHandler = async () => {
+      const F2 = (typeof window !== 'undefined' && window.LGFish2 && window.LGFish2.on) ? window.LGFish2 : null;
+      const S2 = F2 ? F2._S : null;
+      if (F2 && S2) {
+        if (S2.st === 'bite') {
+          addFishLog('🐟⚡ Подсекаем рыбу на озере...', '#fbbf24');
+          window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
+          setTimeout(() => {
+            window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
+          }, 80);
+        } else {
+          addFishLog('ℹ️ Сейчас на озере нет поклёвки', '#94a3b8');
+        }
+        return;
+      }
+
       addFishLog('⚡ Подсекаем рыбу («Подсечь!»)...', '#fbbf24');
       const r = await sendFishAction('craftAct');
       if (r && r.ok) addFishLog(`✨ ${(r.x && r.x.t) || 'Поклёвка подсечена!'}`, '#22c55e');
@@ -13063,6 +13361,27 @@
 
     if (btnSell) {
       btnSell.onclick = async () => {
+        const F2 = (typeof window !== 'undefined' && window.LGFish2 && window.LGFish2.on) ? window.LGFish2 : null;
+        if (F2) {
+          addFishLog('💰 Продаём улов с озера Рыбаку Сому...', '#38bdf8');
+          try {
+            const sellBtn = document.querySelector('#fish2 [data-i="mBag"] #sell') || document.querySelector('#sell');
+            if (sellBtn && !sellBtn.disabled) {
+              sellBtn.click();
+              addFishLog('💵 Улов с озера успешно продан!', '#22c55e');
+            } else {
+              const bBag = document.querySelector('#bBag') || document.querySelector('[data-i="bBag"]');
+              if (bBag) bBag.click();
+              setTimeout(() => {
+                const sBtn = document.querySelector('#sell');
+                if (sBtn) sBtn.click();
+                addFishLog('💵 Улов с озера успешно продан!', '#22c55e');
+              }, 300);
+            }
+          } catch (e) {}
+          return;
+        }
+
         addFishLog('💰 Продаём улов Рыбаку Сому...', '#fbbf24');
         const r = await sendFishAction('craftSell');
         if (r && r.ok) addFishLog(`💵 ${(r.x && r.x.t) || 'Улов успешно продан!'}`, '#22c55e');
@@ -13113,6 +13432,7 @@
 
     updateFishingUI();
     setInterval(checkFishingAutomationStep, 1500);
+    setInterval(tickFish2Loop, 50);
   }
 
   // =========================================================================
