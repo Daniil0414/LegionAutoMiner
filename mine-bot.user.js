@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.2.0
+// @version      9.2.1
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.2.0';
+  const BOT_VERSION = '9.2.1';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -3100,12 +3100,17 @@
               <input type="checkbox" id="b-fish-sound" style="cursor:pointer;accent-color:#0ea5e9;">
               <span>🔔 Звуковое оповещение при клёве</span>
             </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;" title="Если в текущем городе нет воды, автоматически перемещается в город у воды (например, Рябиненя)">
+              <input type="checkbox" id="b-fish-auto-travel" style="cursor:pointer;accent-color:#0ea5e9;">
+              <span>🌊 Авто-переход к воде (если сухо)</span>
+            </label>
           </div>
         </div>
 
         <!-- Карточка 3: Быстрые действия -->
         <div style="background:#1a172e;border:1px solid #3d3759;border-radius:6px;padding:8px;margin-bottom:8px;">
           <div style="font-size:10.5px;font-weight:bold;color:#94a3b8;margin-bottom:6px;">⚡ Быстрые действия</div>
+          <button id="b-fish-act-travel" style="display:none;width:100%;margin-bottom:5px;background:#0284c7;color:#fff;border:none;border-radius:4px;padding:5px;font-size:10px;font-weight:bold;cursor:pointer;" title="Переместиться в город с водоёмом">🌊 Перейти к воде</button>
           <div style="display:flex;gap:4px;margin-bottom:5px;">
             <button id="b-fish-act-cast" style="flex:1;background:#0284c7;color:#fff;border:none;border-radius:4px;padding:5px;font-size:10px;font-weight:bold;cursor:pointer;" title="Забросить удочку на 20 мин">🎣 Забросить</button>
             <button id="b-fish-act-hook" style="flex:1;background:#262238;color:#94a3b8;border:1px solid #3d3759;border-radius:4px;padding:5px;font-size:10px;font-weight:bold;cursor:pointer;" title="Подсечь клюющую рыбу" disabled>⚡ Подсечь!</button>
@@ -12490,8 +12495,68 @@
     autoHook: localStorage.getItem('lg_bot_fish_hook') !== 'false',
     autoCast: localStorage.getItem('lg_bot_fish_cast') !== 'false',
     autoSell: localStorage.getItem('lg_bot_fish_sell') === 'true',
+    autoTravel: localStorage.getItem('lg_bot_fish_autotravel') !== 'false',
     sound: localStorage.getItem('lg_bot_fish_sound') !== 'false'
   };
+
+  function getHeroCurrentTown() {
+    try {
+      if (typeof window !== 'undefined' && window.LGCity) {
+        if (typeof window.LGCity.here === 'function') {
+          const h = window.LGCity.here();
+          if (h) return String(h);
+        }
+        if (typeof window.LGCity.where === 'function') {
+          const w = window.LGCity.where();
+          if (w && w.id) return String(w.id);
+        }
+      }
+      if (G.__lgCityContext) {
+        if (typeof G.__lgCityContext.here === 'function') {
+          const h = G.__lgCityContext.here();
+          if (h) return String(h);
+        }
+        if (typeof G.__lgCityContext.where === 'function') {
+          const w = G.__lgCityContext.where();
+          if (w && w.id) return String(w.id);
+        }
+      }
+      if (G.__lgCityState?.town) return String(G.__lgCityState.town);
+    } catch (e) {}
+    return String((G.ME?.hero?.tw) || (G.ME?.hero?.town) || '');
+  }
+
+  function getFishingWaterStatus() {
+    const m = getFishData();
+    const here = getHeroCurrentTown();
+    const pls = (m && Array.isArray(m.pl)) ? m.pl : [];
+    const dry = (m && Array.isArray(m.dry)) ? m.dry : [];
+
+    const dryHere = Boolean(here && dry.some(x => x.id === here));
+    const atHere = Boolean(here && pls.some(x => x.id === here));
+    const noGo = dryHere || (here && !atHere && dry.length > 0) || (!pls.length);
+
+    return { here, pls, dry, dryHere, atHere, noGo };
+  }
+
+  function travelToWaterCity() {
+    const { pls } = getFishingWaterStatus();
+    if (!pls.length) return false;
+    const targetTown = pls[0].id;
+    try {
+      if (typeof window !== 'undefined' && window.LGCity) {
+        if (typeof window.LGCity.leftTo === 'function') {
+          window.LGCity.leftTo(targetTown);
+          return true;
+        }
+        if (typeof window.LGCity.town === 'function') {
+          window.LGCity.town(targetTown);
+          return true;
+        }
+      }
+    } catch (e) {}
+    return false;
+  }
 
   const FISH_LOG_MAX = 50;
   const fishLogs = [];
@@ -12629,15 +12694,28 @@
     const btnStop = tab.querySelector('#b-fish-act-stop');
     const btnSell = tab.querySelector('#b-fish-act-sell');
 
-    // Текущий город
-    const currentTown = (G.__lgCityContext && typeof G.__lgCityContext.town === 'function' && G.__lgCityContext.town()) || G.ME?.hero?.town || '';
-    const pls = (m && Array.isArray(m.pl)) ? m.pl : [];
-    const dry = (m && Array.isArray(m.dry)) ? m.dry : [];
-    const isDryTown = Boolean(currentTown && dry.some(x => x.id === currentTown));
-    const activePlaceObj = pls.find(x => x.id === (m && m.c ? m.c : currentTown)) || pls[0];
+    // Текущий город и наличие водоёма
+    const { here, pls, dry, dryHere, atHere, noGo } = getFishingWaterStatus();
+    const btnTravel = tab.querySelector('#b-fish-act-travel');
+    const curObj = pls.find(x => x.id === here) || pls[0];
+
     if (locName) {
-      locName.textContent = activePlaceObj?.nm || (isDryTown ? 'Суша (нет воды)' : currentTown || 'Причал');
-      locName.style.color = isDryTown ? '#ef4444' : '#e2e8f0';
+      if (dryHere || (here && !atHere)) {
+        locName.textContent = 'Суша (нет воды)';
+        locName.style.color = '#ef4444';
+      } else {
+        locName.textContent = (curObj && curObj.nm) ? curObj.nm : (here || 'Причал');
+        locName.style.color = '#38bdf8';
+      }
+    }
+
+    if (btnTravel) {
+      if ((dryHere || (here && !atHere)) && pls.length > 0) {
+        btnTravel.style.display = 'block';
+        btnTravel.textContent = '🌊 Перейти к воде: ' + (pls[0].nm || pls[0].id);
+      } else {
+        btnTravel.style.display = 'none';
+      }
     }
 
     // Уровень и мастерство
@@ -12709,7 +12787,7 @@
           stText.textContent = 'Лимит на сегодня исчерпан';
           stText.style.color = '#fbbf24';
         }
-      } else if (isDryTown && !pls.length) {
+      } else if (dryHere || (here && !atHere) || !pls.length) {
         if (stIcon) stIcon.textContent = '🏜️';
         if (stText) {
           stText.textContent = 'В этом городе нет воды';
@@ -12748,7 +12826,7 @@
 
     // Состояние кнопок действий
     if (btnCast) {
-      btnCast.disabled = (st !== 'idle') || capReached || (isDryTown && !pls.length);
+      btnCast.disabled = (st !== 'idle') || capReached || noGo;
       btnCast.style.opacity = btnCast.disabled ? '0.45' : '1';
       btnCast.style.cursor = btnCast.disabled ? 'not-allowed' : 'pointer';
     }
@@ -12829,23 +12907,31 @@
 
     // 3. АВТО-ЗАБРОС УДОЧКИ ПРИ ПРОСТОЕ
     if (fishSettings.autoCast && st === 'idle' && !capReached && (t - lastFishActionAt > 6000)) {
-      const currentTown = (G.__lgCityContext && typeof G.__lgCityContext.town === 'function' && G.__lgCityContext.town()) || G.ME?.hero?.town || '';
-      const pls = Array.isArray(m.pl) ? m.pl : [];
-      const dry = Array.isArray(m.dry) ? m.dry : [];
-      const isDryTown = Boolean(currentTown && dry.some(x => x.id === currentTown));
+      const { here, pls, dryHere, atHere, noGo } = getFishingWaterStatus();
 
-      if (isDryTown && !pls.length) {
+      if (dryHere || (here && !atHere) || noGo) {
+        // Если в городе нет воды:
+        if (pls.length > 0 && fishSettings.autoTravel && (t - lastDryWarnAt > 20000)) {
+          lastDryWarnAt = t;
+          const target = pls[0];
+          addFishLog(`🌊 В текущем городе нет воды. Переходим в «${target.nm || target.id}» к воде...`, '#38bdf8');
+          travelToWaterCity();
+          return;
+        }
         if (t - lastDryWarnAt > 60000) {
           lastDryWarnAt = t;
-          addFishLog('🏜️ В текущем городе нет воды для рыбалки. Переместитесь к морю или озеру.', '#f87171');
+          const wetNames = pls.map(x => x.nm || x.id).join(', ');
+          addFishLog(`🏜️ В текущем городе нет воды для рыбалки. Перейдите в город у воды: ${wetNames}`, '#f87171');
         }
         return;
       }
 
-      // Выбираем водоём: текущий город если есть вода, иначе первый доступный
-      const chosenPlace = pls.some(x => x.id === currentTown) ? currentTown : (pls[0]?.id || '');
+      // ВАЖНО: Согласно craft.js (строка 107), когда герой в городе (here),
+      // параметр 'c' НЕ ПЕРЕДАЁТСЯ! Игра забрасывает удочку в текущем городе героя.
+      // Передача чужого или принудительного 'c' вызывает ошибку сервера: «рыбачат в городе, где ты сейчас».
+      const craftBody = (!here && pls.length > 1) ? { c: pls[0].id } : {};
       addFishLog(`🎣 Забрасываем удочку на ${m.len || 20} мин...`, '#38bdf8');
-      const r = await sendFishAction('craftGo', chosenPlace ? { c: chosenPlace } : {});
+      const r = await sendFishAction('craftGo', craftBody);
       if (r && r.ok) {
         const msg = (r.x && r.x.t) ? r.x.t : `Удочка заброшена на ${m.len || 20} мин!`;
         addFishLog(`✅ ${msg}`, '#22c55e');
@@ -12920,14 +13006,38 @@
     const btnQuickHook = tab.querySelector('#b-fish-quick-hook-btn');
     const btnClearLog = tab.querySelector('#b-fish-clear-log');
 
+    const toggleTravel = tab.querySelector('#b-fish-auto-travel');
+    if (toggleTravel) {
+      toggleTravel.checked = fishSettings.autoTravel;
+      toggleTravel.onchange = () => {
+        fishSettings.autoTravel = toggleTravel.checked;
+        localStorage.setItem('lg_bot_fish_autotravel', String(fishSettings.autoTravel));
+      };
+    }
+
+    const btnTravel = tab.querySelector('#b-fish-act-travel');
+    if (btnTravel) {
+      btnTravel.onclick = () => {
+        const { pls } = getFishingWaterStatus();
+        if (pls.length > 0) {
+          addFishLog(`🌊 Перемещаемся в «${pls[0].nm || pls[0].id}» к воде...`, '#38bdf8');
+          travelToWaterCity();
+        }
+      };
+    }
+
     if (btnCast) {
       btnCast.onclick = async () => {
         const m = getFishData();
-        const currentTown = (G.__lgCityContext && typeof G.__lgCityContext.town === 'function' && G.__lgCityContext.town()) || G.ME?.hero?.town || '';
-        const pls = Array.isArray(m?.pl) ? m.pl : [];
-        const chosenPlace = pls.some(x => x.id === currentTown) ? currentTown : (pls[0]?.id || '');
+        const { here, pls, dryHere, atHere, noGo } = getFishingWaterStatus();
+        if (dryHere || (here && !atHere) || noGo) {
+          const wetNames = pls.map(x => x.nm || x.id).join(', ');
+          addFishLog(`🏜️ В текущем городе нет воды. Перейдите в город у воды: ${wetNames}`, '#f87171');
+          return;
+        }
         addFishLog('🎣 Ручной заброс удочки...', '#38bdf8');
-        const r = await sendFishAction('craftGo', chosenPlace ? { c: chosenPlace } : {});
+        const craftBody = (!here && pls.length > 1) ? { c: pls[0].id } : {};
+        const r = await sendFishAction('craftGo', craftBody);
         if (r && r.ok) addFishLog(`✅ ${(r.x && r.x.t) || 'Удочка успешно заброшена!'}`, '#22c55e');
         else addFishLog(`⚠️ Ошибка заброса: ${(r && r.error) || 'не вышло'}`, '#f87171');
       };
