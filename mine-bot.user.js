@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.1.44
+// @version      9.2.0
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.1.44';
+  const BOT_VERSION = '9.2.0';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -2522,6 +2522,10 @@
           <span>⚔️ Поход</span>
           <span id="b-quest-badge" style="display:none;background:#e11d48;color:#fff;border-radius:8px;padding:0 3px;font-size:8px;font-weight:bold;line-height:12px;">!</span>
         </button>
+        <button id="b-tab-btn-fish" style="flex:1;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Авторыбалка: авто-заброс, авто-подсечка при клёве, продажа улова Рыбаку Сому">
+          <span>🎣 Рыбалка</span>
+          <span id="b-fish-badge" style="display:none;background:#0ea5e9;color:#fff;border-radius:8px;padding:0 3px;font-size:8px;font-weight:bold;line-height:12px;">!</span>
+        </button>
       </div>
 
       <!-- Контейнер вкладки: Шахта -->
@@ -3031,6 +3035,107 @@
             <button id="b-quest-clear-log" style="padding:1px 6px;background:#262238;color:#ef4444;border:1px solid #3d3759;border-radius:3px;cursor:pointer;font-size:9px;" title="Очистить журнал">🗑️</button>
           </div>
           <div id="b-quest-log-list" style="max-height:130px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;font-size:10px;color:#cbd5e1;padding-right:2px;">
+            <div style="color:#64748b;font-style:italic;">Журнал пуст</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Контейнер вкладки: Авторыбалка -->
+      <div id="b-tab-fish" style="display:none;">
+        <!-- Карточка 1: Живой статус рыбалки -->
+        <div style="background:#1a172e;border:1px solid #3d3759;border-radius:6px;padding:8px;margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <div style="display:flex;align-items:center;gap:5px;overflow:hidden;">
+              <span id="b-fish-status-icon" style="font-size:16px;flex-shrink:0;">🎣</span>
+              <span id="b-fish-status-text" style="font-weight:bold;color:#38bdf8;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Удочка смотана</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
+              <span id="b-fish-time-badge" style="font-size:9.5px;font-weight:bold;color:#fbbf24;background:rgba(251,191,36,0.1);padding:1px 6px;border-radius:4px;border:1px solid rgba(251,191,36,0.25);">--:--</span>
+            </div>
+          </div>
+          <!-- Индикатор клёва (активен при поклёвке) -->
+          <div id="b-fish-bite-alert" style="display:none;margin-bottom:6px;padding:6px 8px;background:rgba(239,68,68,0.2);border:1px solid #ef4444;border-radius:5px;font-size:11px;color:#fecdd3;align-items:center;justify-content:space-between;">
+            <span style="font-weight:bold;">🐟⚡ КЛЮЁТ КРУПНАЯ РЫБА!</span>
+            <button id="b-fish-quick-hook-btn" style="background:#ef4444;color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:bold;cursor:pointer;">Подсечь!</button>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#94a3b8;padding-top:4px;border-top:1px dashed #2e284a;">
+            <span id="b-fish-location">Причал: <b id="b-fish-loc-name" style="color:#e2e8f0;">—</b></span>
+            <span id="b-fish-skill">Мастерство: <b id="b-fish-lvl" style="color:#a78bfa;">1 ур.</b></span>
+          </div>
+          <!-- Дневной лимит -->
+          <div style="margin-top:6px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:#94a3b8;margin-bottom:2px;">
+              <span>Дневной лимит (сброс в 05:00 МСК):</span>
+              <span id="b-fish-limit-val" style="font-weight:bold;color:#cbd5e1;">0 / 120 мин</span>
+            </div>
+            <div style="background:#262238;height:5px;border-radius:3px;overflow:hidden;border:1px solid #3d3759;">
+              <div id="b-fish-limit-bar" style="background:#0ea5e9;height:100%;width:0%;transition:width 0.3s;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Карточка 2: Настройки автоматизации -->
+        <div style="background:#1a172e;border:1px solid #3d3759;border-radius:6px;padding:8px;margin-bottom:8px;">
+          <div style="font-size:10.5px;font-weight:bold;color:#94a3b8;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+            <span>⚙️ Автоматизация рыбалки</span>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:10px;color:#38bdf8;font-weight:bold;">
+              <input type="checkbox" id="b-fish-auto-toggle" style="cursor:pointer;accent-color:#0ea5e9;">
+              <span>ВКЛ</span>
+            </label>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:5px;font-size:10px;color:#cbd5e1;">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;" title="Автоматически нажимает «Подсечь!», когда поплавок ныряет (90 сек окно), для редкого улова (янтарь, жемчуг)">
+              <input type="checkbox" id="b-fish-auto-hook" style="cursor:pointer;accent-color:#0ea5e9;">
+              <span>🎣 Авто-подсечка при клёве (редкий улов)</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;" title="Автоматически забрасывает удочку на 20 мин, когда она смотана, пока не исчерпан суточный лимит">
+              <input type="checkbox" id="b-fish-auto-cast" style="cursor:pointer;accent-color:#0ea5e9;">
+              <span>🔄 Авто-заброс удочки при простое</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;" title="Автоматически продаёт улов Рыбаку Сому при смотанной удочке или окончании лимита">
+              <input type="checkbox" id="b-fish-auto-sell" style="cursor:pointer;accent-color:#0ea5e9;">
+              <span>💰 Авто-продажа улова Рыбаку Сому</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;" title="Воспроизводить звуковой сигнал при поклёвке">
+              <input type="checkbox" id="b-fish-sound" style="cursor:pointer;accent-color:#0ea5e9;">
+              <span>🔔 Звуковое оповещение при клёве</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Карточка 3: Быстрые действия -->
+        <div style="background:#1a172e;border:1px solid #3d3759;border-radius:6px;padding:8px;margin-bottom:8px;">
+          <div style="font-size:10.5px;font-weight:bold;color:#94a3b8;margin-bottom:6px;">⚡ Быстрые действия</div>
+          <div style="display:flex;gap:4px;margin-bottom:5px;">
+            <button id="b-fish-act-cast" style="flex:1;background:#0284c7;color:#fff;border:none;border-radius:4px;padding:5px;font-size:10px;font-weight:bold;cursor:pointer;" title="Забросить удочку на 20 мин">🎣 Забросить</button>
+            <button id="b-fish-act-hook" style="flex:1;background:#262238;color:#94a3b8;border:1px solid #3d3759;border-radius:4px;padding:5px;font-size:10px;font-weight:bold;cursor:pointer;" title="Подсечь клюющую рыбу" disabled>⚡ Подсечь!</button>
+            <button id="b-fish-act-stop" style="flex:1;background:#262238;color:#ef4444;border:1px solid #3d3759;border-radius:4px;padding:5px;font-size:10px;font-weight:bold;cursor:pointer;" title="Смотать удочку">🛑 Смотать</button>
+          </div>
+          <div style="display:flex;gap:4px;">
+            <button id="b-fish-act-sell" style="flex:1;background:#16a34a;color:#fff;border:none;border-radius:4px;padding:5px;font-size:10px;font-weight:bold;cursor:pointer;" title="Продать весь улов Рыбаку Сому">💰 Продать улов</button>
+            <button id="b-fish-act-pond" style="flex:1;background:#312e81;color:#c7d2fe;border:1px solid #4338ca;border-radius:4px;padding:5px;font-size:10px;font-weight:bold;cursor:pointer;" title="Открыть нативное окно рыбалки игры">🌊 Озеро игры</button>
+            <button id="b-fish-act-refresh" style="background:#262238;color:#94a3b8;border:1px solid #3d3759;border-radius:4px;padding:5px 8px;font-size:10px;cursor:pointer;" title="Обновить статус">🔄</button>
+          </div>
+        </div>
+
+        <!-- Карточка 4: Садок / Улов в сумке -->
+        <div style="background:#1a172e;border:1px solid #3d3759;border-radius:6px;padding:8px;margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="font-size:10.5px;font-weight:bold;color:#94a3b8;">🧺 Садок (улов в сумке)</span>
+            <span id="b-fish-bag-val" style="font-size:10px;font-weight:bold;color:#fbbf24;">≈ 0 монет</span>
+          </div>
+          <div id="b-fish-bag-list" style="max-height:100px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;font-size:10px;color:#cbd5e1;padding-right:2px;">
+            <div style="color:#64748b;font-style:italic;">Садок пуст. Забросьте удочку!</div>
+          </div>
+        </div>
+
+        <!-- Карточка 5: Журнал рыбалки -->
+        <div style="background:#1a172e;border:1px solid #3d3759;border-radius:6px;padding:8px;margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+            <span style="font-size:10.5px;font-weight:bold;color:#94a3b8;">📜 Журнал рыбалки</span>
+            <button id="b-fish-clear-log" style="padding:1px 6px;background:#262238;color:#ef4444;border:1px solid #3d3759;border-radius:3px;cursor:pointer;font-size:9px;" title="Очистить журнал">🗑️</button>
+          </div>
+          <div id="b-fish-log-list" style="max-height:120px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;font-size:10px;color:#cbd5e1;padding-right:2px;">
             <div style="color:#64748b;font-style:italic;">Журнал пуст</div>
           </div>
         </div>
@@ -3727,9 +3832,10 @@
   // Элементы вкладок
   const tabBtnMine = w.querySelector('#b-tab-btn-mine'), tabBtnMarket = w.querySelector('#b-tab-btn-market');
   const mineClaimBtn = w.querySelector('#b-mine-claim-btn');
-  const tabBtnPlayers = w.querySelector('#b-tab-btn-players'), tabBtnCity = w.querySelector('#b-tab-btn-city'), tabBtnQuest = w.querySelector('#b-tab-btn-quest');
+  const tabBtnPlayers = w.querySelector('#b-tab-btn-players'), tabBtnCity = w.querySelector('#b-tab-btn-city'), tabBtnQuest = w.querySelector('#b-tab-btn-quest'), tabBtnFish = w.querySelector('#b-tab-btn-fish');
   const tabMine = w.querySelector('#b-tab-mine'), tabMarket = w.querySelector('#b-tab-market');
-  const tabPlayers = w.querySelector('#b-tab-players'), tabCity = w.querySelector('#b-tab-city'), tabQuest = w.querySelector('#b-tab-quest');
+  const tabPlayers = w.querySelector('#b-tab-players'), tabCity = w.querySelector('#b-tab-city'), tabQuest = w.querySelector('#b-tab-quest'), tabFish = w.querySelector('#b-tab-fish');
+  const fishBadge = w.querySelector('#b-fish-badge');
   const aucBadge = w.querySelector('#b-auc-badge'), aucList = w.querySelector('#b-auc-list');
   const questBadge = w.querySelector('#b-quest-badge');
   const aucRefresh = w.querySelector('#b-auc-refresh'), aucFilter = w.querySelector('#b-auc-filter');
@@ -3774,14 +3880,14 @@
   if (activeTab === 'settings' || activeTab === 'priority' || activeTab === 'broadcast') activeTab = 'mine';
 
   function applyActiveTab() {
-    [tabBtnMine, tabBtnMarket, tabBtnPlayers, tabBtnCity, tabBtnQuest].forEach(btn => {
+    [tabBtnMine, tabBtnMarket, tabBtnPlayers, tabBtnCity, tabBtnQuest, tabBtnFish].forEach(btn => {
       if (btn) {
         btn.style.background = '#262238';
         btn.style.color = '#aaa';
         btn.style.border = '1px solid #3d3759';
       }
     });
-    [tabMine, tabMarket, tabPlayers, tabCity, tabQuest].forEach(t => {
+    [tabMine, tabMarket, tabPlayers, tabCity, tabQuest, tabFish].forEach(t => {
       if (t) t.style.display = 'none';
     });
 
@@ -3813,6 +3919,15 @@
       tabQuest.style.display = 'block';
       if (!isMinimized && !isSquare) w.style.minWidth = '310px';
       if (typeof refreshQuestUI === 'function') refreshQuestUI();
+    } else if (activeTab === 'fish') {
+      if (tabBtnFish) {
+        tabBtnFish.style.background = '#0ea5e9';
+        tabBtnFish.style.color = '#fff';
+        tabBtnFish.style.border = 'none';
+      }
+      if (tabFish) tabFish.style.display = 'block';
+      if (!isMinimized && !isSquare) w.style.minWidth = '310px';
+      if (typeof updateFishingUI === 'function') updateFishingUI();
     } else {
       activeTab = 'mine';
       tabBtnMine.style.background = '#28a745';
@@ -3830,6 +3945,7 @@
   tabBtnPlayers.onclick = () => { activeTab = 'players'; applyActiveTab(); };
   tabBtnCity.onclick = () => { activeTab = 'city'; applyActiveTab(); };
   tabBtnQuest.onclick = () => { activeTab = 'quest'; applyActiveTab(); };
+  if (tabBtnFish) tabBtnFish.onclick = () => { activeTab = 'fish'; applyActiveTab(); };
 
   // Открытие отдельного окна настройки руд по клику на «Настройка руд»
   const openPrioTabBtn = w.querySelector('#b-open-prio-tab');
@@ -12365,6 +12481,530 @@
     }
   }, true);
 
+
+  // =========================================================================
+  // 🎣 МОДУЛЬ АВТОРЫБАЛКИ (CRAFT FISHING & LGFISH2)
+  // =========================================================================
+  const fishSettings = {
+    enabled: localStorage.getItem('lg_bot_fish_enabled') === 'true',
+    autoHook: localStorage.getItem('lg_bot_fish_hook') !== 'false',
+    autoCast: localStorage.getItem('lg_bot_fish_cast') !== 'false',
+    autoSell: localStorage.getItem('lg_bot_fish_sell') === 'true',
+    sound: localStorage.getItem('lg_bot_fish_sound') !== 'false'
+  };
+
+  const FISH_LOG_MAX = 50;
+  const fishLogs = [];
+  let fishActionBusy = false;
+  let lastFishActionAt = 0;
+  let lastFishMePollAt = 0;
+  let lastDryWarnAt = 0;
+  let lastCapWarnAt = 0;
+
+  function getFishData() {
+    return (G.ME?.hero?.cr?.fish) ||
+      (typeof window !== 'undefined' && window.ME?.hero?.cr?.fish) ||
+      (G.__lgHero?.cr?.fish) ||
+      (typeof G.__lgCityContext?.hero === 'function' && G.__lgCityContext.hero()?.cr?.fish) ||
+      (typeof G.__lgQuestContext?.hero === 'function' && G.__lgQuestContext.hero()?.cr?.fish) ||
+      null;
+  }
+
+  function getFishState(m, t = Date.now()) {
+    if (!m) return 'idle';
+    if (m.bite && m.bite > t) return 'bite';
+    if (m.on && m.until > t) return 'on';
+    return 'idle';
+  }
+
+  function isFishCapReached(m) {
+    return Boolean(m && typeof m.cap === 'number' && typeof m.used === 'number' && m.used >= m.cap);
+  }
+
+  function getFishBagValue(m) {
+    if (!m || !m.bag) return 0;
+    const SH = 100;
+    return Object.entries(m.bag).reduce((acc, [k, v]) => {
+      const price = (m.pr && m.pr[k]) || 0;
+      return acc + ((+v || 0) * (+price || 0)) / (SH * SH);
+    }, 0);
+  }
+
+  function formatFishUnits(v) {
+    const SH = 100;
+    return String(+(Math.max(0, Math.floor(+v || 0)) / SH).toFixed(2)).replace('.', ',');
+  }
+
+  function formatTimeRemaining(ms) {
+    const s = Math.max(0, Math.ceil(ms / 1000));
+    const mins = Math.floor(s / 60);
+    const secs = s % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  }
+
+  function addFishLog(text, color = '#cbd5e1') {
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+    fishLogs.unshift({ time: timeStr, text, color });
+    if (fishLogs.length > FISH_LOG_MAX) fishLogs.pop();
+
+    const logList = document.querySelector('#b-fish-log-list');
+    if (logList) {
+      logList.innerHTML = fishLogs.map(l =>
+        `<div style="display:flex;gap:5px;line-height:1.35;"><span style="color:#64748b;flex-shrink:0;">[${l.time}]</span><span style="color:${l.color};word-break:break-word;">${l.text}</span></div>`
+      ).join('');
+    }
+  }
+
+  function playFishBiteSound() {
+    if (!fishSettings.sound) return;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext || G.AudioContext;
+      if (!AudioCtx) return;
+      const ctx = bgAudioCtx || new AudioCtx();
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.35);
+    } catch (e) {}
+  }
+
+  async function sendFishAction(op, extraBody = {}) {
+    if (fishActionBusy) return { ok: false, error: 'Действие уже выполняется' };
+    fishActionBusy = true;
+    lastFishActionAt = Date.now();
+    try {
+      const res = await gameApi('/api/' + op, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ k: 'fish', ...extraBody })
+      });
+
+      if (res && res.hero) {
+        if (G.ME) G.ME.hero = res.hero;
+        if (typeof window !== 'undefined' && window.ME) window.ME.hero = res.hero;
+      }
+      if (res && typeof window !== 'undefined' && window.LGCraft && typeof window.LGCraft.result === 'function') {
+        try { window.LGCraft.result(res); } catch (e) {}
+      }
+      return res;
+    } catch (err) {
+      return { ok: false, error: err?.message || 'Сетевая ошибка' };
+    } finally {
+      fishActionBusy = false;
+      updateFishingUI();
+    }
+  }
+
+  function updateFishingUI() {
+    const tab = document.querySelector('#b-tab-fish');
+    if (!tab) return;
+    const m = getFishData();
+    const t = Date.now();
+    const st = getFishState(m, t);
+    const capReached = isFishCapReached(m);
+
+    const stIcon = tab.querySelector('#b-fish-status-icon');
+    const stText = tab.querySelector('#b-fish-status-text');
+    const timeBadge = tab.querySelector('#b-fish-time-badge');
+    const biteAlert = tab.querySelector('#b-fish-bite-alert');
+    const badge = document.querySelector('#b-fish-badge');
+    const locName = tab.querySelector('#b-fish-loc-name');
+    const lvlText = tab.querySelector('#b-fish-lvl');
+    const limitVal = tab.querySelector('#b-fish-limit-val');
+    const limitBar = tab.querySelector('#b-fish-limit-bar');
+    const bagList = tab.querySelector('#b-fish-bag-list');
+    const bagVal = tab.querySelector('#b-fish-bag-val');
+
+    const btnCast = tab.querySelector('#b-fish-act-cast');
+    const btnHook = tab.querySelector('#b-fish-act-hook');
+    const btnStop = tab.querySelector('#b-fish-act-stop');
+    const btnSell = tab.querySelector('#b-fish-act-sell');
+
+    // Текущий город
+    const currentTown = (G.__lgCityContext && typeof G.__lgCityContext.town === 'function' && G.__lgCityContext.town()) || G.ME?.hero?.town || '';
+    const pls = (m && Array.isArray(m.pl)) ? m.pl : [];
+    const dry = (m && Array.isArray(m.dry)) ? m.dry : [];
+    const isDryTown = Boolean(currentTown && dry.some(x => x.id === currentTown));
+    const activePlaceObj = pls.find(x => x.id === (m && m.c ? m.c : currentTown)) || pls[0];
+    if (locName) {
+      locName.textContent = activePlaceObj?.nm || (isDryTown ? 'Суша (нет воды)' : currentTown || 'Причал');
+      locName.style.color = isDryTown ? '#ef4444' : '#e2e8f0';
+    }
+
+    // Уровень и мастерство
+    if (lvlText) {
+      const lvl = m?.lv || 1;
+      const xp = m?.xp || 0;
+      const need = m?.need || 0;
+      lvlText.textContent = `${lvl} ур.${need ? ` (${xp}/${need})` : ''}`;
+    }
+
+    // Дневной лимит
+    const usedMins = m?.used || 0;
+    const capMins = m?.cap || 120;
+    const pct = Math.min(100, Math.round((usedMins / capMins) * 100));
+    if (limitVal) {
+      limitVal.textContent = `${usedMins} / ${capMins} мин`;
+      limitVal.style.color = capReached ? '#fbbf24' : '#cbd5e1';
+    }
+    if (limitBar) {
+      limitBar.style.width = `${pct}%`;
+      limitBar.style.background = capReached ? '#fbbf24' : '#0ea5e9';
+    }
+
+    // Отображение состояния
+    if (st === 'bite') {
+      const rem = m.bite - t;
+      if (stIcon) stIcon.textContent = '🐟⚡';
+      if (stText) {
+        stText.textContent = 'КЛЮЁТ КРУПНАЯ РЫБА!';
+        stText.style.color = '#ef4444';
+      }
+      if (timeBadge) {
+        timeBadge.textContent = formatTimeRemaining(rem);
+        timeBadge.style.color = '#ef4444';
+        timeBadge.style.background = 'rgba(239,68,68,0.2)';
+      }
+      if (biteAlert) biteAlert.style.display = 'flex';
+      if (badge) {
+        badge.style.display = 'inline-block';
+        badge.style.background = '#ef4444';
+        badge.textContent = '!';
+      }
+    } else if (st === 'on') {
+      const rem = m.until - t;
+      if (stIcon) stIcon.textContent = '🎣';
+      if (stText) {
+        stText.textContent = 'Удочка заброшена — ловим...';
+        stText.style.color = '#38bdf8';
+      }
+      if (timeBadge) {
+        timeBadge.textContent = formatTimeRemaining(rem);
+        timeBadge.style.color = '#38bdf8';
+        timeBadge.style.background = 'rgba(56,189,248,0.15)';
+      }
+      if (biteAlert) biteAlert.style.display = 'none';
+      if (badge) badge.style.display = 'none';
+    } else {
+      // idle
+      if (biteAlert) biteAlert.style.display = 'none';
+      if (badge) badge.style.display = 'none';
+      if (timeBadge) {
+        timeBadge.textContent = '--:--';
+        timeBadge.style.color = '#94a3b8';
+        timeBadge.style.background = 'rgba(255,255,255,0.05)';
+      }
+      if (capReached) {
+        if (stIcon) stIcon.textContent = '🛑';
+        if (stText) {
+          stText.textContent = 'Лимит на сегодня исчерпан';
+          stText.style.color = '#fbbf24';
+        }
+      } else if (isDryTown && !pls.length) {
+        if (stIcon) stIcon.textContent = '🏜️';
+        if (stText) {
+          stText.textContent = 'В этом городе нет воды';
+          stText.style.color = '#ef4444';
+        }
+      } else {
+        if (stIcon) stIcon.textContent = '💤';
+        if (stText) {
+          stText.textContent = 'Удочка смотана (Свободен)';
+          stText.style.color = '#94a3b8';
+        }
+      }
+    }
+
+    // Содержимое садка (улов)
+    const bagEntries = Object.entries(m?.bag || {}).filter(([, v]) => +v > 0);
+    const totalGold = getFishBagValue(m);
+    if (bagVal) {
+      bagVal.textContent = totalGold >= 1 ? `≈ ${Math.floor(totalGold)} монет` : (bagEntries.length ? 'есть улов' : '0 монет');
+    }
+    if (bagList) {
+      if (!bagEntries.length) {
+        bagList.innerHTML = '<div style="color:#64748b;font-style:italic;">Садок пуст. Забросьте удочку!</div>';
+      } else {
+        bagList.innerHTML = bagEntries.map(([k, v]) => {
+          const humanName = (m.nm && m.nm[k]) || k;
+          const count = formatFishUnits(v);
+          const price = (m.pr && m.pr[k]) ? `(по ${formatFishUnits(m.pr[k])} м.)` : '';
+          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;border-bottom:1px solid #231f38;">
+            <span style="color:#cbd5e1;">🐟 ${humanName} <small style="color:#64748b;">${price}</small></span>
+            <b style="color:#38bdf8;">${count} шт.</b>
+          </div>`;
+        }).join('');
+      }
+    }
+
+    // Состояние кнопок действий
+    if (btnCast) {
+      btnCast.disabled = (st !== 'idle') || capReached || (isDryTown && !pls.length);
+      btnCast.style.opacity = btnCast.disabled ? '0.45' : '1';
+      btnCast.style.cursor = btnCast.disabled ? 'not-allowed' : 'pointer';
+    }
+    if (btnHook) {
+      btnHook.disabled = (st !== 'bite');
+      btnHook.style.background = (st === 'bite') ? '#ef4444' : '#262238';
+      btnHook.style.color = (st === 'bite') ? '#fff' : '#94a3b8';
+      btnHook.style.cursor = (st === 'bite') ? 'pointer' : 'not-allowed';
+    }
+    if (btnStop) {
+      btnStop.disabled = (st === 'idle');
+      btnStop.style.opacity = btnStop.disabled ? '0.45' : '1';
+      btnStop.style.cursor = btnStop.disabled ? 'not-allowed' : 'pointer';
+    }
+    if (btnSell) {
+      btnSell.disabled = !bagEntries.length;
+      btnSell.style.opacity = btnSell.disabled ? '0.45' : '1';
+      btnSell.style.cursor = btnSell.disabled ? 'not-allowed' : 'pointer';
+    }
+  }
+
+  async function checkFishingAutomationStep() {
+    if (botRuntime.stopped) return;
+    const m = getFishData();
+    const t = Date.now();
+
+    // Фоновый поллинг данных героя раз в 45 сек, если данных нет
+    if (!m && t - lastFishMePollAt > 45000) {
+      lastFishMePollAt = t;
+      try {
+        const meRes = await gameApi('/api/me');
+        if (meRes && meRes.hero) {
+          if (G.ME) G.ME.hero = meRes.hero;
+          if (typeof window !== 'undefined' && window.ME) window.ME.hero = meRes.hero;
+        }
+      } catch (e) {}
+    }
+
+    updateFishingUI();
+
+    // Если авторыбалка выключена - выходим
+    if (!fishSettings.enabled) return;
+    if (fishActionBusy) return;
+    if (!m) return;
+
+    const st = getFishState(m, t);
+    const capReached = isFishCapReached(m);
+    const bagEntries = Object.entries(m.bag || {}).filter(([, v]) => +v > 0);
+
+    // 1. АВТО-ПОДСЕЧКА ПРИ КЛЁВЕ (Редкий улов: янтарь, жемчуг)
+    if (st === 'bite' && fishSettings.autoHook) {
+      if (t - lastFishActionAt > 3000) {
+        playFishBiteSound();
+        addFishLog('🐟⚡ Поклёвка крупной рыбы! Выполняем авто-подсечку («Подсечь!»)...', '#fbbf24');
+        const r = await sendFishAction('craftAct');
+        if (r && r.ok) {
+          const prize = (r.x && r.x.t) ? `: ${r.x.t}` : '!';
+          addFishLog(`✨ Успешная подсечка${prize}`, '#22c55e');
+        } else {
+          addFishLog(`⚠️ Подсечка не удалась: ${(r && r.error) || 'таймаут'}`, '#f87171');
+        }
+        return;
+      }
+    }
+
+    // 2. АВТО-ПРОДАЖА УЛОВА РЫБАКУ СОМУ (если включена и удочка смотана)
+    if (fishSettings.autoSell && st === 'idle' && bagEntries.length > 0 && (t - lastFishActionAt > 5000)) {
+      addFishLog('💰 Продаём улов Рыбаку Сому...', '#38bdf8');
+      const r = await sendFishAction('craftSell');
+      if (r && r.ok) {
+        const soldMsg = (r.x && r.x.t) ? r.x.t : 'Улов успешно продан Рыбаку Сому!';
+        addFishLog(`💵 ${soldMsg}`, '#22c55e');
+      } else {
+        addFishLog(`⚠️ Продажа не удалась: ${(r && r.error) || 'ошибка'}`, '#f87171');
+      }
+      return;
+    }
+
+    // 3. АВТО-ЗАБРОС УДОЧКИ ПРИ ПРОСТОЕ
+    if (fishSettings.autoCast && st === 'idle' && !capReached && (t - lastFishActionAt > 6000)) {
+      const currentTown = (G.__lgCityContext && typeof G.__lgCityContext.town === 'function' && G.__lgCityContext.town()) || G.ME?.hero?.town || '';
+      const pls = Array.isArray(m.pl) ? m.pl : [];
+      const dry = Array.isArray(m.dry) ? m.dry : [];
+      const isDryTown = Boolean(currentTown && dry.some(x => x.id === currentTown));
+
+      if (isDryTown && !pls.length) {
+        if (t - lastDryWarnAt > 60000) {
+          lastDryWarnAt = t;
+          addFishLog('🏜️ В текущем городе нет воды для рыбалки. Переместитесь к морю или озеру.', '#f87171');
+        }
+        return;
+      }
+
+      // Выбираем водоём: текущий город если есть вода, иначе первый доступный
+      const chosenPlace = pls.some(x => x.id === currentTown) ? currentTown : (pls[0]?.id || '');
+      addFishLog(`🎣 Забрасываем удочку на ${m.len || 20} мин...`, '#38bdf8');
+      const r = await sendFishAction('craftGo', chosenPlace ? { c: chosenPlace } : {});
+      if (r && r.ok) {
+        const msg = (r.x && r.x.t) ? r.x.t : `Удочка заброшена на ${m.len || 20} мин!`;
+        addFishLog(`✅ ${msg}`, '#22c55e');
+      } else {
+        addFishLog(`⚠️ Не удалось забросить удочку: ${(r && r.error) || 'ошибка'}`, '#f87171');
+      }
+      return;
+    }
+
+    // Предупреждение о лимите (раз в 5 минут)
+    if (capReached && t - lastCapWarnAt > 300000) {
+      lastCapWarnAt = t;
+      addFishLog(`🛑 Дневной лимит рыбалки (${m.used}/${m.cap} мин) исчерпан. Сброс в 05:00 МСК.`, '#fbbf24');
+    }
+  }
+
+  function initFishingAutomation() {
+    const tab = document.querySelector('#b-tab-fish');
+    if (!tab) return;
+
+    // Чекбоксы настроек
+    const toggleAuto = tab.querySelector('#b-fish-auto-toggle');
+    const toggleHook = tab.querySelector('#b-fish-auto-hook');
+    const toggleCast = tab.querySelector('#b-fish-auto-cast');
+    const toggleSell = tab.querySelector('#b-fish-auto-sell');
+    const toggleSound = tab.querySelector('#b-fish-sound');
+
+    if (toggleAuto) {
+      toggleAuto.checked = fishSettings.enabled;
+      toggleAuto.onchange = () => {
+        fishSettings.enabled = toggleAuto.checked;
+        localStorage.setItem('lg_bot_fish_enabled', String(fishSettings.enabled));
+        addFishLog(fishSettings.enabled ? '🟢 Авторыбалка ВКЛЮЧЕНА' : '⚪ Авторыбалка ВЫКЛЮЧЕНА', fishSettings.enabled ? '#22c55e' : '#94a3b8');
+      };
+    }
+    if (toggleHook) {
+      toggleHook.checked = fishSettings.autoHook;
+      toggleHook.onchange = () => {
+        fishSettings.autoHook = toggleHook.checked;
+        localStorage.setItem('lg_bot_fish_hook', String(fishSettings.autoHook));
+      };
+    }
+    if (toggleCast) {
+      toggleCast.checked = fishSettings.autoCast;
+      toggleCast.onchange = () => {
+        fishSettings.autoCast = toggleCast.checked;
+        localStorage.setItem('lg_bot_fish_cast', String(fishSettings.autoCast));
+      };
+    }
+    if (toggleSell) {
+      toggleSell.checked = fishSettings.autoSell;
+      toggleSell.onchange = () => {
+        fishSettings.autoSell = toggleSell.checked;
+        localStorage.setItem('lg_bot_fish_sell', String(fishSettings.autoSell));
+      };
+    }
+    if (toggleSound) {
+      toggleSound.checked = fishSettings.sound;
+      toggleSound.onchange = () => {
+        fishSettings.sound = toggleSound.checked;
+        localStorage.setItem('lg_bot_fish_sound', String(fishSettings.sound));
+      };
+    }
+
+    // Кнопки быстрых действий
+    const btnCast = tab.querySelector('#b-fish-act-cast');
+    const btnHook = tab.querySelector('#b-fish-act-hook');
+    const btnStop = tab.querySelector('#b-fish-act-stop');
+    const btnSell = tab.querySelector('#b-fish-act-sell');
+    const btnPond = tab.querySelector('#b-fish-act-pond');
+    const btnRefresh = tab.querySelector('#b-fish-act-refresh');
+    const btnQuickHook = tab.querySelector('#b-fish-quick-hook-btn');
+    const btnClearLog = tab.querySelector('#b-fish-clear-log');
+
+    if (btnCast) {
+      btnCast.onclick = async () => {
+        const m = getFishData();
+        const currentTown = (G.__lgCityContext && typeof G.__lgCityContext.town === 'function' && G.__lgCityContext.town()) || G.ME?.hero?.town || '';
+        const pls = Array.isArray(m?.pl) ? m.pl : [];
+        const chosenPlace = pls.some(x => x.id === currentTown) ? currentTown : (pls[0]?.id || '');
+        addFishLog('🎣 Ручной заброс удочки...', '#38bdf8');
+        const r = await sendFishAction('craftGo', chosenPlace ? { c: chosenPlace } : {});
+        if (r && r.ok) addFishLog(`✅ ${(r.x && r.x.t) || 'Удочка успешно заброшена!'}`, '#22c55e');
+        else addFishLog(`⚠️ Ошибка заброса: ${(r && r.error) || 'не вышло'}`, '#f87171');
+      };
+    }
+
+    const hookHandler = async () => {
+      addFishLog('⚡ Подсекаем рыбу («Подсечь!»)...', '#fbbf24');
+      const r = await sendFishAction('craftAct');
+      if (r && r.ok) addFishLog(`✨ ${(r.x && r.x.t) || 'Поклёвка подсечена!'}`, '#22c55e');
+      else addFishLog(`⚠️ Ошибка подсечки: ${(r && r.error) || 'не вышло'}`, '#f87171');
+    };
+    if (btnHook) btnHook.onclick = hookHandler;
+    if (btnQuickHook) btnQuickHook.onclick = hookHandler;
+
+    if (btnStop) {
+      btnStop.onclick = async () => {
+        addFishLog('🛑 Сматываем удочку...', '#f87171');
+        const r = await sendFishAction('craftStop');
+        if (r && r.ok) addFishLog('✅ Удочка смотана.', '#cbd5e1');
+        else addFishLog(`⚠️ Ошибка сматывания: ${(r && r.error) || 'не вышло'}`, '#f87171');
+      };
+    }
+
+    if (btnSell) {
+      btnSell.onclick = async () => {
+        addFishLog('💰 Продаём улов Рыбаку Сому...', '#fbbf24');
+        const r = await sendFishAction('craftSell');
+        if (r && r.ok) addFishLog(`💵 ${(r.x && r.x.t) || 'Улов успешно продан!'}`, '#22c55e');
+        else addFishLog(`⚠️ Ошибка продажи: ${(r && r.error) || 'не вышло'}`, '#f87171');
+      };
+    }
+
+    if (btnPond) {
+      btnPond.onclick = () => {
+        if (typeof window !== 'undefined' && typeof window.LGOpenFish2 === 'function') {
+          window.LGOpenFish2();
+        } else if (typeof window !== 'undefined' && window.LGFish2 && typeof window.LGFish2.open === 'function') {
+          window.LGFish2.open(window.__lgContext || G.__lgCityContext || {});
+        } else if (typeof window !== 'undefined' && window.LGCraft && typeof window.LGCraft.open === 'function') {
+          window.LGCraft.open(window.__lgContext || G.__lgCityContext || {}, 'fish');
+        } else if (typeof window !== 'undefined' && window.LGCraft && typeof window.LGCraft.hub === 'function') {
+          window.LGCraft.hub(window.__lgContext || G.__lgCityContext || {});
+        } else {
+          addFishLog('ℹ️ Окно рыбалки игры недоступно в текущей локации.', '#94a3b8');
+        }
+      };
+    }
+
+    if (btnRefresh) {
+      btnRefresh.onclick = async () => {
+        addFishLog('🔄 Обновление данных рыбалки...', '#94a3b8');
+        try {
+          const r = await gameApi('/api/me');
+          if (r && r.hero) {
+            if (G.ME) G.ME.hero = r.hero;
+            if (typeof window !== 'undefined' && window.ME) window.ME.hero = r.hero;
+            addFishLog('✅ Данные обновлены с сервера.', '#22c55e');
+          }
+        } catch (e) {
+          addFishLog('⚠️ Не удалось обновить данные.', '#f87171');
+        }
+        updateFishingUI();
+      };
+    }
+
+    if (btnClearLog) {
+      btnClearLog.onclick = () => {
+        fishLogs.length = 0;
+        const logList = tab.querySelector('#b-fish-log-list');
+        if (logList) logList.innerHTML = '<div style="color:#64748b;font-style:italic;">Журнал пуст</div>';
+      };
+    }
+
+    updateFishingUI();
+    setInterval(checkFishingAutomationStep, 1500);
+  }
+
   // =========================================================================
   // 🎁 АВТО-ОТПРАВКА «МОНЕТЫ ДНЯ» ДРУЗЬЯМ (Friendcoin 29.10)
   // =========================================================================
@@ -12405,4 +13045,5 @@
   if (!isPaused) step();
   if (typeof scanPlayers === 'function') scanPlayers(true);
   if (typeof initQuestModule === 'function') initQuestModule();
+  if (typeof initFishingAutomation === 'function') initFishingAutomation();
 })();
