@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.3.0
+// @version      9.3.1
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.3.0';
+  const BOT_VERSION = '9.3.1';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -1957,9 +1957,37 @@
     }
   }
 
+  function isFishFalseAlarmToast(msg) {
+    return typeof msg === 'string' && (msg.includes('игра ответила без данных') || msg.includes('без данных'));
+  }
+
+  function hookToastSilencer() {
+    try {
+      if (G.SU && typeof G.SU.toast === 'function' && !G.SU.toast._botHooked) {
+        const origSUToast = G.SU.toast;
+        G.SU.toast = function(t, bad, o) {
+          if (isFishFalseAlarmToast(t)) return;
+          return origSUToast.apply(this, arguments);
+        };
+        G.SU.toast._botHooked = true;
+      }
+
+      if (typeof G.toast === 'function' && !G.toast._botHooked) {
+        const origGToast = G.toast;
+        G.toast = function(t, bad) {
+          if (isFishFalseAlarmToast(t)) return;
+          return origGToast.apply(this, arguments);
+        };
+        G.toast._botHooked = true;
+      }
+    } catch (e) {}
+  }
+  hookToastSilencer();
+
   // Безопасный показ всплывающих уведомлений игры (через DOM #toast)
   function showToast(msg, isBad = false) {
     if (botRuntime.stopped) return;
+    if (typeof isFishFalseAlarmToast === 'function' && isFishFalseAlarmToast(msg)) return;
     try {
       const e = document.getElementById('toast');
       if (e) {
@@ -3122,6 +3150,28 @@
           <div style="display:flex;flex-direction:column;gap:5px;">
             <button id="b-fish-act-sell" style="width:100%;background:#16a34a;color:#fff;border:none;border-radius:4px;padding:6px;font-size:10.5px;font-weight:bold;cursor:pointer;" title="Продать весь улов Рыбаку Сому">💰 Продать улов</button>
             <button id="b-fish-act-pond" style="width:100%;background:#312e81;color:#c7d2fe;border:1px solid #4338ca;border-radius:4px;padding:6px;font-size:10.5px;font-weight:bold;cursor:pointer;" title="Открыть окно рыбалки / телепорт к озеру">🌊 ТП на рыбалку</button>
+          </div>
+        </div>
+
+        <!-- Карточка 4: Садок и последний улов -->
+        <div style="background:#1a172e;border:1px solid #3d3759;border-radius:6px;padding:8px;margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <div style="display:flex;align-items:center;gap:5px;">
+              <span style="font-size:10.5px;font-weight:bold;color:#94a3b8;">🪣 В ведре:</span>
+              <b id="b-fish-bucket-count" style="font-size:11px;color:#38bdf8;">0 шт.</b>
+              <span id="b-fish-bucket-gold" style="font-size:10px;color:#fbbf24;">(0 🪙)</span>
+            </div>
+            <span id="b-fish-last-time" style="font-size:9.5px;color:#64748b;">--:--</span>
+          </div>
+          <div id="b-fish-last-content" style="display:flex;align-items:center;justify-content:space-between;background:#120f24;border:1px solid #2a2544;border-radius:5px;padding:6px 8px;font-size:11px;">
+            <div style="display:flex;align-items:center;gap:6px;overflow:hidden;">
+              <span id="b-fish-last-icon" style="font-size:15px;flex-shrink:0;">🎣</span>
+              <div style="display:flex;flex-direction:column;min-width:0;">
+                <span id="b-fish-last-name" style="color:#cbd5e1;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Пока ничего не поймано</span>
+                <span id="b-fish-last-details" style="font-size:9.5px;color:#64748b;">Ожидание первого улова...</span>
+              </div>
+            </div>
+            <div id="b-fish-last-badge" style="display:none;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:bold;flex-shrink:0;"></div>
           </div>
         </div>
       </div>
@@ -12625,6 +12675,11 @@
   let lastCatShooAt = 0;
   let passiveCraftBlockedHere = false;
   let lastObservedTown = '';
+  let lastFishCatch = null;
+  try {
+    const rawCatch = localStorage.getItem('lg_bot_last_fish_catch');
+    if (rawCatch) lastFishCatch = JSON.parse(rawCatch);
+  } catch (e) {}
 
   function triggerFish2Down() {
     const F2 = (typeof window !== 'undefined' && window.LGFish2) || null;
@@ -12904,6 +12959,26 @@
       const it = S.catchA.it;
       const kgStr = it.kg ? ` (${it.kg} кг)` : '';
       addFishLog(`✨ Успешно выловлено на озере: «${it.n || it.id}»${kgStr}!`, '#22c55e');
+
+      const V = F2._V;
+      let price = 0;
+      if (V && V.prices && it.id && V.prices[it.id]) {
+        price = +V.prices[it.id] || 0;
+      }
+      lastFishCatch = {
+        name: it.n || it.id || 'Рыба',
+        kg: +it.kg || 0,
+        type: it.type || (it.id === 'chest' ? 'chest' : it.id === 'boot' ? 'junk' : 'fish'),
+        price: price,
+        id: it.id,
+        time: Date.now(),
+        record: Boolean(S.catchA.rec),
+        zone: (S.bob && S.bob.zone) || ''
+      };
+      try {
+        localStorage.setItem('lg_bot_last_fish_catch', JSON.stringify(lastFishCatch));
+      } catch (e) {}
+      if (typeof updateLastCatchUI === 'function') updateLastCatchUI();
     }
 
     // 5. АВТО-ПРОДАЖА УЛОВА С ОЗЕРА
@@ -13037,9 +13112,172 @@
     }
   }
 
+  function updateLastCatchUI() {
+    const tab = document.querySelector('#b-tab-fish');
+    if (!tab) return;
+    const countEl = tab.querySelector('#b-fish-bucket-count');
+    const goldEl = tab.querySelector('#b-fish-bucket-gold');
+    const timeEl = tab.querySelector('#b-fish-last-time');
+    const iconEl = tab.querySelector('#b-fish-last-icon');
+    const nameEl = tab.querySelector('#b-fish-last-name');
+    const detailsEl = tab.querySelector('#b-fish-last-details');
+    const badgeEl = tab.querySelector('#b-fish-last-badge');
+
+    // 1. Количество рыбы в ведре / садке и примерная стоимость
+    let bucketCount = 0;
+    let bucketGold = 0;
+
+    const F2 = (typeof window !== 'undefined' && window.LGFish2 && window.LGFish2.on) ? window.LGFish2 : null;
+    const V2 = F2 ? F2._V : null;
+    const f2Bag = (V2 && Array.isArray(V2.bag)) ? V2.bag : null;
+
+    if (f2Bag !== null) {
+      bucketCount = f2Bag.length;
+      bucketGold = f2Bag.reduce((sum, item) => sum + (+item.price || +item.p || 0), 0);
+    } else {
+      const m = getFishData();
+      if (m && m.bag) {
+        bucketCount = Object.values(m.bag).reduce((acc, v) => acc + (+v || 0), 0);
+        bucketGold = Math.floor(getFishBagValue(m));
+      }
+    }
+
+    if (countEl) {
+      countEl.textContent = `${bucketCount} шт.`;
+      countEl.style.color = bucketCount > 0 ? '#38bdf8' : '#64748b';
+    }
+    if (goldEl) {
+      goldEl.textContent = bucketGold > 0 ? `(≈ ${bucketGold} 🪙)` : '(0 🪙)';
+      goldEl.style.color = bucketGold > 0 ? '#fbbf24' : '#64748b';
+    }
+
+    // 2. Последний улов
+    let item = lastFishCatch;
+    if (!item && f2Bag && f2Bag.length > 0) {
+      const lastBag = f2Bag[f2Bag.length - 1];
+      if (lastBag) {
+        item = {
+          name: lastBag.n || lastBag.name || lastBag.id || 'Рыба',
+          kg: +lastBag.kg || 0,
+          type: lastBag.type || (lastBag.id === 'chest' ? 'chest' : lastBag.id === 'boot' ? 'junk' : 'fish'),
+          price: lastBag.price || lastBag.p || 0,
+          id: lastBag.id,
+          time: 0,
+          record: false
+        };
+      }
+    }
+
+    if (!item) {
+      if (timeEl) timeEl.textContent = '--:--';
+      if (iconEl) iconEl.textContent = '🎣';
+      if (nameEl) {
+        nameEl.textContent = 'Пока ничего не поймано';
+        nameEl.style.color = '#94a3b8';
+      }
+      if (detailsEl) {
+        detailsEl.textContent = 'Ожидание первого улова...';
+        detailsEl.style.color = '#64748b';
+      }
+      if (badgeEl) badgeEl.style.display = 'none';
+      return;
+    }
+
+    if (timeEl) {
+      if (item.time) {
+        const secAgo = Math.max(0, Math.floor((Date.now() - item.time) / 1000));
+        if (secAgo < 60) {
+          timeEl.textContent = `${secAgo} с назад`;
+        } else if (secAgo < 3600) {
+          timeEl.textContent = `${Math.floor(secAgo / 60)} мин назад`;
+        } else {
+          const d = new Date(item.time);
+          timeEl.textContent = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        }
+      } else {
+        timeEl.textContent = 'В ведре';
+      }
+    }
+
+    let icon = '🐟';
+    let nameColor = '#38bdf8';
+    let typeDesc = '';
+    if (item.type === 'legend' || item.id === 'catfish' || item.id === 'legend') {
+      icon = '👑';
+      nameColor = '#fbbf24';
+      typeDesc = 'Легендарная рыба';
+    } else if (item.type === 'chest' || item.id === 'chest') {
+      icon = '🎁';
+      nameColor = '#c084fc';
+      typeDesc = 'Сундук со дна озера';
+    } else if (item.type === 'junk' || item.id === 'boot') {
+      icon = '👞';
+      nameColor = '#94a3b8';
+      typeDesc = 'Хлам со дна';
+    } else if (item.record) {
+      icon = '🏆';
+      nameColor = '#22c55e';
+      typeDesc = 'Новый рекорд веса!';
+    }
+
+    if (iconEl) iconEl.textContent = icon;
+    if (nameEl) {
+      nameEl.textContent = item.name;
+      nameEl.style.color = nameColor;
+    }
+
+    if (detailsEl) {
+      const parts = [];
+      if (item.kg && item.type !== 'chest' && item.type !== 'junk') {
+        parts.push(`${(+item.kg).toFixed(2)} кг`);
+      }
+      if (typeDesc) parts.push(typeDesc);
+      if (item.zone) {
+        const zoneRu = { near: 'ближняя зона', mid: 'средняя зона', far: 'дальняя зона' }[item.zone] || item.zone;
+        parts.push(zoneRu);
+      }
+      detailsEl.textContent = parts.join(' · ') || 'Выловлено на озере';
+      detailsEl.style.color = item.record ? '#22c55e' : '#94a3b8';
+    }
+
+    if (badgeEl) {
+      if (item.price && +item.price > 0) {
+        badgeEl.style.display = 'inline-block';
+        badgeEl.style.background = 'rgba(234, 179, 8, 0.15)';
+        badgeEl.style.color = '#fbbf24';
+        badgeEl.style.border = '1px solid rgba(234, 179, 8, 0.3)';
+        badgeEl.textContent = `+${item.price} 🪙`;
+      } else if (item.type === 'chest') {
+        badgeEl.style.display = 'inline-block';
+        badgeEl.style.background = 'rgba(168, 85, 247, 0.15)';
+        badgeEl.style.color = '#c084fc';
+        badgeEl.style.border = '1px solid rgba(168, 85, 247, 0.3)';
+        badgeEl.textContent = 'Клад';
+      } else if (item.record) {
+        badgeEl.style.display = 'inline-block';
+        badgeEl.style.background = 'rgba(34, 197, 94, 0.15)';
+        badgeEl.style.color = '#4ade80';
+        badgeEl.style.border = '1px solid rgba(34, 197, 94, 0.3)';
+        badgeEl.textContent = 'Рекорд';
+      } else {
+        badgeEl.style.display = 'none';
+      }
+    }
+  }
+
   function updateFishingUI() {
     const tab = document.querySelector('#b-tab-fish');
     if (!tab) return;
+
+    // Автоматическая очистка ложных алармов игры («Рыбалка: игра ответила без данных...»)
+    try {
+      document.querySelectorAll('#toast, .toast, [data-i="toast"]').forEach(el => {
+        if (el && el.textContent && isFishFalseAlarmToast(el.textContent)) {
+          el.classList.remove('on');
+          el.textContent = '';
+        }
+      });
+    } catch (e) {}
     const m = getFishData();
     const t = Date.now();
     const st = getFishState(m, t);
@@ -13171,6 +13409,7 @@
         btnSell.style.opacity = btnSell.disabled ? '0.45' : '1';
         btnSell.style.cursor = btnSell.disabled ? 'not-allowed' : 'pointer';
       }
+      updateLastCatchUI();
       return;
     }
 
@@ -13326,6 +13565,7 @@
       btnSell.style.opacity = btnSell.disabled ? '0.45' : '1';
       btnSell.style.cursor = btnSell.disabled ? 'not-allowed' : 'pointer';
     }
+    updateLastCatchUI();
   }
 
   async function checkFishingAutomationStep() {
