@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.2.5
+// @version      9.2.7
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.2.5';
+  const BOT_VERSION = '9.2.7';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -2504,9 +2504,13 @@
       </div>
     </div>
     <div id="b-body" style="margin-top:8px;">
-      <!-- Вкладки: Шахта, Рынок, Игроки, Город, Поход -->
+      <!-- Вкладки: Шахта, Рыбалка, Рынок, Игроки, Город, Поход -->
       <div id="b-tabs" style="display:flex;gap:2px;margin-bottom:8px;border-bottom:1px solid #3d3759;padding-bottom:6px;">
         <button id="b-tab-btn-mine" style="flex:1;padding:5px 1px;background:#28a745;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Авто-шахта">⛏️ Шахта</button>
+        <button id="b-tab-btn-fish" style="flex:1;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Авторыбалка: авто-заброс, авто-подсечка при клёве, продажа улова Рыбаку Сому">
+          <span>🎣 Рыбалка</span>
+          <span id="b-fish-badge" style="display:none;background:#0ea5e9;color:#fff;border-radius:8px;padding:0 3px;font-size:8px;font-weight:bold;line-height:12px;">!</span>
+        </button>
         <button id="b-tab-btn-market" style="flex:1;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Аукцион и снайпер">
           <span>🏛️ Рынок</span>
           <span id="b-auc-badge" style="display:none;background:#ff3366;color:#fff;border-radius:8px;padding:0 3px;font-size:8px;font-weight:bold;line-height:12px;">0</span>
@@ -2521,10 +2525,6 @@
         <button id="b-tab-btn-quest" style="flex:1;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Поход / Данж: Авто-блок босса, радар тайников, авто-бой, стрим без задержки">
           <span>⚔️ Поход</span>
           <span id="b-quest-badge" style="display:none;background:#e11d48;color:#fff;border-radius:8px;padding:0 3px;font-size:8px;font-weight:bold;line-height:12px;">!</span>
-        </button>
-        <button id="b-tab-btn-fish" style="flex:1;padding:5px 1px;background:#262238;color:#aaa;border:1px solid #3d3759;border-radius:5px;cursor:pointer;font-size:9.5px;font-weight:bold;display:flex;justify-content:center;align-items:center;gap:2px;" title="Авторыбалка: авто-заброс, авто-подсечка при клёве, продажа улова Рыбаку Сому">
-          <span>🎣 Рыбалка</span>
-          <span id="b-fish-badge" style="display:none;background:#0ea5e9;color:#fff;border-radius:8px;padding:0 3px;font-size:8px;font-weight:bold;line-height:12px;">!</span>
         </button>
       </div>
 
@@ -3054,23 +3054,9 @@
             </div>
           </div>
           <!-- Индикатор клёва (активен при поклёвке) -->
-          <div id="b-fish-bite-alert" style="display:none;margin-bottom:6px;padding:6px 8px;background:rgba(239,68,68,0.2);border:1px solid #ef4444;border-radius:5px;font-size:11px;color:#fecdd3;align-items:center;justify-content:space-between;">
+          <div id="b-fish-bite-alert" style="display:none;margin-top:6px;padding:6px 8px;background:rgba(239,68,68,0.2);border:1px solid #ef4444;border-radius:5px;font-size:11px;color:#fecdd3;align-items:center;justify-content:space-between;">
             <span style="font-weight:bold;">🐟⚡ КЛЮЁТ КРУПНАЯ РЫБА!</span>
             <button id="b-fish-quick-hook-btn" style="background:#ef4444;color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:bold;cursor:pointer;">Подсечь!</button>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#94a3b8;padding-top:4px;border-top:1px dashed #2e284a;">
-            <span id="b-fish-location">Причал: <b id="b-fish-loc-name" style="color:#e2e8f0;">—</b></span>
-            <span id="b-fish-skill">Мастерство: <b id="b-fish-lvl" style="color:#a78bfa;">1 ур.</b></span>
-          </div>
-          <!-- Дневной лимит -->
-          <div style="margin-top:6px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:#94a3b8;margin-bottom:2px;">
-              <span>Дневной лимит (сброс в 05:00 МСК):</span>
-              <span id="b-fish-limit-val" style="font-weight:bold;color:#cbd5e1;">0 / 120 мин</span>
-            </div>
-            <div style="background:#262238;height:5px;border-radius:3px;overflow:hidden;border:1px solid #3d3759;">
-              <div id="b-fish-limit-bar" style="background:#0ea5e9;height:100%;width:0%;transition:width 0.3s;"></div>
-            </div>
           </div>
         </div>
 
@@ -3131,28 +3117,6 @@
             <button id="b-fish-act-sell" style="flex:1;background:#16a34a;color:#fff;border:none;border-radius:4px;padding:5px;font-size:10px;font-weight:bold;cursor:pointer;" title="Продать весь улов Рыбаку Сому">💰 Продать улов</button>
             <button id="b-fish-act-pond" style="flex:1;background:#312e81;color:#c7d2fe;border:1px solid #4338ca;border-radius:4px;padding:5px;font-size:10px;font-weight:bold;cursor:pointer;" title="Открыть нативное окно рыбалки игры">🌊 Озеро игры</button>
             <button id="b-fish-act-refresh" style="background:#262238;color:#94a3b8;border:1px solid #3d3759;border-radius:4px;padding:5px 8px;font-size:10px;cursor:pointer;" title="Обновить статус">🔄</button>
-          </div>
-        </div>
-
-        <!-- Карточка 4: Садок / Улов в сумке -->
-        <div style="background:#1a172e;border:1px solid #3d3759;border-radius:6px;padding:8px;margin-bottom:8px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-            <span style="font-size:10.5px;font-weight:bold;color:#94a3b8;">🧺 Садок (улов в сумке)</span>
-            <span id="b-fish-bag-val" style="font-size:10px;font-weight:bold;color:#fbbf24;">≈ 0 монет</span>
-          </div>
-          <div id="b-fish-bag-list" style="max-height:100px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;font-size:10px;color:#cbd5e1;padding-right:2px;">
-            <div style="color:#64748b;font-style:italic;">Садок пуст. Забросьте удочку!</div>
-          </div>
-        </div>
-
-        <!-- Карточка 5: Журнал рыбалки -->
-        <div style="background:#1a172e;border:1px solid #3d3759;border-radius:6px;padding:8px;margin-bottom:8px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-            <span style="font-size:10.5px;font-weight:bold;color:#94a3b8;">📜 Журнал рыбалки</span>
-            <button id="b-fish-clear-log" style="padding:1px 6px;background:#262238;color:#ef4444;border:1px solid #3d3759;border-radius:3px;cursor:pointer;font-size:9px;" title="Очистить журнал">🗑️</button>
-          </div>
-          <div id="b-fish-log-list" style="max-height:120px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;font-size:10px;color:#cbd5e1;padding-right:2px;">
-            <div style="color:#64748b;font-style:italic;">Журнал пуст</div>
           </div>
         </div>
       </div>
@@ -12651,6 +12615,61 @@
     S.held = false;
   }
 
+  function shooFish2Cat(F2, S) {
+    if (!S || !S.cat) return;
+    if (S.cat.st !== 'come' && S.cat.st !== 'reach') return;
+    const now = Date.now();
+    if (now - lastCatShooAt < 1500) return;
+    lastCatShooAt = now;
+
+    addFishLog('🐱 Кыш! Отпугиваем кота от садка с рыбой («Брысь!»)...', '#fbbf24');
+
+    // 1. Диспатч точного клика в кота на Canvas Озера (вызывает shoo() в fish2.js)
+    const cv = (typeof document !== 'undefined') ? (document.querySelector('.f2 canvas, #fish2 canvas, canvas[data-i="cv"]') || document.querySelector('canvas')) : null;
+    if (cv) {
+      try {
+        const vw = (typeof window !== 'undefined' && window.innerWidth) || 1200;
+        const vh = (typeof window !== 'undefined' && window.innerHeight) || 800;
+        const H = 620, W = 900;
+        const port = vw / vh < 0.9;
+        const SC = port ? Math.min(vh / H, vw / 440) : Math.min(vh / H, vw / 560);
+        const LW = vw / SC;
+        const OX = port ? LW / 2 - 520 : (LW - W) / 2;
+        const OY = (vh / SC) - H;
+        const catX = (typeof S.cat.x === 'number') ? S.cat.x : (W / 2);
+        const catY = H - 40;
+        const clientX = (catX + OX) * SC;
+        const clientY = (catY + OY) * SC;
+
+        cv.dispatchEvent(new PointerEvent('pointerdown', {
+          bubbles: true,
+          cancelable: true,
+          clientX: Math.round(clientX),
+          clientY: Math.round(clientY),
+          pointerId: 1
+        }));
+      } catch (e) {}
+    }
+
+    // 2. Гарантированный локальный перевод кота в режим бегства ('flee')
+    if (S.cat && S.cat.st !== 'flee') {
+      S.cat.st = 'flee';
+      S.cat.t = 0;
+      if (Array.isArray(S.pops)) {
+        S.pops.push({ text: 'Брысь!', col: '#e0503a', big: true, t: 0, rot: 0, dx: 0 });
+      }
+    }
+
+    // 3. Прямой запрос к API сервера
+    try {
+      gameApi('/api/craftF2', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ k: 'fish', a: 'cat', shoo: 1 })
+      });
+    } catch (e) {}
+  }
+
   function performFish2Cast(isAuto = false) {
     const F2 = (typeof window !== 'undefined' && window.LGFish2) || null;
     if (!F2 || !F2.on) return;
@@ -12741,6 +12760,13 @@
     // СТРОГО: Если автоматизация рыбалки выключена — бот не вмешивается и не совершает действий!
     if (!fishSettings.enabled) return;
 
+    // 0. ПРИОРИТЕТ #1: ЗАЩИТА САДКА ОТ КОТА (Анти-кот)
+    // Кот может подкрасться в ЛЮБОЙ момент (при ожидании, вываживании, замахе или простое).
+    // Отпугиваем кота СРАЗУ и БЕЗ return, чтобы не срывать текущую ловлю/вываживание/заброс!
+    if (S.cat && (S.cat.st === 'come' || S.cat.st === 'reach')) {
+      shooFish2Cat(F2, S);
+    }
+
     // 1. АВТО-ВЫВАЖИВАНИЕ РЫБЫ (Удержание натяжения лески точно в середине зелёной зоны)
     if (S.st === 'fight') {
       if (!fishSettings.autoHook) return;
@@ -12782,22 +12808,7 @@
       return;
     }
 
-    // 4. ЗАЩИТА ОТ КОТА (Анти-кот)
-    if (S.cat && (S.cat.st === 'come' || S.cat.st === 'reach')) {
-      if (Date.now() - lastCatShooAt > 4000) {
-        lastCatShooAt = Date.now();
-        addFishLog('🐱 Кыш! Отогнали кота от садка с рыбой!', '#fbbf24');
-        try {
-          gameApi('/api/craftF2', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ k: 'fish', a: 'cat', shoo: 1 })
-          });
-        } catch (e) {}
-      }
-    }
-
-    // 5. ЛОГИРОВАНИЕ ВЫЛОВЛЕННОЙ РЫБЫ
+    // 4. ЛОГИРОВАНИЕ ВЫЛОВЛЕННОЙ РЫБЫ
     if (S.st === 'catch' && S.catchA && S.catchA.it && !S.catchA._botLogged) {
       S.catchA._botLogged = true;
       const it = S.catchA.it;
@@ -12805,7 +12816,7 @@
       addFishLog(`✨ Успешно выловлено на озере: «${it.n || it.id}»${kgStr}!`, '#22c55e');
     }
 
-    // 6. АВТО-ПРОДАЖА УЛОВА С ОЗЕРА
+    // 5. АВТО-ПРОДАЖА УЛОВА С ОЗЕРА
     if (fishSettings.autoSell && S.st === 'idle' && Date.now() - lastFish2SellAt > 45000) {
       const V = F2._V;
       const bag = (V && Array.isArray(V.bag)) ? V.bag : [];
