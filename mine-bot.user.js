@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.2.9
+// @version      9.2.10
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.2.9';
+  const BOT_VERSION = '9.2.10';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -3070,25 +3070,21 @@
             </label>
           </div>
           <div style="display:flex;flex-direction:column;gap:5px;font-size:10px;color:#cbd5e1;">
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;" title="Автоматически нажимает «Подсечь!», когда поплавок ныряет (90 сек окно), для редкого улова (янтарь, жемчуг)">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;" title="Автоматически подсекает клюнувшую рыбу и удерживает натяжение лески в зелёной зоне">
               <input type="checkbox" id="b-fish-auto-hook" style="cursor:pointer;accent-color:#0ea5e9;">
-              <span>🎣 Авто-подсечка при клёве (редкий улов)</span>
+              <span>⚡ Авто-подсечка и вываживание рыбы</span>
             </label>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;" title="Автоматически забрасывает удочку на 20 мин, когда она смотана, пока не исчерпан суточный лимит">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;" title="Автоматически замахивается и забрасывает удочку в бурлящие пятна клёва">
               <input type="checkbox" id="b-fish-auto-cast" style="cursor:pointer;accent-color:#0ea5e9;">
-              <span>🔄 Авто-заброс удочки при простое</span>
+              <span>🎣 Авто-заброс удочки (в пятна клёва)</span>
             </label>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;" title="Автоматически продаёт улов Рыбаку Сому при смотанной удочке или окончании лимита">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;" title="Автоматически продаёт выловленную рыбу из садка Рыбаку Сому">
               <input type="checkbox" id="b-fish-auto-sell" style="cursor:pointer;accent-color:#0ea5e9;">
               <span>💰 Авто-продажа улова Рыбаку Сому</span>
             </label>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;" title="Воспроизводить звуковой сигнал при поклёвке">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;" title="Воспроизводить звуковой сигнал при поклёвке на Озере">
               <input type="checkbox" id="b-fish-sound" style="cursor:pointer;accent-color:#0ea5e9;">
               <span>🔔 Звуковое оповещение при клёве</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;" title="Если в текущем городе нет воды, автоматически перемещается в город у воды (например, Рябиненя)">
-              <input type="checkbox" id="b-fish-auto-travel" style="cursor:pointer;accent-color:#0ea5e9;">
-              <span>🌊 Авто-переход к воде (если сухо)</span>
             </label>
             <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;padding-top:6px;border-top:1px dashed #2e284a;">
               <span style="font-size:10px;color:#94a3b8;" title="Куда забрасывать удочку на интерактивном Озере игры (LGFish2)">🎯 Дальность заброса:</span>
@@ -3107,7 +3103,6 @@
         <!-- Карточка 3: Быстрые действия -->
         <div style="background:#1a172e;border:1px solid #3d3759;border-radius:6px;padding:8px;margin-bottom:8px;">
           <div style="font-size:10.5px;font-weight:bold;color:#94a3b8;margin-bottom:6px;">⚡ Быстрые действия</div>
-          <button id="b-fish-act-travel" style="display:none;width:100%;margin-bottom:5px;background:#0284c7;color:#fff;border:none;border-radius:4px;padding:6px;font-size:10.5px;font-weight:bold;cursor:pointer;" title="Переместиться в город с водоёмом">🌊 Перейти к воде</button>
           <div style="display:flex;flex-direction:column;gap:5px;">
             <button id="b-fish-act-sell" style="width:100%;background:#16a34a;color:#fff;border:none;border-radius:4px;padding:6px;font-size:10.5px;font-weight:bold;cursor:pointer;" title="Продать весь улов Рыбаку Сому">💰 Продать улов</button>
             <button id="b-fish-act-pond" style="width:100%;background:#312e81;color:#c7d2fe;border:1px solid #4338ca;border-radius:4px;padding:6px;font-size:10.5px;font-weight:bold;cursor:pointer;" title="Открыть окно рыбалки / телепорт к озеру">🌊 ТП на рыбалку</button>
@@ -13171,11 +13166,11 @@
           stText.textContent = 'Лимит на сегодня исчерпан';
           stText.style.color = '#fbbf24';
         }
-      } else if (dryHere || (here && !atHere) || !pls.length) {
-        if (stIcon) stIcon.textContent = '🏜️';
+      } else if (!F2 || !F2.on) {
+        if (stIcon) stIcon.textContent = '🌊';
         if (stText) {
-          stText.textContent = 'В этом городе нет воды';
-          stText.style.color = '#ef4444';
+          stText.textContent = 'Озеро не открыто · нажмите «ТП на рыбалку»';
+          stText.style.color = '#38bdf8';
         }
       } else {
         if (stIcon) stIcon.textContent = '💤';
