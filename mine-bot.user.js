@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.2.7
+// @version      9.2.9
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.2.7';
+  const BOT_VERSION = '9.2.9';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -3107,16 +3107,10 @@
         <!-- Карточка 3: Быстрые действия -->
         <div style="background:#1a172e;border:1px solid #3d3759;border-radius:6px;padding:8px;margin-bottom:8px;">
           <div style="font-size:10.5px;font-weight:bold;color:#94a3b8;margin-bottom:6px;">⚡ Быстрые действия</div>
-          <button id="b-fish-act-travel" style="display:none;width:100%;margin-bottom:5px;background:#0284c7;color:#fff;border:none;border-radius:4px;padding:5px;font-size:10px;font-weight:bold;cursor:pointer;" title="Переместиться в город с водоёмом">🌊 Перейти к воде</button>
-          <div style="display:flex;gap:4px;margin-bottom:5px;">
-            <button id="b-fish-act-cast" style="flex:1;background:#0284c7;color:#fff;border:none;border-radius:4px;padding:5px;font-size:10px;font-weight:bold;cursor:pointer;" title="Забросить удочку на 20 мин">🎣 Забросить</button>
-            <button id="b-fish-act-hook" style="flex:1;background:#262238;color:#94a3b8;border:1px solid #3d3759;border-radius:4px;padding:5px;font-size:10px;font-weight:bold;cursor:pointer;" title="Подсечь клюющую рыбу" disabled>⚡ Подсечь!</button>
-            <button id="b-fish-act-stop" style="flex:1;background:#262238;color:#ef4444;border:1px solid #3d3759;border-radius:4px;padding:5px;font-size:10px;font-weight:bold;cursor:pointer;" title="Смотать удочку">🛑 Смотать</button>
-          </div>
-          <div style="display:flex;gap:4px;">
-            <button id="b-fish-act-sell" style="flex:1;background:#16a34a;color:#fff;border:none;border-radius:4px;padding:5px;font-size:10px;font-weight:bold;cursor:pointer;" title="Продать весь улов Рыбаку Сому">💰 Продать улов</button>
-            <button id="b-fish-act-pond" style="flex:1;background:#312e81;color:#c7d2fe;border:1px solid #4338ca;border-radius:4px;padding:5px;font-size:10px;font-weight:bold;cursor:pointer;" title="Открыть нативное окно рыбалки игры">🌊 Озеро игры</button>
-            <button id="b-fish-act-refresh" style="background:#262238;color:#94a3b8;border:1px solid #3d3759;border-radius:4px;padding:5px 8px;font-size:10px;cursor:pointer;" title="Обновить статус">🔄</button>
+          <button id="b-fish-act-travel" style="display:none;width:100%;margin-bottom:5px;background:#0284c7;color:#fff;border:none;border-radius:4px;padding:6px;font-size:10.5px;font-weight:bold;cursor:pointer;" title="Переместиться в город с водоёмом">🌊 Перейти к воде</button>
+          <div style="display:flex;flex-direction:column;gap:5px;">
+            <button id="b-fish-act-sell" style="width:100%;background:#16a34a;color:#fff;border:none;border-radius:4px;padding:6px;font-size:10.5px;font-weight:bold;cursor:pointer;" title="Продать весь улов Рыбаку Сому">💰 Продать улов</button>
+            <button id="b-fish-act-pond" style="width:100%;background:#312e81;color:#c7d2fe;border:1px solid #4338ca;border-radius:4px;padding:6px;font-size:10.5px;font-weight:bold;cursor:pointer;" title="Открыть окно рыбалки / телепорт к озеру">🌊 ТП на рыбалку</button>
           </div>
         </div>
       </div>
