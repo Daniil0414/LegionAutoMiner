@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.2.3
+// @version      9.2.4
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.2.3';
+  const BOT_VERSION = '9.2.4';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -12583,6 +12583,55 @@
   let passiveCraftBlockedHere = false;
   let lastObservedTown = '';
 
+  function triggerFish2Down() {
+    const F2 = (typeof window !== 'undefined' && window.LGFish2) || null;
+    if (!F2 || !F2.on) return;
+    const S = F2._S;
+    if (S) S.held = true;
+
+    // Снимаем фокус с любых инпутов/селекторов, чтобы нативный обработчик игры не блокировал управление
+    try {
+      if (typeof document !== 'undefined' && document.activeElement && document.activeElement.tagName && ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(document.activeElement.tagName)) {
+        document.activeElement.blur();
+      }
+    } catch (e) {}
+
+    // 1. Диспатч на Canvas Озера (вызывает down() в fish2.js в обход проверок input/textarea)
+    const cv = (typeof document !== 'undefined') ? (document.querySelector('#fish2 canvas') || document.querySelector('canvas[data-i="cv"]') || document.querySelector('canvas')) : null;
+    if (cv) {
+      try {
+        cv.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, clientX: 200, clientY: 200 }));
+      } catch (e) {}
+    }
+
+    // 2. Диспатч KeyboardEvent Space на Canvas и Window
+    try {
+      const ev = new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true, cancelable: true });
+      if (cv) cv.dispatchEvent(ev);
+      window.dispatchEvent(ev);
+    } catch (e) {}
+  }
+
+  function triggerFish2Up() {
+    const F2 = (typeof window !== 'undefined' && window.LGFish2) || null;
+    if (!F2 || !F2.on) return;
+    const S = F2._S;
+    if (S) S.held = false;
+
+    const cv = (typeof document !== 'undefined') ? (document.querySelector('#fish2 canvas') || document.querySelector('canvas[data-i="cv"]') || document.querySelector('canvas')) : null;
+    if (cv) {
+      try {
+        cv.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, clientX: 200, clientY: 200 }));
+      } catch (e) {}
+    }
+
+    try {
+      const ev = new KeyboardEvent('keyup', { code: 'Space', key: ' ', bubbles: true, cancelable: true });
+      if (cv) cv.dispatchEvent(ev);
+      window.dispatchEvent(ev);
+    } catch (e) {}
+  }
+
   function performFish2Cast(isAuto = false) {
     const F2 = (typeof window !== 'undefined' && window.LGFish2) || null;
     if (!F2 || !F2.on) return;
@@ -12617,13 +12666,13 @@
 
     lastFish2CastAt = Date.now();
     addFishLog(`🎣 Замахиваемся удочкой на озере (цель: ${targetDesc}, ${casts} забр. осталось)...`, '#38bdf8');
-    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
+    triggerFish2Down();
 
     const aimStart = Date.now();
     const aimInterval = setInterval(() => {
       if (!F2.on || S.st !== 'aim' || Date.now() - aimStart > 2500) {
         clearInterval(aimInterval);
-        window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
+        triggerFish2Up();
         return;
       }
 
@@ -12649,7 +12698,7 @@
 
       if (shouldRelease) {
         clearInterval(aimInterval);
-        window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
+        triggerFish2Up();
         if (useHot && Math.abs(S.power - targetPower) <= 0.06) {
           addFishLog(`🎯 Точный заброс в бурлящее пятно клёва (${Math.round(S.power * 100)}%)! Бонус к редкому улову!`, '#22c55e');
         } else {
@@ -12681,14 +12730,11 @@
         const zone = (F.m && F.m.sim && F.m.sim.S && F.m.sim.S.zone) || F.zone || [0.35, 0.75];
         const target = (zone[0] + zone[1]) / 2;
         const curT = (typeof S.T === 'number') ? S.T : target;
+
         if (curT < target - 0.02) {
-          if (!S.held) {
-            window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
-          }
+          triggerFish2Down();
         } else if (curT > target + 0.02) {
-          if (S.held) {
-            window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
-          }
+          triggerFish2Up();
         }
       }
       return;
@@ -12696,13 +12742,13 @@
 
     // 2. АВТО-ПОДСЕЧКА ПРИ КЛЁВЕ НА ОЗЕРЕ
     if (S.st === 'bite') {
-      if (fishSettings.autoHook && !S.held) {
+      if (fishSettings.autoHook) {
         playFishBiteSound();
         addFishLog('🐟⚡ Поклёвка на озере! Выполняем авто-подсечку...', '#fbbf24');
-        window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
+        triggerFish2Down();
         setTimeout(() => {
-          window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
-        }, 80);
+          triggerFish2Up();
+        }, 100);
       }
       return;
     }
@@ -13304,10 +13350,9 @@
         fishSettings.enabled = toggleAuto.checked;
         localStorage.setItem('lg_bot_fish_enabled', String(fishSettings.enabled));
         if (!fishSettings.enabled) {
-          try {
-            window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
-          } catch (e) {}
+          triggerFish2Up();
         }
+        try { toggleAuto.blur(); } catch (e) {}
         addFishLog(fishSettings.enabled ? '🟢 Авторыбалка ВКЛЮЧЕНА' : '⚪ Авторыбалка ВЫКЛЮЧЕНА', fishSettings.enabled ? '#22c55e' : '#94a3b8');
         updateFishingUI();
       };
@@ -13317,6 +13362,7 @@
       toggleHook.onchange = () => {
         fishSettings.autoHook = toggleHook.checked;
         localStorage.setItem('lg_bot_fish_hook', String(fishSettings.autoHook));
+        try { toggleHook.blur(); } catch (e) {}
       };
     }
     if (toggleCast) {
@@ -13324,6 +13370,7 @@
       toggleCast.onchange = () => {
         fishSettings.autoCast = toggleCast.checked;
         localStorage.setItem('lg_bot_fish_cast', String(fishSettings.autoCast));
+        try { toggleCast.blur(); } catch (e) {}
       };
     }
     if (toggleSell) {
@@ -13331,6 +13378,7 @@
       toggleSell.onchange = () => {
         fishSettings.autoSell = toggleSell.checked;
         localStorage.setItem('lg_bot_fish_sell', String(fishSettings.autoSell));
+        try { toggleSell.blur(); } catch (e) {}
       };
     }
     if (toggleSound) {
@@ -13338,6 +13386,7 @@
       toggleSound.onchange = () => {
         fishSettings.sound = toggleSound.checked;
         localStorage.setItem('lg_bot_fish_sound', String(fishSettings.sound));
+        try { toggleSound.blur(); } catch (e) {}
       };
     }
 
@@ -13347,6 +13396,7 @@
       selectZone.onchange = () => {
         fishSettings.castZone = selectZone.value;
         localStorage.setItem('lg_bot_fish_zone', fishSettings.castZone);
+        try { selectZone.blur(); } catch (e) {}
         const zoneTitles = {
           hot_far: '🎯 В пятно клёва ➔ Дальний',
           hot_mid: '🎯 В пятно клёва ➔ Средний',
