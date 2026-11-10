@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.2.4
+// @version      9.2.5
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.2.4';
+  const BOT_VERSION = '9.2.5';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -12587,20 +12587,23 @@
     const F2 = (typeof window !== 'undefined' && window.LGFish2) || null;
     if (!F2 || !F2.on) return;
     const S = F2._S;
-    if (S) S.held = true;
+    if (!S) return;
 
-    // Снимаем фокус с любых инпутов/селекторов, чтобы нативный обработчик игры не блокировал управление
+    // Снимаем фокус с любых полей ввода
     try {
       if (typeof document !== 'undefined' && document.activeElement && document.activeElement.tagName && ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(document.activeElement.tagName)) {
         document.activeElement.blur();
       }
     } catch (e) {}
 
+    // КРИТИЧНО: Чтобы down() в fish2.js не сделал ранний return, S.held должен быть false перед вызовом!
+    S.held = false;
+
     // 1. Диспатч на Canvas Озера (вызывает down() в fish2.js в обход проверок input/textarea)
-    const cv = (typeof document !== 'undefined') ? (document.querySelector('#fish2 canvas') || document.querySelector('canvas[data-i="cv"]') || document.querySelector('canvas')) : null;
+    const cv = (typeof document !== 'undefined') ? (document.querySelector('.f2 canvas, #fish2 canvas, canvas[data-i="cv"]') || document.querySelector('canvas')) : null;
     if (cv) {
       try {
-        cv.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, clientX: 200, clientY: 200 }));
+        cv.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, clientX: 300, clientY: 300 }));
       } catch (e) {}
     }
 
@@ -12610,18 +12613,31 @@
       if (cv) cv.dispatchEvent(ev);
       window.dispatchEvent(ev);
     } catch (e) {}
+
+    // Гарантируем S.held = true после вызова down()
+    S.held = true;
+
+    // Если игра находилась в idle, гарантируем переход в aim для замаха
+    if (S.st === 'idle') {
+      S.st = 'aim';
+      S.power = 0;
+      S.pDir = 1;
+    }
   }
 
   function triggerFish2Up() {
     const F2 = (typeof window !== 'undefined' && window.LGFish2) || null;
     if (!F2 || !F2.on) return;
     const S = F2._S;
-    if (S) S.held = false;
+    if (!S) return;
 
-    const cv = (typeof document !== 'undefined') ? (document.querySelector('#fish2 canvas') || document.querySelector('canvas[data-i="cv"]') || document.querySelector('canvas')) : null;
+    // КРИТИЧНО: Чтобы up() в fish2.js вызвал onUp() -> cast(), S.held должен быть true перед вызовом!
+    S.held = true;
+
+    const cv = (typeof document !== 'undefined') ? (document.querySelector('.f2 canvas, #fish2 canvas, canvas[data-i="cv"]') || document.querySelector('canvas')) : null;
     if (cv) {
       try {
-        cv.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, clientX: 200, clientY: 200 }));
+        cv.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, clientX: 300, clientY: 300 }));
       } catch (e) {}
     }
 
@@ -12630,6 +12646,9 @@
       if (cv) cv.dispatchEvent(ev);
       window.dispatchEvent(ev);
     } catch (e) {}
+
+    // После вызова up() гарантируем S.held = false
+    S.held = false;
   }
 
   function performFish2Cast(isAuto = false) {
@@ -12794,17 +12813,19 @@
         lastFish2SellAt = Date.now();
         addFishLog('💰 Авто-продажа улова Рыбаку Сому...', '#38bdf8');
         try {
-          const sellBtn = document.querySelector('#fish2 [data-i="mBag"] #sell') || document.querySelector('#sell');
+          const sellBtn = document.querySelector('[data-i="mBag"] [data-i="sell"], #fish2 [data-i="mBag"] #sell, [data-i="sell"], #sell');
           if (sellBtn && !sellBtn.disabled) {
             sellBtn.click();
             addFishLog('💵 Улов с озера продан!', '#22c55e');
           } else {
-            const bBag = document.querySelector('#bBag') || document.querySelector('[data-i="bBag"]');
+            const bBag = document.querySelector('[data-i="bBag"], #bBag');
             if (bBag) bBag.click();
             setTimeout(() => {
-              const sBtn = document.querySelector('#sell');
-              if (sBtn) sBtn.click();
-              addFishLog('💵 Улов с озера продан!', '#22c55e');
+              const sBtn = document.querySelector('[data-i="mBag"] [data-i="sell"], [data-i="sell"], #sell');
+              if (sBtn && !sBtn.disabled) {
+                sBtn.click();
+                addFishLog('💵 Улов с озера продан!', '#22c55e');
+              }
             }, 300);
           }
         } catch (e) {}
@@ -13506,17 +13527,19 @@
         if (F2) {
           addFishLog('💰 Продаём улов с озера Рыбаку Сому...', '#38bdf8');
           try {
-            const sellBtn = document.querySelector('#fish2 [data-i="mBag"] #sell') || document.querySelector('#sell');
+            const sellBtn = document.querySelector('[data-i="mBag"] [data-i="sell"], #fish2 [data-i="mBag"] #sell, [data-i="sell"], #sell');
             if (sellBtn && !sellBtn.disabled) {
               sellBtn.click();
               addFishLog('💵 Улов с озера успешно продан!', '#22c55e');
             } else {
-              const bBag = document.querySelector('#bBag') || document.querySelector('[data-i="bBag"]');
+              const bBag = document.querySelector('[data-i="bBag"], #bBag');
               if (bBag) bBag.click();
               setTimeout(() => {
-                const sBtn = document.querySelector('#sell');
-                if (sBtn) sBtn.click();
-                addFishLog('💵 Улов с озера успешно продан!', '#22c55e');
+                const sBtn = document.querySelector('[data-i="mBag"] [data-i="sell"], [data-i="sell"], #sell');
+                if (sBtn && !sBtn.disabled) {
+                  sBtn.click();
+                  addFishLog('💵 Улов с озера успешно продан!', '#22c55e');
+                }
               }, 300);
             }
           } catch (e) {}
