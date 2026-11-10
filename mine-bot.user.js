@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.2.2
+// @version      9.2.3
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.2.2';
+  const BOT_VERSION = '9.2.3';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -3104,6 +3104,17 @@
               <input type="checkbox" id="b-fish-auto-travel" style="cursor:pointer;accent-color:#0ea5e9;">
               <span>🌊 Авто-переход к воде (если сухо)</span>
             </label>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;padding-top:6px;border-top:1px dashed #2e284a;">
+              <span style="font-size:10px;color:#94a3b8;" title="Куда забрасывать удочку на интерактивном Озере игры (LGFish2)">🎯 Дальность заброса:</span>
+              <select id="b-fish-cast-zone" style="background:#262238;color:#38bdf8;border:1px solid #3d3759;border-radius:4px;padding:3px 6px;font-size:9.5px;cursor:pointer;outline:none;max-width:170px;">
+                <option value="hot_far">🎯 В пятно клёва ➔ Дальний</option>
+                <option value="hot_mid">🎯 В пятно клёва ➔ Средний</option>
+                <option value="hot_near">🎯 В пятно клёва ➔ Ближний</option>
+                <option value="far">🌊 Строго дальний (75-85%)</option>
+                <option value="mid">🌊 Строго средний (45-65%)</option>
+                <option value="near">🌊 Строго ближний (15-35%)</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -12496,7 +12507,8 @@
     autoCast: localStorage.getItem('lg_bot_fish_cast') !== 'false',
     autoSell: localStorage.getItem('lg_bot_fish_sell') === 'true',
     autoTravel: localStorage.getItem('lg_bot_fish_autotravel') !== 'false',
-    sound: localStorage.getItem('lg_bot_fish_sound') !== 'false'
+    sound: localStorage.getItem('lg_bot_fish_sound') !== 'false',
+    castZone: localStorage.getItem('lg_bot_fish_zone') || 'hot_far'
   };
 
   function getHeroCurrentTown() {
@@ -12571,6 +12583,83 @@
   let passiveCraftBlockedHere = false;
   let lastObservedTown = '';
 
+  function performFish2Cast(isAuto = false) {
+    const F2 = (typeof window !== 'undefined' && window.LGFish2) || null;
+    if (!F2 || !F2.on) return;
+    const S = F2._S;
+    if (!S || S.st !== 'idle') return;
+    const V = F2._V;
+    const casts = (V && typeof V.casts === 'number') ? V.casts : 0;
+    if (casts <= 0) {
+      if (!isAuto) addFishLog('⚠️ Забросы на озере исчерпаны (+1 каждые 10 мин)!', '#fbbf24');
+      return;
+    }
+
+    const mode = fishSettings.castZone || 'hot_far';
+    const hasHot = Boolean(S.hot && typeof S.hot.d === 'number' && S.hot.d > 0);
+    const useHot = hasHot && mode.startsWith('hot_');
+    let targetPower = 0.80;
+    let targetDesc = 'дальняя зона (80%)';
+
+    if (useHot) {
+      targetPower = Math.max(0.1, Math.min(0.95, S.hot.d));
+      targetDesc = `пятно клёва (~${Math.round(targetPower * 100)}%)`;
+    } else if (mode === 'near' || mode === 'hot_near') {
+      targetPower = 0.25;
+      targetDesc = 'ближняя зона (25%)';
+    } else if (mode === 'mid' || mode === 'hot_mid') {
+      targetPower = 0.55;
+      targetDesc = 'средняя зона (55%)';
+    } else {
+      targetPower = 0.80;
+      targetDesc = 'дальняя зона (80%)';
+    }
+
+    lastFish2CastAt = Date.now();
+    addFishLog(`🎣 Замахиваемся удочкой на озере (цель: ${targetDesc}, ${casts} забр. осталось)...`, '#38bdf8');
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
+
+    const aimStart = Date.now();
+    const aimInterval = setInterval(() => {
+      if (!F2.on || S.st !== 'aim' || Date.now() - aimStart > 2500) {
+        clearInterval(aimInterval);
+        window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
+        return;
+      }
+
+      let shouldRelease = false;
+      if (useHot) {
+        // Окно попадания в бурлящее пятно: в игре HOT_D = 0.06
+        if (Math.abs(S.power - targetPower) <= 0.04) {
+          shouldRelease = true;
+        } else if (S.pDir > 0 && S.power >= targetPower - 0.02 && S.power <= targetPower + 0.04) {
+          shouldRelease = true;
+        } else if (S.pDir < 0 && S.power <= targetPower + 0.02 && S.power >= targetPower - 0.04) {
+          shouldRelease = true;
+        }
+      } else {
+        if (targetPower <= 0.3) {
+          shouldRelease = S.power >= targetPower;
+        } else if (targetPower <= 0.6) {
+          shouldRelease = S.power >= targetPower;
+        } else {
+          shouldRelease = S.power >= targetPower;
+        }
+      }
+
+      if (shouldRelease) {
+        clearInterval(aimInterval);
+        window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
+        if (useHot && Math.abs(S.power - targetPower) <= 0.06) {
+          addFishLog(`🎯 Точный заброс в бурлящее пятно клёва (${Math.round(S.power * 100)}%)! Бонус к редкому улову!`, '#22c55e');
+        } else {
+          const zoneRu = S.power < 0.38 ? 'ближнюю' : (S.power < 0.72 ? 'среднюю' : 'дальнюю');
+          addFishLog(`🌊 Удочка заброшена в ${zoneRu} зону (дальность ${Math.round(S.power * 100)}%)!`, '#22c55e');
+        }
+      }
+    }, 20);
+  }
+
   function tickFish2Loop() {
     if (botRuntime.stopped) return;
     const F2 = (typeof window !== 'undefined' && window.LGFish2) || null;
@@ -12578,8 +12667,15 @@
     const S = F2._S;
     if (!S) return;
 
+    // Всегда обновляем UI озера (статус, лимиты, садок) даже при отключенной авторыбалке
+    updateFishingUI();
+
+    // СТРОГО: Если автоматизация рыбалки выключена — бот не вмешивается и не совершает действий!
+    if (!fishSettings.enabled) return;
+
     // 1. АВТО-ВЫВАЖИВАНИЕ РЫБЫ (Удержание натяжения лески точно в середине зелёной зоны)
     if (S.st === 'fight') {
+      if (!fishSettings.autoHook) return;
       const F = S.fish;
       if (F) {
         const zone = (F.m && F.m.sim && F.m.sim.S && F.m.sim.S.zone) || F.zone || [0.35, 0.75];
@@ -12616,22 +12712,7 @@
       const V = F2._V;
       const casts = (V && typeof V.casts === 'number') ? V.casts : 0;
       if (casts > 0 && Date.now() - lastFish2CastAt > 4000) {
-        lastFish2CastAt = Date.now();
-        addFishLog(`🎣 Замахиваемся удочкой на озере (${casts} забросов осталось)...`, '#38bdf8');
-        window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
-        const aimStart = Date.now();
-        const aimInterval = setInterval(() => {
-          if (!F2.on || S.st !== 'aim' || Date.now() - aimStart > 1200) {
-            clearInterval(aimInterval);
-            window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
-            return;
-          }
-          if (S.power >= 0.6) {
-            clearInterval(aimInterval);
-            window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
-            addFishLog(`🌊 Удочка заброшена в озеро на дальность ${Math.round(S.power * 100)}%!`, '#22c55e');
-          }
-        }, 30);
+        performFish2Cast(true);
       }
       return;
     }
@@ -13222,7 +13303,13 @@
       toggleAuto.onchange = () => {
         fishSettings.enabled = toggleAuto.checked;
         localStorage.setItem('lg_bot_fish_enabled', String(fishSettings.enabled));
+        if (!fishSettings.enabled) {
+          try {
+            window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
+          } catch (e) {}
+        }
         addFishLog(fishSettings.enabled ? '🟢 Авторыбалка ВКЛЮЧЕНА' : '⚪ Авторыбалка ВЫКЛЮЧЕНА', fishSettings.enabled ? '#22c55e' : '#94a3b8');
+        updateFishingUI();
       };
     }
     if (toggleHook) {
@@ -13251,6 +13338,24 @@
       toggleSound.onchange = () => {
         fishSettings.sound = toggleSound.checked;
         localStorage.setItem('lg_bot_fish_sound', String(fishSettings.sound));
+      };
+    }
+
+    const selectZone = tab.querySelector('#b-fish-cast-zone');
+    if (selectZone) {
+      selectZone.value = fishSettings.castZone || 'hot_far';
+      selectZone.onchange = () => {
+        fishSettings.castZone = selectZone.value;
+        localStorage.setItem('lg_bot_fish_zone', fishSettings.castZone);
+        const zoneTitles = {
+          hot_far: '🎯 В пятно клёва ➔ Дальний',
+          hot_mid: '🎯 В пятно клёва ➔ Средний',
+          hot_near: '🎯 В пятно клёва ➔ Ближний',
+          far: '🌊 Строго дальний (75-85%)',
+          mid: '🌊 Строго средний (45-65%)',
+          near: '🌊 Строго ближний (15-35%)'
+        };
+        addFishLog(`🎯 Дальность заброса: ${zoneTitles[fishSettings.castZone] || fishSettings.castZone}`, '#38bdf8');
       };
     }
 
@@ -13290,21 +13395,7 @@
         const S2 = F2 ? F2._S : null;
         if (F2 && S2) {
           if (S2.st === 'idle') {
-            addFishLog('🎣 Замахиваемся удочкой на озере...', '#38bdf8');
-            window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
-            const aimStart = Date.now();
-            const aimInterval = setInterval(() => {
-              if (!F2.on || S2.st !== 'aim' || Date.now() - aimStart > 1200) {
-                clearInterval(aimInterval);
-                window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
-                return;
-              }
-              if (S2.power >= 0.6) {
-                clearInterval(aimInterval);
-                window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', key: ' ', bubbles: true, cancelable: true }));
-                addFishLog(`🌊 Удочка заброшена в озеро (сила ${Math.round(S2.power * 100)}%)!`, '#22c55e');
-              }
-            }, 30);
+            performFish2Cast(false);
           } else {
             addFishLog(`ℹ️ На озере удочка уже в процессе ловли (статус: ${S2.st})`, '#94a3b8');
           }
