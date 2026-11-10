@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.2.10
+// @version      9.3.0
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.2.10';
+  const BOT_VERSION = '9.3.0';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -577,6 +577,7 @@
   }
 
   let mode = 'screen'; // По умолчанию 'screen', можно переключить на 'ghost' (из города)
+  let fishMode = localStorage.getItem('lg_bot_fish_mode') || 'screen'; // 'screen' (на озере) или 'ghost' (в городе)
   let isPaused = true; // При запуске скрипт находится на паузе (не начинает копать автоматически)
   let miningStartToken = null;
   let isDrillCollect = localStorage.getItem('lg_bot_drill_collect') !== 'false'; // По умолчанию true (пассивный сбор руды с буров)
@@ -2484,6 +2485,8 @@
     }
   } catch (e) {}
 
+  const isFishGhost = fishMode === 'ghost';
+
   w.innerHTML = `
     <div id="b-square-badge" style="display:none;width:34px;height:34px;align-items:center;justify-content:center;position:relative;cursor:pointer;user-select:none;box-sizing:border-box;" title="Наведите для просмотра · Кликните для полного открытия">
       <span style="font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;pointer-events:none;">⛏️</span>
@@ -3042,6 +3045,19 @@
 
       <!-- Контейнер вкладки: Авторыбалка -->
       <div id="b-tab-fish" style="display:none;">
+
+        <!-- Переключатель режима: На озере / В городе -->
+        <div style="display:flex;gap:4px;margin-bottom:8px;">
+          <button id="b-fish-mode-screen" style="flex:1;min-width:0;padding:6px 8px;background:${isFishGhost ? '#262238' : '#0284c7'};color:${isFishGhost ? '#aaa' : '#fff'};border:${isFishGhost ? '1px solid #3d3759' : 'none'};border-radius:6px;cursor:pointer;font-size:11px;font-weight:${isFishGhost ? 'normal' : 'bold'};text-align:left;display:flex;justify-content:space-between;align-items:center;box-sizing:border-box;" title="Рыбачить на озере (на экране)">
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🎣 Рыбачить на озере</span>
+            <span id="b-fish-check-screen" style="display:${isFishGhost ? 'none' : 'inline'};margin-left:4px;flex-shrink:0;">✔</span>
+          </button>
+          <button id="b-fish-mode-ghost" style="flex:1;min-width:0;padding:6px 8px;background:${isFishGhost ? '#9b59b6' : '#262238'};color:${isFishGhost ? '#fff' : '#aaa'};border:${isFishGhost ? 'none' : '1px solid #3d3759'};border-radius:6px;cursor:pointer;font-size:11px;font-weight:${isFishGhost ? 'bold' : 'normal'};text-align:left;display:flex;justify-content:space-between;align-items:center;box-sizing:border-box;" title="Рыбачить находясь в городе">
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🏙️ Рыбачить в городе</span>
+            <span id="b-fish-check-ghost" style="display:${isFishGhost ? 'inline' : 'none'};margin-left:4px;flex-shrink:0;">✔</span>
+          </button>
+        </div>
+
         <!-- Карточка 1: Живой статус рыбалки -->
         <div style="background:#1a172e;border:1px solid #3d3759;border-radius:6px;padding:8px;margin-bottom:8px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
@@ -10144,6 +10160,22 @@
         body.lg-ghost-mode.mn-on {
           overflow: auto !important;
         }
+        body.lg-fish-ghost-mode .f2 {
+          opacity: 0.001 !important;
+          pointer-events: none !important;
+          z-index: -9999 !important;
+          visibility: visible !important;
+          position: fixed !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          overflow: hidden !important;
+        }
+        body.lg-fish-ghost-mode .f2chat,
+        body.lg-fish-ghost-mode .f2ann {
+          display: none !important;
+        }
       `;
       document.head.appendChild(style);
     }
@@ -10161,6 +10193,12 @@
         const mn = document.querySelector('.mn');
         if (mn && mn.style.opacity !== '0.001') {
           setGhostVisuals(true);
+        }
+      }
+      if (fishMode === 'ghost') {
+        const f2 = document.querySelector('.f2');
+        if (f2 && f2.style.opacity !== '0.001') {
+          setFishGhostVisuals(true);
         }
       }
     });
@@ -10246,6 +10284,58 @@
         mn.style.removeProperty('height');
         mn.style.removeProperty('overflow');
         document.body.classList.add('mn-on');
+      }
+    }
+  }
+
+  function setFishGhostVisuals(isGhost) {
+    ensureGhostStyle();
+    if (isGhost) {
+      document.body.classList.add('lg-fish-ghost-mode');
+      const f2 = document.querySelector('.f2');
+      if (f2) {
+        f2.style.setProperty('opacity', '0.001', 'important');
+        f2.style.setProperty('pointer-events', 'none', 'important');
+        f2.style.setProperty('z-index', '-9999', 'important');
+        f2.style.setProperty('visibility', 'visible', 'important');
+        f2.style.setProperty('position', 'fixed', 'important');
+        f2.style.setProperty('left', '0px', 'important');
+        f2.style.setProperty('top', '0px', 'important');
+        f2.style.setProperty('width', '100vw', 'important');
+        f2.style.setProperty('height', '100vh', 'important');
+        f2.style.setProperty('overflow', 'hidden', 'important');
+      }
+      const f2chat = document.querySelector('.f2chat');
+      if (f2chat) {
+        f2chat.style.setProperty('display', 'none', 'important');
+      }
+      const f2ann = document.querySelector('.f2ann');
+      if (f2ann) {
+        f2ann.style.setProperty('display', 'none', 'important');
+      }
+      ensureCityVisible(false);
+    } else {
+      document.body.classList.remove('lg-fish-ghost-mode');
+      const f2 = document.querySelector('.f2');
+      if (f2) {
+        f2.style.removeProperty('opacity');
+        f2.style.removeProperty('pointer-events');
+        f2.style.removeProperty('z-index');
+        f2.style.removeProperty('visibility');
+        f2.style.removeProperty('position');
+        f2.style.removeProperty('left');
+        f2.style.removeProperty('top');
+        f2.style.removeProperty('width');
+        f2.style.removeProperty('height');
+        f2.style.removeProperty('overflow');
+      }
+      const f2chat = document.querySelector('.f2chat');
+      if (f2chat) {
+        f2chat.style.removeProperty('display');
+      }
+      const f2ann = document.querySelector('.f2ann');
+      if (f2ann) {
+        f2ann.style.removeProperty('display');
       }
     }
   }
@@ -12563,6 +12653,7 @@
     // 2. Диспатч KeyboardEvent Space на Canvas и Window
     try {
       const ev = new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true, cancelable: true });
+      ev._isFishBot = true;
       if (cv) cv.dispatchEvent(ev);
       window.dispatchEvent(ev);
     } catch (e) {}
@@ -12596,6 +12687,7 @@
 
     try {
       const ev = new KeyboardEvent('keyup', { code: 'Space', key: ' ', bubbles: true, cancelable: true });
+      ev._isFishBot = true;
       if (cv) cv.dispatchEvent(ev);
       window.dispatchEvent(ev);
     } catch (e) {}
@@ -12742,6 +12834,15 @@
     if (!F2 || !F2.on) return;
     const S = F2._S;
     if (!S) return;
+
+    // В фоновом режиме города гарантируем скрытие озера под интерфейсом города
+    if ((typeof fishMode !== 'undefined' ? fishMode : 'screen') === 'ghost') {
+      const f2 = document.querySelector('.f2');
+      if (f2 && f2.style.opacity !== '0.001') {
+        if (typeof setFishGhostVisuals === 'function') setFishGhostVisuals(true);
+      }
+      if (typeof ensureCityVisible === 'function') ensureCityVisible(false);
+    }
 
     // Всегда обновляем UI озера (статус, лимиты, садок) даже при отключенной авторыбалке
     updateFishingUI();
@@ -13246,6 +13347,15 @@
       return; // СТРОГО ВЫХОДИМ! На озере работает tickFish2Loop
     }
 
+    // Если включен режим «Рыбалка в городе» и автоматизация активна, но Озеро не открыто — открываем его в фоне
+    if ((typeof fishMode !== 'undefined' ? fishMode : 'screen') === 'ghost' && fishSettings.enabled) {
+      if (typeof window !== 'undefined' && typeof window.LGOpenFish2 === 'function') {
+        window.LGOpenFish2();
+      } else if (typeof window !== 'undefined' && window.LGFish2 && typeof window.LGFish2.open === 'function') {
+        window.LGFish2.open(window.__lgContext || G.__lgCityContext || {});
+      }
+    }
+
     // Фоновый поллинг данных героя раз в 45 сек, если данных нет
     if (!m && t - lastFishMePollAt > 45000) {
       lastFishMePollAt = t;
@@ -13357,6 +13467,119 @@
   function initFishingAutomation() {
     const tab = document.querySelector('#b-tab-fish');
     if (!tab) return;
+
+    // Переключатель режима: На озере / В городе
+    const btnFishScreen = tab.querySelector('#b-fish-mode-screen');
+    const btnFishGhost = tab.querySelector('#b-fish-mode-ghost');
+    const checkFishScreen = tab.querySelector('#b-fish-check-screen');
+    const checkFishGhost = tab.querySelector('#b-fish-check-ghost');
+
+    function updateFishModeButtons() {
+      if (fishMode === 'ghost') {
+        if (btnFishGhost) {
+          btnFishGhost.style.background = '#9b59b6';
+          btnFishGhost.style.color = '#fff';
+          btnFishGhost.style.fontWeight = 'bold';
+          btnFishGhost.style.border = 'none';
+        }
+        if (checkFishGhost) checkFishGhost.style.display = 'inline';
+
+        if (btnFishScreen) {
+          btnFishScreen.style.background = '#262238';
+          btnFishScreen.style.color = '#aaa';
+          btnFishScreen.style.fontWeight = 'normal';
+          btnFishScreen.style.border = '1px solid #3d3759';
+        }
+        if (checkFishScreen) checkFishScreen.style.display = 'none';
+      } else {
+        if (btnFishScreen) {
+          btnFishScreen.style.background = '#0284c7';
+          btnFishScreen.style.color = '#fff';
+          btnFishScreen.style.fontWeight = 'bold';
+          btnFishScreen.style.border = 'none';
+        }
+        if (checkFishScreen) checkFishScreen.style.display = 'inline';
+
+        if (btnFishGhost) {
+          btnFishGhost.style.background = '#262238';
+          btnFishGhost.style.color = '#aaa';
+          btnFishGhost.style.fontWeight = 'normal';
+          btnFishGhost.style.border = '1px solid #3d3759';
+        }
+        if (checkFishGhost) checkFishGhost.style.display = 'none';
+      }
+    }
+
+    if (btnFishScreen) {
+      btnFishScreen.onclick = () => {
+        fishMode = 'screen';
+        localStorage.setItem('lg_bot_fish_mode', 'screen');
+        updateFishModeButtons();
+        setFishGhostVisuals(false);
+
+        const isLakeActive = Boolean(typeof window !== 'undefined' && window.LGFish2 && window.LGFish2.on);
+        if (!isLakeActive) {
+          if (typeof window.LGOpenFish2 === 'function') {
+            window.LGOpenFish2();
+          } else if (window.LGFish2 && typeof window.LGFish2.open === 'function') {
+            window.LGFish2.open(window.__lgContext || G.__lgCityContext || {});
+          }
+        }
+        addFishLog('🎣 Рыбалка на озере (на экране) активирована', '#38bdf8');
+        updateFishingUI();
+      };
+    }
+
+    if (btnFishGhost) {
+      btnFishGhost.onclick = () => {
+        fishMode = 'ghost';
+        localStorage.setItem('lg_bot_fish_mode', 'ghost');
+        updateFishModeButtons();
+        setFishGhostVisuals(true);
+
+        const isLakeActive = Boolean(typeof window !== 'undefined' && window.LGFish2 && window.LGFish2.on);
+        if (!isLakeActive) {
+          if (typeof window.LGOpenFish2 === 'function') {
+            window.LGOpenFish2();
+          } else if (window.LGFish2 && typeof window.LGFish2.open === 'function') {
+            window.LGFish2.open(window.__lgContext || G.__lgCityContext || {});
+          }
+        }
+        ensureCityVisible(true);
+
+        if (!fishSettings.enabled) {
+          fishSettings.enabled = true;
+          localStorage.setItem('lg_bot_fish_enabled', 'true');
+          const autoToggle = tab.querySelector('#b-fish-auto-toggle');
+          if (autoToggle) autoToggle.checked = true;
+        }
+
+        addFishLog('🏙️ Фоновая рыбалка в городе активирована', '#9b59b6');
+        updateFishingUI();
+      };
+    }
+
+    // Изоляция клавиатурных событий (Space / Escape) в фоновом режиме города
+    window.addEventListener('keydown', (e) => {
+      if (fishMode === 'ghost' && !e._isFishBot) {
+        if (e.code === 'Space' || e.code === 'Escape') {
+          const inLake = e.target && e.target.closest && e.target.closest('.f2');
+          if (!inLake) {
+            e.stopImmediatePropagation();
+            if (e.code === 'Escape') {
+              const cityClose = document.querySelector('.cy-room [data-close], .cy-panel [data-close], [role="dialog"]:not(.f2) [data-close]');
+              if (cityClose) {
+                try { cityClose.click(); } catch (_) {}
+              }
+            }
+          }
+        }
+      }
+    }, true);
+
+    if (fishMode === 'ghost') {
+      setFishGhostVisuals(true);
+    }
 
     // Чекбоксы настроек
     const toggleAuto = tab.querySelector('#b-fish-auto-toggle');
