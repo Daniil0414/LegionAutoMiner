@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.3.1
+// @version      9.3.3
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.3.1';
+  const BOT_VERSION = '9.3.3';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -3894,21 +3894,53 @@
   const dossierNick = w.querySelector('#b-dossier-nick');
   const dossierContent = w.querySelector('#b-dossier-content');
 
-  // Мигание заголовка вкладки полностью отключено по запросу пользователя
-  let originalDocumentTitle = (document.title || '').replace(/🔥\s*\[СКИДКА[^\]]+\]\s*/g, '');
-  if (document.title && document.title.includes('СКИДКА')) {
-    document.title = originalDocumentTitle;
+  const BOT_TAB_TITLE = 'Симулятор Неписи Онлайн';
+
+  function captureOriginalDocumentTitle() {
+    const rawTitle = (typeof document !== 'undefined' && typeof document.title === 'string') ? document.title : '';
+    const cleaned = rawTitle.replace(/🔥\s*\[СКИДКА[^\]]+\]\s*/g, '');
+    if (!G.__mineOriginalDocumentTitle && cleaned && cleaned !== BOT_TAB_TITLE) {
+      G.__mineOriginalDocumentTitle = cleaned;
+    }
+    if (G.__mineOriginalDocumentTitle) return G.__mineOriginalDocumentTitle;
+    return cleaned === BOT_TAB_TITLE ? 'Легион' : cleaned;
   }
+
+  function applyBotTabTitle() {
+    if (typeof document === 'undefined' || botRuntime.stopped) return;
+    if (document.title !== BOT_TAB_TITLE) {
+      document.title = BOT_TAB_TITLE;
+    }
+  }
+
+  function initBotTabTitle() {
+    applyBotTabTitle();
+    try {
+      const titleEl = typeof document !== 'undefined' && typeof document.querySelector === 'function'
+        ? document.querySelector('title')
+        : null;
+      if (titleEl && typeof MutationObserver === 'function') {
+        const observer = new MutationObserver(() => {
+          applyBotTabTitle();
+        });
+        observer.observe(titleEl, { childList: true, characterData: true, subtree: true });
+        return observer;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  // Переименование вкладки игры в «Симулятор Неписи Онлайн» (мигание отключено)
+  let originalDocumentTitle = captureOriginalDocumentTitle();
   let titleBlinkInterval = null;
+  let titleObserver = initBotTabTitle();
 
   function setSuperDealTitle(dealCount) {
     if (titleBlinkInterval) {
       clearInterval(titleBlinkInterval);
       titleBlinkInterval = null;
     }
-    if (document.title && document.title.includes('СКИДКА')) {
-      document.title = originalDocumentTitle;
-    }
+    applyBotTabTitle();
   }
 
   let activeTab = localStorage.getItem('lg_bot_tab') || 'mine';
@@ -10986,6 +11018,7 @@
     clearInterval(refreshMinesTimer);
     if (aucPollTimer) clearInterval(aucPollTimer);
     if (titleBlinkInterval) clearInterval(titleBlinkInterval);
+    if (typeof titleObserver !== 'undefined' && titleObserver) titleObserver.disconnect();
     if (bgWorker) {
       try {
         bgWorker.postMessage('stop');
@@ -12751,6 +12784,41 @@
     S.held = false;
   }
 
+  // Интеллектуальное управление натяжением лески во время вываживания рыбы (S.st === 'fight')
+  // В отличие от triggerFish2Down/Up, не сбрасывает held перед вызовом и не спамит событиями при неизменном состоянии.
+  function setFish2FightHeld(wantHeld, F2, S) {
+    if (!S || S.st !== 'fight') return;
+    const isHeld = Boolean(S.held);
+    if (wantHeld === isHeld) return; // Состояние не изменилось — не флудим и не сбиваем симуляцию
+
+    S.held = wantHeld;
+    const cv = (typeof document !== 'undefined') ? (document.querySelector('.f2 canvas, #fish2 canvas, canvas[data-i="cv"]') || document.querySelector('canvas')) : null;
+
+    if (wantHeld) {
+      if (cv) {
+        try { cv.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, clientX: 300, clientY: 300 })); } catch (e) {}
+      }
+      try {
+        const ev = new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true, cancelable: true });
+        ev._isFishBot = true;
+        if (cv) cv.dispatchEvent(ev);
+        window.dispatchEvent(ev);
+      } catch (e) {}
+      S.held = true;
+    } else {
+      if (cv) {
+        try { cv.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, clientX: 300, clientY: 300 })); } catch (e) {}
+      }
+      try {
+        const ev = new KeyboardEvent('keyup', { code: 'Space', key: ' ', bubbles: true, cancelable: true });
+        ev._isFishBot = true;
+        if (cv) cv.dispatchEvent(ev);
+        window.dispatchEvent(ev);
+      } catch (e) {}
+      S.held = false;
+    }
+  }
+
   function shooFish2Cat(F2, S) {
     if (!S || !S.cat) return;
     if (S.cat.st !== 'come' && S.cat.st !== 'reach') return;
@@ -12912,22 +12980,44 @@
       shooFish2Cat(F2, S);
     }
 
-    // 1. АВТО-ВЫВАЖИВАНИЕ РЫБЫ (Удержание натяжения лески точно в середине зелёной зоны)
+    // 1. АВТО-ВЫВАЖИВАНИЕ РЫБЫ (Интеллектуальный контроль натяжения, рывков и зелёной зоны)
     if (S.st === 'fight') {
       if (!fishSettings.autoHook) return;
       const F = S.fish;
       if (F) {
         const zone = (F.m && F.m.sim && F.m.sim.S && F.m.sim.S.zone) || F.zone || [0.35, 0.75];
-        const target = (zone[0] + zone[1]) / 2;
+        const lo = zone[0], hi = zone[1];
+        const mid = (lo + hi) / 2;
+        const hard = (F.df && F.df >= 1.05) || (F.id && ['pike', 'zander', 'catfish', 'gcarp', 'chest', 'legend'].includes(F.id));
+        const target = hard ? (lo + (hi - lo) * 0.48) : mid;
         const curT = (typeof S.T === 'number') ? S.T : target;
 
-        if (curT < target - 0.02) {
-          triggerFish2Down();
-        } else if (curT > target + 0.02) {
-          triggerFish2Up();
+        let wantHeld = Boolean(S.held);
+        if (S.spikeT > 0) {
+          // Рывок рыбы! spikeDir > 0 — рыба рвёт от нас (СРОЧНО отпустить!), spikeDir < 0 — идёт на нас (тянуть!)
+          wantHeld = S.spikeDir < 0;
+        } else if (S.warnT > 0 && S.spikeDir > 0 && curT > lo + 0.06) {
+          // Предупреждение перед рывком от нас — заблаговременно сбрасываем натяжение, чтобы не порвать леску
+          wantHeld = false;
+        } else if (S.warnT > 0 && S.spikeDir < 0 && curT < hi - 0.06) {
+          // Предупреждение перед рывком на нас — заблаговременно набираем натяжение, чтобы леска не ослабла
+          wantHeld = true;
+        } else {
+          // Стандартное удержание в центре зелёной зоны с гистерезисом ±0.02
+          if (curT < target - 0.02) wantHeld = true;
+          else if (curT > target + 0.02) wantHeld = false;
         }
+
+        setFish2FightHeld(wantHeld, F2, S);
       }
       return;
+    }
+
+    // Сброс удержания лески при завершении вываживания
+    if (S.st === 'catch' || S.st === 'reel' || S.st === 'judge') {
+      if (S.held) {
+        S.held = false;
+      }
     }
 
     // 2. АВТО-ПОДСЕЧКА ПРИ КЛЁВЕ НА ОЗЕРЕ
@@ -12937,7 +13027,9 @@
         addFishLog('🐟⚡ Поклёвка на озере! Выполняем авто-подсечку...', '#fbbf24');
         triggerFish2Down();
         setTimeout(() => {
-          triggerFish2Up();
+          if (S && S.st !== 'fight') {
+            triggerFish2Up();
+          }
         }, 100);
       }
       return;
@@ -14059,7 +14151,7 @@
 
     updateFishingUI();
     setInterval(checkFishingAutomationStep, 1500);
-    setInterval(tickFish2Loop, 50);
+    setInterval(tickFish2Loop, 25);
   }
 
   // =========================================================================
