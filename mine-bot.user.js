@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.3.3
+// @version      9.3.4
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.3.3';
+  const BOT_VERSION = '9.3.4';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -3896,14 +3896,29 @@
 
   const BOT_TAB_TITLE = 'Симулятор Неписи Онлайн';
 
+  function getBotBrandElement() {
+    if (typeof document === 'undefined' || typeof document.querySelector !== 'function') return null;
+    return document.querySelector('.top .brand b');
+  }
+
+  function captureOriginalTitleText(cacheKey, rawText) {
+    const cleaned = (typeof rawText === 'string' ? rawText : '').replace(/🔥\s*\[СКИДКА[^\]]+\]\s*/g, '');
+    if (!G[cacheKey] && cleaned && cleaned !== BOT_TAB_TITLE) {
+      G[cacheKey] = cleaned;
+    }
+    if (G[cacheKey]) return G[cacheKey];
+    return cleaned === BOT_TAB_TITLE ? 'Легион' : cleaned;
+  }
+
   function captureOriginalDocumentTitle() {
     const rawTitle = (typeof document !== 'undefined' && typeof document.title === 'string') ? document.title : '';
-    const cleaned = rawTitle.replace(/🔥\s*\[СКИДКА[^\]]+\]\s*/g, '');
-    if (!G.__mineOriginalDocumentTitle && cleaned && cleaned !== BOT_TAB_TITLE) {
-      G.__mineOriginalDocumentTitle = cleaned;
-    }
-    if (G.__mineOriginalDocumentTitle) return G.__mineOriginalDocumentTitle;
-    return cleaned === BOT_TAB_TITLE ? 'Легион' : cleaned;
+    return captureOriginalTitleText('__mineOriginalDocumentTitle', rawTitle);
+  }
+
+  function captureOriginalBrandText() {
+    const brandEl = getBotBrandElement();
+    const rawText = (brandEl && typeof brandEl.textContent === 'string') ? brandEl.textContent : '';
+    return captureOriginalTitleText('__mineOriginalBrandText', rawText);
   }
 
   function applyBotTabTitle() {
@@ -3913,8 +3928,17 @@
     }
   }
 
+  function applyBotBrandTitle() {
+    if (botRuntime.stopped) return;
+    const brandEl = getBotBrandElement();
+    if (brandEl && brandEl.textContent !== BOT_TAB_TITLE) {
+      brandEl.textContent = BOT_TAB_TITLE;
+    }
+  }
+
   function initBotTabTitle() {
     applyBotTabTitle();
+    applyBotBrandTitle();
     try {
       const titleEl = typeof document !== 'undefined' && typeof document.querySelector === 'function'
         ? document.querySelector('title')
@@ -3922,6 +3946,7 @@
       if (titleEl && typeof MutationObserver === 'function') {
         const observer = new MutationObserver(() => {
           applyBotTabTitle();
+          applyBotBrandTitle();
         });
         observer.observe(titleEl, { childList: true, characterData: true, subtree: true });
         return observer;
@@ -3930,8 +3955,9 @@
     return null;
   }
 
-  // Переименование вкладки игры в «Симулятор Неписи Онлайн» (мигание отключено)
+  // Переименование вкладки и логотипа игры в «Симулятор Неписи Онлайн» (мигание отключено)
   let originalDocumentTitle = captureOriginalDocumentTitle();
+  let originalBrandText = captureOriginalBrandText();
   let titleBlinkInterval = null;
   let titleObserver = initBotTabTitle();
 
@@ -3941,6 +3967,7 @@
       titleBlinkInterval = null;
     }
     applyBotTabTitle();
+    applyBotBrandTitle();
   }
 
   let activeTab = localStorage.getItem('lg_bot_tab') || 'mine';
@@ -11031,6 +11058,10 @@
       bgAudioCtx = null;
     }
     document.title = originalDocumentTitle;
+    if (typeof originalBrandText === 'string' && originalBrandText) {
+      const brandEl = typeof getBotBrandElement === 'function' ? getBotBrandElement() : null;
+      if (brandEl) brandEl.textContent = originalBrandText;
+    }
     hideAucTooltip();
     if (aucTooltip) aucTooltip.remove();
     setGhostVisuals(false);
