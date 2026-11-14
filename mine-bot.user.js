@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.3.4
+// @version      9.3.6
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.3.4';
+  const BOT_VERSION = '9.3.6';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -7019,16 +7019,16 @@
     state.serverAccepted = !!result.ok;
     state.awaiting = !!result.ok;
     if (result.ok) {
-      addQuestLog('info', '🎁 Игра приняла команду за Strannik_144; ждём отметку учтённого голоса');
+      addQuestLog('info', '🎁 Игра приняла команду «случайно»; ждём отметку учтённого голоса');
       const view = getQuestView();
       if (view?.loot && getLootVoteKey(view.loot) === state.key && view.loot.my) {
         state.confirmed = true;
         state.awaiting = false;
-        addQuestLog('speed', `🎁 Голос за Strannik_144 подтверждён игрой: «${state.name}»`);
+        addQuestLog('speed', `🎁 Голос «случайно» подтверждён игрой: «${state.name}»`);
       }
     } else {
       state.retryAt = Date.now() + 4000;
-      addQuestLog('warn', `🎁 Игра не приняла голос за Strannik_144: ${result.error || 'причина не указана'}${state.attempts < 3 ? ' — повторим' : ' — исчерпаны 3 попытки'}`);
+      addQuestLog('warn', `🎁 Игра не приняла голос «случайно»: ${result.error || 'причина не указана'}${state.attempts < 3 ? ' — повторим' : ' — исчерпаны 3 попытки'}`);
     }
   }
   G.__mineLootVoteResult = handleLootVoteResult;
@@ -7038,8 +7038,8 @@
     const key = loot ? getLootVoteKey(loot) : null;
     if (lootVoteState && lootVoteState.key !== key) {
       if (lootVoteState.attempts && !lootVoteState.confirmed) {
-        questFeedback.show(`Делёж «${lootVoteState.name}» завершился без подтверждения голоса за Strannik_144`, true);
-        addQuestLog('warn', `🎁 Делёж «${lootVoteState.name}» завершился без подтверждения голоса за Strannik_144`);
+        questFeedback.show(`Делёж «${lootVoteState.name}» завершился без подтверждения голоса «случайно»`, true);
+        addQuestLog('warn', `🎁 Делёж «${lootVoteState.name}» завершился без подтверждения голоса «случайно»`);
       }
       lootVoteState = null;
       lootVoteResults.clear();
@@ -7054,7 +7054,7 @@
       if (state.serverAccepted && !state.confirmed) {
         state.confirmed = true;
         state.awaiting = false;
-        addQuestLog('speed', `🎁 Голос за Strannik_144 подтверждён игрой: «${state.name}»`);
+        addQuestLog('speed', `🎁 Голос «случайно» подтверждён игрой: «${state.name}»`);
       }
       return;
     }
@@ -7068,11 +7068,11 @@
       state.awaiting = false;
       state.retryAt = now + 4000;
       questFeedback.show(state.serverAccepted
-        ? 'Голос за Strannik_144: команда принята, но отметка учтённого голоса не появилась'
-        : 'Нет подтверждения голоса за Strannik_144 от игры', true);
+        ? 'Голос «случайно»: команда принята, но отметка учтённого голоса не появилась'
+        : 'Нет подтверждения голоса «случайно» от игры', true);
       addQuestLog('warn', state.serverAccepted
-        ? '🎁 Команда за Strannik_144 принята, но отметка учтённого голоса не появилась'
-        : '🎁 Нет подтверждения голоса за Strannik_144 от игры');
+        ? '🎁 Команда «случайно» принята, но отметка учтённого голоса не появилась'
+        : '🎁 Нет подтверждения голоса «случайно» от игры');
     }
     if (state.serverAccepted || state.attempts >= 3 || now < state.retryAt) return;
     state.sending = true;
@@ -7080,25 +7080,25 @@
     state.commandId = '';
     state.resultReceived = false;
     lootVoteResults.clear();
-    addQuestLog('info', `🎁 Делёж «${state.name}»: отправляем Strannik_144 (попытка ${state.attempts}/3)`);
+    addQuestLog('info', `🎁 Делёж «${state.name}»: отправляем «случайно» (попытка ${state.attempts}/3)`);
     try {
-      const response = await sendQuestSay('Strannik_144');
+      const response = await sendQuestSay('случайно');
       if (botRuntime.stopped || lootVoteState !== state) return;
       if (response && response.ok) {
         state.commandId = response.id != null ? String(response.id) : '';
         state.awaiting = true;
         state.sentAt = Date.now();
-        addQuestLog('info', '🎁 Команда Strannik_144 отправлена; ждём ответ игры');
+        addQuestLog('info', '🎁 Команда «случайно» отправлена; ждём ответ игры');
         const earlyResult = lootVoteResults.get(state.commandId);
         if (earlyResult) handleLootVoteResult(earlyResult);
       } else {
         state.retryAt = Date.now() + 4000;
-        addQuestLog('warn', `🎁 Не удалось отправить голос за Strannik_144: ${response?.error || 'нет ответа'}${state.attempts < 3 ? ' — повторим' : ' — исчерпаны 3 попытки'}`);
+        addQuestLog('warn', `🎁 Не удалось отправить голос «случайно»: ${response?.error || 'нет ответа'}${state.attempts < 3 ? ' — повторим' : ' — исчерпаны 3 попытки'}`);
       }
     } catch (error) {
       if (!botRuntime.stopped && lootVoteState === state) {
         state.retryAt = Date.now() + 4000;
-        addQuestLog('warn', `🎁 Ошибка отправки голоса за Strannik_144: ${error?.message || error}`);
+        addQuestLog('warn', `🎁 Ошибка отправки голоса «случайно»: ${error?.message || error}`);
       }
     } finally {
       state.sending = false;
