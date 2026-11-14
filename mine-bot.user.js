@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.3.6
+// @version      9.3.7
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.3.6';
+  const BOT_VERSION = '9.3.7';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
@@ -2937,10 +2937,10 @@
             </label>
 
             <!-- 12. Мини-Ивенты -->
-            <label title="Мини-Ивенты: Странник (помощь), кости d20, колодец желаний, алтарь жреца, гадалка, ярмарка гоблинов, танец скелетов" style="display:flex;align-items:center;justify-content:space-between;gap:3px;cursor:pointer;background:#121026;padding:3px 5px;border-radius:5px;border:1px solid #2e284a;min-height:30px;box-sizing:border-box;">
+            <label title="Мини-Ивенты: Странник (помощь), алтарь жреца, гадалка, танец скелетов (все ставки монет отключены)" style="display:flex;align-items:center;justify-content:space-between;gap:3px;cursor:pointer;background:#121026;padding:3px 5px;border-radius:5px;border:1px solid #2e284a;min-height:30px;box-sizing:border-box;">
               <div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;line-height:1.15;">
                 <span style="font-size:9.5px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🎪 Мини-Ивенты</span>
-                <span style="font-size:7.5px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">странник, кости, танец</span>
+                <span style="font-size:7.5px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">странник, жрец, танец</span>
               </div>
               <input type="checkbox" id="b-quest-opt-mini-events" style="cursor:pointer;accent-color:#8b5cf6;flex-shrink:0;margin:0;transform:scale(0.95);" />
             </label>
@@ -6122,7 +6122,7 @@
     autoBog: localStorage.getItem('lg_quest_autobog') !== '0',           // Вкл по умолчанию (авто-тянем и авто-руби в трясине)
     autoHwEvents: localStorage.getItem('lg_quest_autohwevents') !== '0',  // Вкл по умолчанию (авто-котёл и сладость/гадость)
     autoBossMechanics: localStorage.getItem('lg_quest_boss_mech') !== '0', // Вкл по умолчанию (боссы, острова, заклинания, зоны, фонари)
-    autoMiniEvents: localStorage.getItem('lg_quest_mini_events') !== '0', // Вкл по умолчанию (странник, кости, колодец, жрец, гадалка, ярмарка, танец)
+    autoMiniEvents: localStorage.getItem('lg_quest_mini_events') !== '0', // Вкл по умолчанию (странник, жрец, гадалка, танец - без ставок монет)
     autoTrapsAndPuzzles: localStorage.getItem('lg_quest_traps_puzzles') !== '0', // Вкл по умолчанию (веревки, сундук, делёж, весы, кубки, предметы)
     autoCampRest: localStorage.getItem('lg_quest_camp_rest') !== '0', // Вкл по умолчанию (авто-лечение едой/зельями у костра)
     autoDungeonEscape: localStorage.getItem('lg_quest_dgn_escape') !== '0', // Вкл по умолчанию (авто-побег «бежать» при крахе данжа)
@@ -7134,16 +7134,9 @@
 
     // Котёл ведьмы
     if (ev.look === 'cauldron') {
-      // Сбор монет
+      // Сбор монет - ставки/траты монет отключены во всех ивентах
       if (ev.st === 'pay') {
-        const mp = +ev.mp || 0;
-        if (mp === 0 && now - lastHwActionTime > 4000) {
-          lastHwEventId = eventKey;
-          lastHwActionTime = now;
-          addQuestLog('speed', '🪙 Котёл ведьмы: сбор монет → Скидываем 3 серебра («скинуться 3»)');
-          sendQuestSay('скинуться 3');
-          return;
-        }
+        return;
       }
 
       // Сбор ингредиентов (HW_ING из официального quest.js)
@@ -7517,31 +7510,13 @@
       return;
     }
 
-    // 2. Бродяга с костями d20 (dice)
-    if (ev.look === 'dice' && ev.st === 'on') {
-      const used = +ev.used || 0;
-      const h = (G.__lgQuestContext?.hero?.() || G.ME?.hero || G.__lgHero) || {};
-      const heroMoney = h.money != null ? +h.money : 30;
-      if (used < 3 && heroMoney >= 5 && now - lastMiniEventTime > 3500) {
-        const purse = +ev.purse || 30;
-        const bet = Math.max(5, Math.min(30, purse, heroMoney));
-        lastMiniEventKey = eventKey;
-        lastMiniEventTime = now;
-        addQuestLog('puzzle', `🎲 Бродяга: бросок d20 со ставкой ${bet} монет`);
-        sendQuestAct({ k: 'ev', a: 'bet', n: bet }).catch(() => {});
-      }
+    // 2. Бродяга с костями d20 (dice) - ставки монет полностью убраны
+    if (ev.look === 'dice') {
       return;
     }
 
-    // 3. Колодец желаний (well)
-    if (ev.look === 'well' && !ev.filled) {
-      const used = +ev.used || 0;
-      if (used < 3 && now - lastMiniEventTime > 3500) {
-        lastMiniEventKey = eventKey;
-        lastMiniEventTime = now;
-        addQuestLog('puzzle', `🪙 Колодец желаний: бросаем монету (${used + 1}/3)`);
-        sendQuestAct({ k: 'ev', a: 'coin' }).catch(() => {});
-      }
+    // 3. Колодец желаний (well) - трата/ставки монет убраны во избежание списания монет
+    if (ev.look === 'well') {
       return;
     }
 
@@ -7600,24 +7575,17 @@
       return;
     }
 
-    // 7. Ярмарка гоблинов (E.gob)
+    // 7. Ярмарка гоблинов (E.gob) - ставки монет полностью убраны
     if (ev.gob) {
       const me = Array.isArray(ev.me) ? ev.me : [];
-      const h = (G.__lgQuestContext?.hero?.() || G.ME?.hero || G.__lgHero) || {};
-      const heroMoney = h.money != null ? +h.money : 30;
 
       if (ev.st === 'ask' && !me[0] && now - lastMiniEventTime > 3500) {
         lastMiniEventKey = `${eventKey}:ask`;
         lastMiniEventTime = now;
-        addQuestLog('puzzle', '🎪 Ярмарка гоблинов: соглашаемся играть («да»)!');
-        sendQuestSay('да').catch(() => {});
-      } else if (ev.st === 'bet' && !me[1] && heroMoney >= 10 && now - lastMiniEventTime > 3500) {
-        const betSum = Math.min(30, heroMoney);
-        lastMiniEventKey = `${eventKey}:bet`;
-        lastMiniEventTime = now;
-        addQuestLog('puzzle', `🪙 Ярмарка гоблинов: ставка ${betSum} монет («ставка ${betSum}»)`);
-        sendQuestSay(`ставка ${betSum}`).catch(() => {});
+        addQuestLog('puzzle', '🎪 Ярмарка гоблинов: пропускаем игру на монеты («нет»)');
+        sendQuestAct({ k: 'ev', a: 'ask', v: 'n' }).catch(() => sendQuestSay('нет'));
       } else if (ev.st === 'guess' && me[1] && !me[2] && now - lastMiniEventTime > 3500) {
+        // Если игрок сделал ставку вручную, помогаем с выбором верного ответа
         lastMiniEventTime = now;
         if (ev.gk === 'shell') {
           lastMiniEventKey = `${eventKey}:shell`;
@@ -7642,6 +7610,7 @@
           sendQuestSay(guess).catch(() => {});
         }
       }
+      return;
     }
   }
 
