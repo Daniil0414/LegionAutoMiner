@@ -1,11 +1,15 @@
 // ==UserScript==
 // @name         Шамиль Клиент - Legion Auto-Mine, Market, Players, Pocket City & Quest Dungeon
 // @namespace    https://github.com/Daniil0414/LegionAutoMiner
-// @version      9.3.7
+// @version      9.3.8
 // @description  Auto-mining bot, Stealth Anti-Detection, Mine 3.0 Auto-Drill (Collect/Build), Auto-Claim Quests, Auto-Lift (+30% online), Drill Tracker (5m), Drag&Drop Ore Priorities, Auction 409/429/Raffle fixes, Auction market sniper, Player Intelligence, Pocket City Hub & Quest Dungeon Module for Legion MMO (ZakvielChannel).
 // @author       Daniil0414
 // @match        https://play.multidonate.ru/c/*
-// @icon         https://www.google.com/s2/favicons?sz=64&domain=play.multidonate.ru
+// @match        https://play.multidonate.ru/*
+// @match        https://*.multidonate.ru/*
+// @match        https://legiongame.gg/*
+// @match        https://*.legiongame.gg/*
+// @icon         https://www.google.com/s2/favicons?sz=64&domain=legiongame.gg
 // @updateURL    https://raw.githubusercontent.com/Daniil0414/LegionAutoMiner/main/mine-bot.user.js
 // @downloadURL  https://raw.githubusercontent.com/Daniil0414/LegionAutoMiner/main/mine-bot.user.js
 // @grant        none
@@ -15,7 +19,7 @@
 (() => {
   'use strict';
 
-  const BOT_VERSION = '9.3.7';
+  const BOT_VERSION = '9.3.8';
 
   const G = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
